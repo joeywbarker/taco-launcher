@@ -10,15 +10,20 @@ import android.provider.DocumentsContract
 /** A game system and the file endings its games use. */
 data class GameSystem(val id: String, val name: String, val extensions: Set<String>)
 
+/** In the order they appear on screen: classic 2D systems first. */
 val SYSTEMS = listOf(
-    GameSystem("gb", "Game Boy", setOf("gb")),
-    GameSystem("gbc", "Game Boy Color", setOf("gbc")),
     GameSystem("gba", "Game Boy Advance", setOf("gba")),
+    GameSystem("gbc", "Game Boy Color", setOf("gbc")),
+    GameSystem("gb", "Game Boy", setOf("gb")),
     GameSystem("nes", "NES", setOf("nes")),
     GameSystem("snes", "SNES", setOf("sfc", "smc")),
-    GameSystem("n64", "Nintendo 64", setOf("n64", "z64", "v64")),
-    GameSystem("nds", "Nintendo DS", setOf("nds")),
     GameSystem("genesis", "Genesis / Mega Drive", setOf("md", "gen", "smd")),
+    GameSystem("sms", "Master System", setOf("sms")),
+    GameSystem("gg", "Game Gear", setOf("gg")),
+    GameSystem("pce", "TurboGrafx-16 / PC Engine", setOf("pce")),
+    GameSystem("ngp", "Neo Geo Pocket", setOf("ngp", "ngc")),
+    GameSystem("nds", "Nintendo DS", setOf("nds")),
+    GameSystem("n64", "Nintendo 64", setOf("n64", "z64", "v64")),
     GameSystem("psx", "PlayStation", setOf("cue", "chd", "pbp")),
     GameSystem("psp", "PSP", setOf("iso", "cso")),
 )
@@ -30,7 +35,8 @@ val KNOWN_EMULATORS = listOf(
     Emulator("com.retroarch", "RetroArch", SYSTEMS.map { it.id }.toSet()),
     Emulator("com.retroarch.aarch64", "RetroArch (64-bit)", SYSTEMS.map { it.id }.toSet()),
     Emulator("com.swordfish.lemuroid", "Lemuroid",
-        setOf("gb", "gbc", "gba", "nes", "snes", "n64", "nds", "genesis", "psx", "psp")),
+        setOf("gb", "gbc", "gba", "nes", "snes", "genesis", "sms", "gg", "pce", "ngp",
+            "n64", "nds", "psx", "psp")),
     Emulator("com.fastemulator.gba", "My Boy!", setOf("gba")),
     Emulator("it.dbtecno.pizzaboygba", "Pizza Boy GBA", setOf("gba")),
     Emulator("me.magnum.melonds", "melonDS", setOf("nds")),
@@ -75,7 +81,8 @@ fun launchIntent(emu: Emulator, system: GameSystem, game: Uri): Intent {
 private val RETROARCH_CORES = mapOf(
     "gb" to "gambatte", "gbc" to "gambatte", "gba" to "mgba", "nes" to "fceumm",
     "snes" to "snes9x", "n64" to "mupen64plus_next", "nds" to "melonds",
-    "genesis" to "genesis_plus_gx", "psx" to "swanstation", "psp" to "ppsspp",
+    "genesis" to "genesis_plus_gx", "sms" to "genesis_plus_gx", "gg" to "genesis_plus_gx",
+    "pce" to "mednafen_pce_fast", "ngp" to "mednafen_ngp", "psx" to "swanstation", "psp" to "ppsspp",
 )
 
 /** Turns a picker Uri like ".../primary:ROMs/gba/x.gba" into "/storage/emulated/0/ROMs/gba/x.gba". */
