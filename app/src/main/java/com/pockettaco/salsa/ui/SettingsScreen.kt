@@ -18,6 +18,7 @@ fun SettingsScreen(
     onClose: () -> Unit,
 ) {
     var anyPad by remember { mutableStateOf(activity.settings.anyGamepadCounts) }
+    var fit by remember { mutableStateOf(activity.settings.fitEmulators) }
     var force by remember { mutableStateOf(activity.settings.forceTacoMode) }
     DisposableEffect(Unit) {
         activity.onBackRequest = { onClose(); true }
@@ -35,6 +36,10 @@ fun SettingsScreen(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Treat any controller as a Pocket Taco", color = Color.White, modifier = Modifier.weight(1f))
             Switch(anyPad, { anyPad = it; activity.settings.anyGamepadCounts = it; activity.watcher.refresh() })
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Fit emulators above the Pocket Taco (pop-up window)", color = Color.White, modifier = Modifier.weight(1f))
+            Switch(fit, { fit = it; activity.settings.fitEmulators = it })
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Preview Taco layout now (for testing)", color = Color.White, modifier = Modifier.weight(1f))

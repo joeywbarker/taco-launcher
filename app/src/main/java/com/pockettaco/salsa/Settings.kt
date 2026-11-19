@@ -22,6 +22,11 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("force", false)
         set(v) = prefs.edit().putBoolean("force", v).apply()
 
+    /** Open emulators in a window that fits above the Taco (Samsung pop-up window). */
+    var fitEmulators: Boolean
+        get() = prefs.getBoolean("fit", true)
+        set(v) = prefs.edit().putBoolean("fit", v).apply()
+
     /** The ROMs folder the user picked (a "tree" Uri from the system picker). */
     var romFolder: Uri?
         get() = prefs.getString("roms", null)?.let(Uri::parse)

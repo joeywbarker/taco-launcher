@@ -96,7 +96,7 @@ fun GameBrowser(
                             if (emu == null) {
                                 Toast.makeText(activity, "Install an emulator for ${s.system.name}", Toast.LENGTH_LONG).show()
                             } else runCatching {
-                                activity.startActivity(launchIntent(emu, s.system, game.uri))
+                                startFitted(activity, launchIntent(emu, s.system, game.uri))
                             }.onFailure {
                                 Toast.makeText(activity, "${emu.name} couldn't open that game", Toast.LENGTH_LONG).show()
                             }
@@ -107,7 +107,7 @@ fun GameBrowser(
                     emulators.forEachIndexed { i, emu ->
                         item(emu.pkg) {
                             FocusRow(emu.name, focusRequester = if (i == 0) firstItem else null) {
-                                openApp(activity, emu.pkg)
+                                openAppFitted(activity, emu.pkg)
                             }
                         }
                     }
