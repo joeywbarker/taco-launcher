@@ -7,19 +7,19 @@ import android.net.Uri
 class Settings(context: Context) {
     private val prefs = context.getSharedPreferences("taco", Context.MODE_PRIVATE)
 
-    /** How much of the screen bottom the Taco covers, 0.0 to 0.6. Default 30%. */
+    /** How much of the screen bottom the Taco covers, 0.0 to 0.6. Default 40%. */
     var coveredFraction: Float
-        get() = prefs.getFloat("covered", 0.30f)
+        get() = prefs.getFloat("covered", 0.40f)
         set(v) = prefs.edit().putFloat("covered", v.coerceIn(0f, 0.6f)).apply()
 
     /** Treat any gamepad as a Taco (handy if the name ever changes). */
     var anyGamepadCounts: Boolean
-        get() = prefs.getBoolean("anyPad", false)
+        get() = prefs.getBoolean("anyPad", true)
         set(v) = prefs.edit().putBoolean("anyPad", v).apply()
 
-    /** Show Taco mode even with nothing connected, for testing the layout. */
+    /** Always use the Taco layout, even with nothing connected. On by default (the user asked). */
     var forceTacoMode: Boolean
-        get() = prefs.getBoolean("force", false)
+        get() = prefs.getBoolean("force", true)
         set(v) = prefs.edit().putBoolean("force", v).apply()
 
     /** Open emulators in a window that fits above the Taco (Samsung pop-up window). */

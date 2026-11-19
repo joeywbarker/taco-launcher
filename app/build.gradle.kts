@@ -16,7 +16,20 @@ android {
         versionName = "0.1"
     }
 
+    // A fixed signing key kept in the repo. Without it, GitHub makes a new
+    // random key on every build, Android refuses to install the update over
+    // the old app, and you'd have to uninstall (losing all settings) each time.
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
+        debug { signingConfig = signingConfigs.getByName("debug") }
         release { isMinifyEnabled = false }
     }
     compileOptions {
