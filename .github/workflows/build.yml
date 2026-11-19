@@ -6,6 +6,7 @@ name: Build APK
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -38,6 +39,7 @@ jobs:
           path: TacoLauncher.apk
 
       - name: Publish to the "latest" release
+        if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
