@@ -22,6 +22,9 @@ class MainActivity : ComponentActivity() {
         settings = Settings(this)
         watcher = ControllerWatcher(this, settings)
         setContent { LauncherRoot(this) }
+        if (settings.openOnConnect && !hasBluetoothPermission(this) && android.os.Build.VERSION.SDK_INT >= 31) {
+            requestPermissions(arrayOf(android.Manifest.permission.BLUETOOTH_CONNECT), 1)
+        }
     }
 
     override fun onStart() { super.onStart(); watcher.start() }
