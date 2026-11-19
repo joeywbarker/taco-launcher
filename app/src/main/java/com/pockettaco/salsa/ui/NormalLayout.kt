@@ -23,8 +23,9 @@ import com.pockettaco.salsa.*
 fun NormalLayout(activity: MainActivity, onOpenSettings: () -> Unit) {
     val apps = remember { loadApps(activity) }
     DisposableEffect(Unit) {
-        activity.onBackRequest = { false }
-        onDispose { activity.onBackRequest = null }
+        val handler: () -> Boolean = { false }
+        activity.onBackRequest = handler
+        onDispose { if (activity.onBackRequest === handler) activity.onBackRequest = null }
     }
     Column(Modifier.fillMaxSize().systemBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {

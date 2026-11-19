@@ -43,7 +43,7 @@ class MainActivity : ComponentActivity() {
             KeyEvent.KEYCODE_BUTTON_A -> return super.dispatchKeyEvent(
                 KeyEvent(event.action, KeyEvent.KEYCODE_DPAD_CENTER)
             )
-            KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_BACK -> {
+            KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_ESCAPE -> {
                 if (event.action == KeyEvent.ACTION_UP) onBackRequest?.invoke()
                 return true
             }

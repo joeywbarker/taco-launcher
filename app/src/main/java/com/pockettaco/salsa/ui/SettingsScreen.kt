@@ -40,8 +40,9 @@ fun SettingsScreen(
     var fit by remember { mutableStateOf(activity.settings.fitEmulators) }
     var force by remember { mutableStateOf(activity.settings.forceTacoMode) }
     DisposableEffect(Unit) {
-        activity.onBackRequest = { onClose(); true }
-        onDispose { activity.onBackRequest = null }
+        val handler: () -> Boolean = { onClose(); true }
+        activity.onBackRequest = handler
+        onDispose { if (activity.onBackRequest === handler) activity.onBackRequest = null }
     }
     Column(Modifier.fillMaxSize().systemBarsPadding().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
