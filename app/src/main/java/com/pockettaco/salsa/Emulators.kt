@@ -37,7 +37,19 @@ val KNOWN_EMULATORS = listOf(
     Emulator("com.swordfish.lemuroid", "Lemuroid",
         setOf("gb", "gbc", "gba", "nes", "snes", "genesis", "sms", "gg", "pce", "ngp",
             "n64", "nds", "psx", "psp")),
+    Emulator("com.retroarch.ra32", "RetroArch (32-bit)", SYSTEMS.map { it.id }.toSet()),
     Emulator("com.fastemulator.gba", "My Boy!", setOf("gba")),
+    Emulator("com.fastemulator.gbc", "My OldBoy!", setOf("gb", "gbc")),
+    Emulator("it.dbtecno.pizzaboy", "Pizza Boy GBC", setOf("gb", "gbc")),
+    Emulator("it.dbtecno.pizzaboypro", "Pizza Boy GBC Pro", setOf("gb", "gbc")),
+    Emulator("it.dbtecno.pizzaboygbapro", "Pizza Boy GBA Pro", setOf("gba")),
+    Emulator("com.johnemulators.johngbac", "John GBAC", setOf("gb", "gbc", "gba")),
+    Emulator("com.explusalpha.GbcEmu", "GBC.emu", setOf("gb", "gbc")),
+    Emulator("com.explusalpha.GbaEmu", "GBA.emu", setOf("gba")),
+    Emulator("com.explusalpha.NesEmu", "NES.emu", setOf("nes")),
+    Emulator("com.explusalpha.Snes9xPlus", "Snes9x EX+", setOf("snes")),
+    Emulator("com.explusalpha.MdEmu", "MD.emu", setOf("genesis", "sms", "gg")),
+    Emulator("org.mupen64plusae.v3.fzurita", "M64Plus FZ", setOf("n64")),
     Emulator("it.dbtecno.pizzaboygba", "Pizza Boy GBA", setOf("gba")),
     Emulator("me.magnum.melonds", "melonDS", setOf("nds")),
     Emulator("com.dsemu.drastic", "DraStic", setOf("nds")),
@@ -48,6 +60,20 @@ val KNOWN_EMULATORS = listOf(
 
 fun installedEmulators(context: Context): List<Emulator> =
     KNOWN_EMULATORS.filter { isInstalled(context, it.pkg) }
+
+/** Play Store page for RetroArch, the one free app that plays every system here. */
+fun getRetroArchIntent(): Intent =
+    Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.retroarch"))
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+/** When no known emulator is installed: let Android show every app that can open the file. */
+fun openWithAnyApp(game: Uri): Intent = Intent.createChooser(
+    Intent(Intent.ACTION_VIEW).apply {
+        setDataAndType(game, "application/octet-stream")
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    },
+    "Open game with",
+).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
 private fun isInstalled(context: Context, pkg: String) = try {
     context.packageManager.getPackageInfo(pkg, 0); true
