@@ -4,6 +4,7 @@ import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -26,7 +27,8 @@ private sealed interface Screen {
 @Composable
 fun GameBrowser(
     activity: MainActivity,
-    library: Map<GameSystem, List<Game>>,
+    library: Library,
+    scan: ScanState,
     onPickFolder: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
@@ -54,11 +56,24 @@ fun GameBrowser(
             color = Color.White,
             modifier = Modifier.padding(16.dp),
         )
+        if (scan.scanning) {
+            Text(
+                "Looking for games… ${scan.count} found",
+                color = Color(0xFFAAAAAA),
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+            LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp))
+        }
         LazyColumn(Modifier.fillMaxSize()) {
             when (val s = screen) {
                 Screen.Home -> {
-                    if (library.isEmpty()) item {
-                        FocusRow("Choose your games folder", "No games found yet", firstItem, onPickFolder)
+                    if (library.isEmpty() && !scan.scanning) item {
+                        FocusRow(
+                            "Choose your games folder",
+                            if (scan.hasFolder) "No games found in that folder" else "You only need to do this once",
+                            firstItem, onPickFolder,
+                        )
                     }
                     library.entries.forEachIndexed { i, (system, games) ->
                         item(system.id) {
@@ -77,15 +92,18 @@ fun GameBrowser(
                         ?: choices.firstOrNull()
                     item("emu") {
                         var current by remember { mutableStateOf(chosen) }
-                        FocusRow(
-                            "Play with: ${current?.name ?: "no emulator installed"}",
+                        if (choices.isEmpty()) {
+                            FocusRow(
+                                "Get RetroArch (free, plays every system)",
+                                "Until then, Android will ask which app to use",
+                            ) { runCatching { activity.startActivity(getRetroArchIntent()) } }
+                        } else FocusRow(
+                            "Play with: ${current?.name}",
                             if (choices.size > 1) "Press A to switch" else null,
                         ) {
-                            if (choices.isNotEmpty()) {
-                                val next = choices[(choices.indexOf(current) + 1) % choices.size]
-                                current = next
-                                activity.settings.setEmulatorFor(s.system.id, next.pkg)
-                            }
+                            val next = choices[(choices.indexOf(current) + 1) % choices.size]
+                            current = next
+                            activity.settings.setEmulatorFor(s.system.id, next.pkg)
                         }
                     }
                     val games = library[s.system].orEmpty()
@@ -93,8 +111,8 @@ fun GameBrowser(
                         FocusRow(game.title, focusRequester = if (game == games.first()) firstItem else null) {
                             val emu = emulators.firstOrNull { it.pkg == activity.settings.emulatorFor(s.system.id) }
                                 ?: choices.firstOrNull()
-                            if (emu == null) {
-                                Toast.makeText(activity, "Install an emulator for ${s.system.name}", Toast.LENGTH_LONG).show()
+                            if (emu == null) runCatching {
+                                activity.startActivity(openWithAnyApp(game.uri))
                             } else runCatching {
                                 startFitted(activity, launchIntent(emu, s.system, game.uri))
                             }.onFailure {

@@ -26,7 +26,11 @@ fun LauncherRoot(activity: MainActivity) {
     val tacoOn by activity.watcher.connected.collectAsStateWithLifecycle()
     var covered by remember { mutableFloatStateOf(activity.settings.coveredFraction) }
     var romFolder by remember { mutableStateOf(activity.settings.romFolder) }
-    var library by remember { mutableStateOf<Map<GameSystem, List<Game>>>(emptyMap()) }
+    // Start with the saved list so games show up instantly, then refresh it.
+    var library by remember { mutableStateOf(loadLibrary(activity)) }
+    var scanning by remember { mutableStateOf(false) }
+    var scanCount by remember { mutableIntStateOf(0) }
+    var rescanKey by remember { mutableIntStateOf(0) }
     var showSettings by remember { mutableStateOf(false) }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
@@ -39,9 +43,24 @@ fun LauncherRoot(activity: MainActivity) {
         }
     }
 
-    LaunchedEffect(romFolder) {
-        romFolder?.let { library = withContext(Dispatchers.IO) { scanRoms(activity, it) } }
+    LaunchedEffect(romFolder, rescanKey) {
+        val folder = romFolder ?: return@LaunchedEffect
+        if (!canStillRead(activity, folder)) {
+            // Android forgot our access (rare). Ask once instead of showing nothing.
+            romFolder = null
+            activity.settings.romFolder = null
+            return@LaunchedEffect
+        }
+        scanning = true
+        scanCount = 0
+        val fresh = withContext(Dispatchers.IO) {
+            scanRoms(activity, folder) { n -> scanCount = n }
+        }
+        library = fresh
+        withContext(Dispatchers.IO) { saveLibrary(activity, fresh) }
+        scanning = false
     }
+    val scanState = ScanState(scanning, scanCount, hasFolder = romFolder != null)
 
     MaterialTheme(colorScheme = darkColorScheme()) {
         Surface(Modifier.fillMaxSize(), color = Color(0xFF101014)) {
@@ -52,12 +71,13 @@ fun LauncherRoot(activity: MainActivity) {
                             activity, covered,
                             onCoveredChange = { covered = it; activity.settings.coveredFraction = it },
                             onPickFolder = { picker.launch(null) },
+                            onRescan = { rescanKey++ },
                             onClose = { showSettings = false },
                         )
                     }
                     taco -> TacoLayout(covered = covered) {
                         GameBrowser(
-                            activity, library,
+                            activity, library, scanState,
                             onPickFolder = { picker.launch(null) },
                             onOpenSettings = { showSettings = true },
                         )
@@ -95,3 +115,6 @@ fun TacoLayout(covered: Float, content: @Composable () -> Unit) {
         }
     }
 }
+
+/** What the game list is doing right now, for the progress bar. */
+data class ScanState(val scanning: Boolean, val count: Int, val hasFolder: Boolean)

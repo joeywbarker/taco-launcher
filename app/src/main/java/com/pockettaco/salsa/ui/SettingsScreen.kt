@@ -15,6 +15,7 @@ fun SettingsScreen(
     covered: Float,
     onCoveredChange: (Float) -> Unit,
     onPickFolder: () -> Unit,
+    onRescan: () -> Unit,
     onClose: () -> Unit,
 ) {
     var anyPad by remember { mutableStateOf(activity.settings.anyGamepadCounts) }
@@ -31,7 +32,10 @@ fun SettingsScreen(
         Text("Screen covered by the Pocket Taco: ${(covered * 100).toInt()}%", color = Color.White)
         Slider(value = covered, onValueChange = onCoveredChange, valueRange = 0f..0.6f, steps = 11)
 
-        Button(onClick = onPickFolder) { Text("Choose games folder") }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = onPickFolder) { Text("Choose games folder") }
+            OutlinedButton(onClick = onRescan) { Text("Rescan games") }
+        }
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Treat any controller as a Pocket Taco", color = Color.White, modifier = Modifier.weight(1f))
