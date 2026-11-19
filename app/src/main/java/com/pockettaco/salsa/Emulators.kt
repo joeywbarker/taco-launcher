@@ -58,8 +58,39 @@ val KNOWN_EMULATORS = listOf(
     Emulator("com.github.stenzek.duckstation", "DuckStation", setOf("psx")),
 )
 
-fun installedEmulators(context: Context): List<Emulator> =
-    KNOWN_EMULATORS.filter { isInstalled(context, it.pkg) }
+fun installedEmulators(context: Context): List<Emulator> {
+    val byPackage = KNOWN_EMULATORS.filter { isInstalled(context, it.pkg) }
+    // Also match by app name, in case an emulator uses a package name we don't know.
+    val known = byPackage.map { it.pkg }.toSet()
+    val byName = loadApps(context).filter { it.pkg !in known }.mapNotNull { app ->
+        val label = app.label.lowercase()
+        NAME_HINTS.entries.firstOrNull { (hint, _) -> hint in label }
+            ?.let { (_, systems) -> Emulator(app.pkg, app.label, systems) }
+    }
+    return byPackage + byName
+}
+
+private val ALL = SYSTEMS.map { it.id }.toSet()
+private val NAME_HINTS = linkedMapOf(
+    "retroarch" to ALL,
+    "lemuroid" to ALL - "psp",
+    "my boy" to setOf("gba"),
+    "my oldboy" to setOf("gb", "gbc"),
+    "pizza boy gba" to setOf("gba"),
+    "pizza boy" to setOf("gb", "gbc"),
+    "john gba" to setOf("gb", "gbc", "gba"),
+    "gba.emu" to setOf("gba"),
+    "gbc.emu" to setOf("gb", "gbc"),
+    "nes.emu" to setOf("nes"),
+    "snes9x" to setOf("snes"),
+    "md.emu" to setOf("genesis", "sms", "gg"),
+    "melonds" to setOf("nds"),
+    "drastic" to setOf("nds"),
+    "ppsspp" to setOf("psp"),
+    "duckstation" to setOf("psx"),
+    "m64plus" to setOf("n64"),
+    "mupen" to setOf("n64"),
+)
 
 /** Play Store page for RetroArch, the one free app that plays every system here. */
 fun getRetroArchIntent(): Intent =

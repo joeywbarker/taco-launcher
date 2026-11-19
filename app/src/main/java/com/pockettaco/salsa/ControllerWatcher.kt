@@ -21,6 +21,9 @@ class ControllerWatcher(context: Context, private val settings: Settings) :
     val connected: StateFlow<Boolean> = _connected
     private val _deviceName = MutableStateFlow<String?>(null)
     val deviceName: StateFlow<String?> = _deviceName
+    /** Every input device Android sees, shown in Settings to help spot the Taco. */
+    private val _allDevices = MutableStateFlow<List<String>>(emptyList())
+    val allDevices: StateFlow<List<String>> = _allDevices
 
     fun start() {
         inputManager.registerInputDeviceListener(this, null)
@@ -38,15 +41,22 @@ class ControllerWatcher(context: Context, private val settings: Settings) :
             .mapNotNull { InputDevice.getDevice(it) }
             .firstOrNull { isTaco(it) }
         _deviceName.value = match?.name
+        _allDevices.value = InputDevice.getDeviceIds().toList()
+            .mapNotNull { InputDevice.getDevice(it) }
+            .filter { !it.isVirtual }
+            .map { it.name }
         _connected.value = match != null || settings.forceTacoMode
     }
 
     private fun isTaco(device: InputDevice): Boolean {
         if (device.isVirtual) return false
-        val isGamepad = device.sources and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD
-        if (!isGamepad) return false
-        if (settings.anyGamepadCounts) return true
+        // In G-Touch mode the Taco can show up as a keyboard or touch device
+        // rather than a gamepad, so match the name first, whatever kind it is.
         val name = device.name.lowercase()
-        return "pocket" in name || "gamesir" in name
+        if ("pocket" in name || "gamesir" in name) return true
+        if (!settings.anyGamepadCounts) return false
+        val s = device.sources
+        return s and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD ||
+            s and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK
     }
 }

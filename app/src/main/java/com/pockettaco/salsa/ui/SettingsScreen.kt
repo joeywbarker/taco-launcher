@@ -46,11 +46,15 @@ fun SettingsScreen(
             Switch(fit, { fit = it; activity.settings.fitEmulators = it })
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Preview Taco layout now (for testing)", color = Color.White, modifier = Modifier.weight(1f))
+            Text("Always use the Taco layout", color = Color.White, modifier = Modifier.weight(1f))
             Switch(force, { force = it; activity.settings.forceTacoMode = it; activity.watcher.refresh() })
         }
-        Text("Connected controller: ${activity.watcher.deviceName.value ?: "none"}",
+        val taco by activity.watcher.deviceName.collectAsState()
+        val devices by activity.watcher.allDevices.collectAsState()
+        Text("Pocket Taco: ${taco ?: "not detected"}",
             color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall)
+        Text("Devices Android sees: ${devices.joinToString().ifEmpty { "none" }}",
+            color = Color(0xFF777777), style = MaterialTheme.typography.bodySmall)
 
         TextButton(onClick = onClose) { Text("Done") }
     }
