@@ -117,14 +117,14 @@ private fun isInstalled(context: Context, pkg: String) = try {
  * exception: it wants a plain file path and a "core" (the part that emulates
  * one specific console), so it gets its own branch.
  */
-fun launchIntent(emu: Emulator, system: GameSystem, game: Uri): Intent {
-    if (emu.pkg.startsWith("com.retroarch")) {
+fun launchIntent(context: Context, emu: Emulator, system: GameSystem, game: Uri): Intent {
+    val retroActivity = retroArchActivity(context, emu)
+    if (retroActivity != null) {
         val core = RETROARCH_CORES[system.id] ?: "mgba"
         return Intent(Intent.ACTION_MAIN).apply {
-            component = ComponentName(emu.pkg, "com.retroarch.browser.retroactivity.RetroActivityFuture")
+            component = retroActivity
             putExtra("ROM", toFilePath(game))
             putExtra("LIBRETRO", "/data/data/${emu.pkg}/cores/${core}_libretro_android.so")
-            putExtra("CONFIGFILE", "/storage/emulated/0/Android/data/${emu.pkg}/files/retroarch.cfg")
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
     }
@@ -133,6 +133,20 @@ fun launchIntent(emu: Emulator, system: GameSystem, game: Uri): Intent {
         setPackage(emu.pkg)
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
     }
+}
+
+/**
+ * Finds RetroArch's "play a game" screen inside any RetroArch build,
+ * whatever its package name (official, 64-bit, EmuDeck, Plus...).
+ */
+private fun retroArchActivity(context: Context, emu: Emulator): ComponentName? {
+    if (!emu.pkg.startsWith("com.retroarch") && "retroarch" !in emu.name.lowercase()) return null
+    val activities = runCatching {
+        context.packageManager.getPackageInfo(emu.pkg, PackageManager.GET_ACTIVITIES).activities
+    }.getOrNull().orEmpty()
+    val target = activities.firstOrNull { it.name.endsWith("RetroActivityFuture") }
+        ?: activities.firstOrNull { it.name.contains("RetroActivity") }
+    return ComponentName(emu.pkg, target?.name ?: "com.retroarch.browser.retroactivity.RetroActivityFuture")
 }
 
 private val RETROARCH_CORES = mapOf(

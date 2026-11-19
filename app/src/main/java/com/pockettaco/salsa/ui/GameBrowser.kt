@@ -37,10 +37,11 @@ fun GameBrowser(
     val firstItem = remember(screen) { FocusRequester() }
 
     DisposableEffect(screen) {
-        activity.onBackRequest = {
+        val handler: () -> Boolean = {
             if (screen != Screen.Home) { screen = Screen.Home; true } else false
         }
-        onDispose { activity.onBackRequest = null }
+        activity.onBackRequest = handler
+        onDispose { if (activity.onBackRequest === handler) activity.onBackRequest = null }
     }
     // Put the highlight on the first item so the controller works straight away.
     LaunchedEffect(screen, library) { runCatching { firstItem.requestFocus() } }
@@ -87,6 +88,7 @@ fun GameBrowser(
                     item("settings") { FocusRow("Settings", onClick = onOpenSettings) }
                 }
                 is Screen.Games -> {
+                    item("back") { FocusRow("← Back", "or press B") { screen = Screen.Home } }
                     val choices = emulators.filter { s.system.id in it.systems }
                     val chosen = choices.firstOrNull { it.pkg == activity.settings.emulatorFor(s.system.id) }
                         ?: choices.firstOrNull()
@@ -114,14 +116,16 @@ fun GameBrowser(
                             if (emu == null) runCatching {
                                 activity.startActivity(openWithAnyApp(game.uri))
                             } else runCatching {
-                                startFitted(activity, launchIntent(emu, s.system, game.uri))
+                                startFitted(activity, launchIntent(activity, emu, s.system, game.uri))
                             }.onFailure {
-                                Toast.makeText(activity, "${emu.name} couldn't open that game", Toast.LENGTH_LONG).show()
+                                Toast.makeText(activity, "${emu.name} couldn't open that game. Pick another app.", Toast.LENGTH_LONG).show()
+                                runCatching { activity.startActivity(openWithAnyApp(game.uri)) }
                             }
                         }
                     }
                 }
                 Screen.Apps -> {
+                    item("back") { FocusRow("← Back", "or press B") { screen = Screen.Home } }
                     emulators.forEachIndexed { i, emu ->
                         item(emu.pkg) {
                             FocusRow(emu.name, focusRequester = if (i == 0) firstItem else null) {
