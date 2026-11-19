@@ -27,6 +27,11 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("fit", true)
         set(v) = prefs.edit().putBoolean("fit", v).apply()
 
+    /** Jump to the launcher the moment the Pocket Taco connects. */
+    var openOnConnect: Boolean
+        get() = prefs.getBoolean("openOnConnect", true)
+        set(v) = prefs.edit().putBoolean("openOnConnect", v).apply()
+
     /** The ROMs folder the user picked (a "tree" Uri from the system picker). */
     var romFolder: Uri?
         get() = prefs.getString("roms", null)?.let(Uri::parse)
