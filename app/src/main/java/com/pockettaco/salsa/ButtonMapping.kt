@@ -5,6 +5,7 @@ import android.view.KeyEvent
 
 /** What a button (or combo) can do. */
 enum class MapAction(val label: String) {
+    EXIT_GAME("Leave game, back to menu"),
     TACO_LAUNCHER("Open Taco Launcher"),
     HOME("Home"),
     BACK("Back"),
@@ -24,13 +25,32 @@ data class Mapping(val keys: List<Int>, val action: MapAction) {
 
 val DEFAULT_MAPPINGS = listOf(
     // The Taco's Home button does nothing in emulators by default: make it go to our launcher.
-    Mapping(listOf(KeyEvent.KEYCODE_BUTTON_MODE), MapAction.TACO_LAUNCHER),
-    Mapping(listOf(KeyEvent.KEYCODE_BUTTON_SELECT, KeyEvent.KEYCODE_BUTTON_START), MapAction.BACK),
+    Mapping(listOf(KeyEvent.KEYCODE_BUTTON_MODE), MapAction.EXIT_GAME),
+    Mapping(listOf(KeyEvent.KEYCODE_BUTTON_SELECT, KeyEvent.KEYCODE_BUTTON_START).sorted(), MapAction.EXIT_GAME),
 )
 
+/** Bump when the defaults change in a way saved lists should pick up. */
+private const val MAPPINGS_VERSION = 2
+
 fun loadMappings(context: Context): List<Mapping> {
-    val raw = context.getSharedPreferences("taco", Context.MODE_PRIVATE).getString("mappings", null)
-        ?: return DEFAULT_MAPPINGS
+    val prefs = context.getSharedPreferences("taco", Context.MODE_PRIVATE)
+    val raw = prefs.getString("mappings", null) ?: return DEFAULT_MAPPINGS
+    val list = parseMappings(raw)
+    if (prefs.getInt("mappingsVersion", 1) < MAPPINGS_VERSION) {
+        // Old defaults (Home -> open launcher, Select+Start -> Back) didn't leave the game. Upgrade them.
+        val upgraded = list.map { m ->
+            val isOldHome = m.keys == listOf(KeyEvent.KEYCODE_BUTTON_MODE) && m.action == MapAction.TACO_LAUNCHER
+            val isOldCombo = m.keys == DEFAULT_MAPPINGS[1].keys && m.action == MapAction.BACK
+            if (isOldHome || isOldCombo) m.copy(action = MapAction.EXIT_GAME) else m
+        }
+        prefs.edit().putInt("mappingsVersion", MAPPINGS_VERSION).apply()
+        saveMappings(context, upgraded)
+        return upgraded
+    }
+    return list
+}
+
+private fun parseMappings(raw: String): List<Mapping> {
     return raw.lines().mapNotNull { line ->
         val (keys, action) = line.split('=', limit = 2).takeIf { it.size == 2 } ?: return@mapNotNull null
         val codes = keys.split('+').mapNotNull { it.toIntOrNull() }.sorted()
@@ -41,6 +61,7 @@ fun loadMappings(context: Context): List<Mapping> {
 
 fun saveMappings(context: Context, list: List<Mapping>) {
     context.getSharedPreferences("taco", Context.MODE_PRIVATE).edit()
+        .putInt("mappingsVersion", MAPPINGS_VERSION)
         .putString("mappings", list.joinToString("\n") { m -> m.keys.sorted().joinToString("+") + "=" + m.action.name })
         .apply()
     ButtonMapperState.reload = true
@@ -51,6 +72,8 @@ object ButtonMapperState {
     /** True while Settings is listening for a new button press, so the service stays out of the way. */
     @Volatile var capturing = false
     @Volatile var reload = true
+    /** The last controller button the background service saw, shown in Settings as a check. */
+    @Volatile var lastKey: String? = null
 }
 
 fun buttonName(code: Int): String = when (code) {

@@ -20,7 +20,10 @@ import kotlinx.coroutines.delay
 @Composable
 fun ButtonMappingSection(activity: MainActivity) {
     var mapperOn by remember { mutableStateOf(isMapperOn(activity)) }
-    LaunchedEffect(Unit) { while (true) { mapperOn = isMapperOn(activity); delay(1000) } }
+    var lastKey by remember { mutableStateOf(ButtonMapperState.lastKey) }
+    LaunchedEffect(Unit) {
+        while (true) { mapperOn = isMapperOn(activity); lastKey = ButtonMapperState.lastKey; delay(500) }
+    }
     var mappings by remember { mutableStateOf(loadMappings(activity)) }
     var capturing by remember { mutableStateOf(false) }
     val captured = remember { mutableStateListOf<Int>() }
@@ -46,7 +49,7 @@ fun ButtonMappingSection(activity: MainActivity) {
                 down -= e.keyCode
                 if (down.isEmpty() && captured.isNotEmpty()) {
                     val keys = captured.sorted()
-                    update(mappings.filter { it.keys.sorted() != keys } + Mapping(keys, MapAction.TACO_LAUNCHER))
+                    update(mappings.filter { it.keys.sorted() != keys } + Mapping(keys, MapAction.EXIT_GAME))
                     stopCapture()
                 }
             }
@@ -67,6 +70,10 @@ fun ButtonMappingSection(activity: MainActivity) {
     } else {
         Text("On: these work everywhere, even inside games.", color = Color(0xFF4CFF9A),
             style = MaterialTheme.typography.bodySmall)
+        Text(
+            "Button check: " + (lastKey ?: "press any controller button (try Home)"),
+            color = Color(0xFFBBBBBB), style = MaterialTheme.typography.bodySmall,
+        )
     }
 
     mappings.forEachIndexed { i, m ->
