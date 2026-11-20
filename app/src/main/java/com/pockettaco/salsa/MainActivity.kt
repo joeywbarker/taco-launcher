@@ -31,10 +31,15 @@ class MainActivity : ComponentActivity() {
     /** Set by the UI so the controller's B button can step back a screen. */
     var onBackRequest: (() -> Boolean)? = null
 
+    /** Set by the home screen: Start opens the menu for the selected system, Select switches view. */
+    var onStartButton: (() -> Boolean)? = null
+    var onSelectButton: (() -> Boolean)? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         settings = Settings(this)
+        Custom.init(this)
         watcher = ControllerWatcher(this, settings)
         setContent { LauncherRoot(this) }
         // Newer Android can send a Back button straight to the "back" system instead of to
@@ -88,6 +93,13 @@ class MainActivity : ComponentActivity() {
             else -> event.keyCode
         }
         when (code) {
+            KeyEvent.KEYCODE_BUTTON_START, KeyEvent.KEYCODE_BUTTON_SELECT, KeyEvent.KEYCODE_MENU -> {
+                val hook = if (code == KeyEvent.KEYCODE_BUTTON_SELECT) onSelectButton else onStartButton
+                if (hook != null) {
+                    if (event.action == KeyEvent.ACTION_UP) hook()
+                    return true
+                }
+            }
             KeyEvent.KEYCODE_UNKNOWN -> return true
             KeyEvent.KEYCODE_BUTTON_A -> {
                 // Keep the controller's details on the event; just make it a "press".

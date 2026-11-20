@@ -1,6 +1,8 @@
 package com.pockettaco.salsa.ui
 
 import androidx.compose.foundation.layout.*
+import kotlinx.coroutines.launch
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -150,14 +152,91 @@ fun SettingsScreen(
         Text("Devices Android sees: ${devices.joinToString().ifEmpty { "none" }}",
             color = Color(0xFF777777), style = MaterialTheme.typography.bodySmall)
 
-        val version = runCatching {
-            activity.packageManager.getPackageInfo(activity.packageName, 0).versionName
-        }.getOrNull()
-        Text("Taco Launcher version ${version ?: "?"}",
-            color = Color(0xFF777777), style = MaterialTheme.typography.bodySmall)
+
+        HomeLookSection(activity)
+        AboutSection(activity)
 
         TextButton(onClick = onClose) { Text("Done") }
     }
+}
+
+/** View, background, hidden systems and a reset for the home screen's look. */
+@Composable
+private fun HomeLookSection(activity: MainActivity) {
+    val custom = com.pockettaco.salsa.Custom
+    val scope = rememberCoroutineScope()
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val error = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                com.pockettaco.salsa.savePicture(activity, uri, custom.backgroundFile(), maxSide = 1600, square = false)
+            }
+            if (error != null) android.widget.Toast.makeText(activity, error, android.widget.Toast.LENGTH_LONG).show()
+            else custom.background = -1
+        }
+    }
+    var confirmReset by remember { mutableStateOf(false) }
+
+    Text("Home screen look", color = Color.White, fontWeight = FontWeight.Bold)
+    Text("Tip: on the home screen, Select switches the view and Start (or holding a system) opens its menu.",
+        color = Color(0xFF999999), style = MaterialTheme.typography.bodySmall)
+    Text("View", color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall)
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        com.pockettaco.salsa.HomeView.entries.forEach { v ->
+            if (custom.homeView == v) Button(onClick = { custom.homeView = v }) { Text(v.label) }
+            else OutlinedButton(onClick = { custom.homeView = v }) { Text(v.label) }
+        }
+    }
+    Text("Background", color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall)
+    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        com.pockettaco.salsa.BACKDROPS.forEachIndexed { i, b ->
+            val picked = custom.background == i
+            Column(
+                Modifier.clip(RoundedCornerShape(12.dp))
+                    .border(if (picked) 3.dp else 1.dp, if (picked) Color.White else Color(0xFF444444), RoundedCornerShape(12.dp))
+                    .clickable { custom.background = i }
+                    .padding(6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Box(Modifier.size(48.dp).clip(RoundedCornerShape(10.dp))
+                    .background(androidx.compose.ui.graphics.Brush.radialGradient(listOf(b.glow, b.top, b.bottom))))
+                Text(b.name, color = Color.White, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(onClick = { picker.launch("image/*") }) { Text("Use a picture") }
+        if (custom.background == -1) TextButton(onClick = { custom.backgroundFile().delete(); custom.background = 0 }) {
+            Text("Remove picture")
+        }
+    }
+    Text("Any picture works (up to 30 MB); it's resized to fit.", color = Color(0xFF777777),
+        style = MaterialTheme.typography.bodySmall)
+    if (custom.hidden.isNotEmpty()) OutlinedButton(onClick = { custom.hidden = emptySet() }) {
+        Text("Show ${custom.hidden.size} hidden system(s)")
+    }
+    if (!confirmReset) TextButton(onClick = { confirmReset = true }) { Text("Reset names, colors, pictures and order") }
+    else Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Button(onClick = { custom.resetAll(); confirmReset = false }) { Text("Yes, reset the look") }
+        TextButton(onClick = { confirmReset = false }) { Text("Cancel") }
+    }
+}
+
+@Composable
+private fun AboutSection(activity: MainActivity) {
+    val version = runCatching {
+        activity.packageManager.getPackageInfo(activity.packageName, 0).versionName
+    }.getOrNull()
+    Text("About", color = Color.White, fontWeight = FontWeight.Bold)
+    Text("🌮 Taco Launcher ${version ?: ""}", color = Color(0xFFFFD25A), fontWeight = FontWeight.Bold)
+    Text("Designed by: Joey Wayne Barker-Erickson (2026)", color = Color.White)
+    Text("Check out his other projects @", color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall)
+    TextButton(onClick = {
+        runCatching {
+            activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/joeywbarker"))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
+    }) { Text("github.com/joeywbarker") }
 }
 
 /**
@@ -250,7 +329,7 @@ private fun SystemsSection(activity: MainActivity, onRescan: () -> Unit) {
         val id = folderFor
         if (uri != null && id != null) {
             runCatching {
-                activity.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                com.pockettaco.salsa.keepFolderAccess(activity, uri)
             }
             activity.settings.setFolderFor(id, uri)
             version++
