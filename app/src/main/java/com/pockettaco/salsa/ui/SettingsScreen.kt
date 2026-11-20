@@ -338,7 +338,7 @@ private fun SystemsSection(activity: MainActivity, onRescan: () -> Unit) {
     }
 
     Text("Systems", color = Color.White, fontWeight = FontWeight.Bold)
-    Text("Pick the app each system opens with, and add a folder if a system's games live somewhere else.",
+    Text("Pick the app each system opens with. Give a system its own folder and it uses only that folder (instead of the main one).",
         color = Color(0xFF999999), style = MaterialTheme.typography.bodySmall)
     key(version) {
         com.pockettaco.salsa.SYSTEMS.forEach { system ->
