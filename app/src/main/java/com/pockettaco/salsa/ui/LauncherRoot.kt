@@ -37,9 +37,7 @@ fun LauncherRoot(activity: MainActivity) {
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
-            activity.contentResolver.takePersistableUriPermission(
-                uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
+            com.pockettaco.salsa.keepFolderAccess(activity, uri)
             activity.settings.romFolder = uri
             romFolder = uri
         }

@@ -45,7 +45,12 @@ val SYSTEM_LOOKS = mapOf(
 val EMULATORS_LOOK = SystemLook("EMU", Color(0xFF3DDCFF), Color(0xFF0A6E9E))
 val SETTINGS_LOOK = SystemLook("⚙", Color(0xFF9AA3B5), Color(0xFF3C4354))
 
-fun lookFor(id: String) = SYSTEM_LOOKS[id] ?: SystemLook(id.uppercase(), Color(0xFF888888), Color(0xFF444444))
+fun lookFor(id: String): SystemLook {
+    val base = SYSTEM_LOOKS[id] ?: SystemLook(id.uppercase(), Color(0xFF888888), Color(0xFF444444))
+    val pick = com.pockettaco.salsa.Custom.colorIndex(id)
+    val colors = com.pockettaco.salsa.ICON_COLORS.getOrNull(pick)?.second ?: return base
+    return base.copy(top = colors.first, bottom = colors.second)
+}
 
 val TextBright = Color(0xFFF4F6FF)
 val TextDim = Color(0xFFB4BCD6)
@@ -60,9 +65,17 @@ fun ConsoleBackground(accent: Color, modifier: Modifier = Modifier, content: @Co
         0f, 1f, infiniteRepeatable(tween(18000, easing = LinearEasing), RepeatMode.Reverse), label = "t"
     )
     val glow by animateColorAsState(accent, tween(600), label = "accent")
+    val choice = com.pockettaco.salsa.Custom.background
+    val picture = if (choice < 0) com.pockettaco.salsa.Custom.backgroundImage() else null
+    val backdrop = com.pockettaco.salsa.BACKDROPS.getOrElse(choice) { com.pockettaco.salsa.BACKDROPS[0] }
     Box(modifier) {
-        Canvas(Modifier.matchParentSize()) {
-            drawRect(Brush.verticalGradient(listOf(Color(0xFF0B1030), Color(0xFF05060F))))
+        if (picture != null) {
+            androidx.compose.foundation.Image(picture, contentDescription = null,
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop, modifier = Modifier.matchParentSize())
+            // Darken it a little so text stays readable.
+            Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.4f)))
+        } else Canvas(Modifier.matchParentSize()) {
+            drawRect(Brush.verticalGradient(listOf(backdrop.top, backdrop.bottom)))
             val w = size.width; val h = size.height
             drawCircle(
                 Brush.radialGradient(listOf(glow.copy(alpha = 0.55f), Color.Transparent),
@@ -70,7 +83,7 @@ fun ConsoleBackground(accent: Color, modifier: Modifier = Modifier, content: @Co
                 radius = w * 0.7f, center = Offset(w * (0.15f + 0.5f * t), h * 0.15f),
             )
             drawCircle(
-                Brush.radialGradient(listOf(Color(0xFF2B6BFF).copy(alpha = 0.35f), Color.Transparent),
+                Brush.radialGradient(listOf(backdrop.glow.copy(alpha = 0.35f), Color.Transparent),
                     center = Offset(w * (0.9f - 0.4f * t), h * 0.85f), radius = w * 0.6f),
                 radius = w * 0.6f, center = Offset(w * (0.9f - 0.4f * t), h * 0.85f),
             )

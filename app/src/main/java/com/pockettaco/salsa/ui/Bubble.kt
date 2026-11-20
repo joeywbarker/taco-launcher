@@ -4,7 +4,13 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -30,13 +36,18 @@ import androidx.compose.ui.unit.sp
 /**
  * A round, glossy icon. Grows and glows when the D-pad lands on it.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun Bubble(
     look: SystemLook,
     label: String,
     badge: String? = null,
     focusRequester: FocusRequester? = null,
+    image: ImageBitmap? = null,
+    size: Dp = 76.dp,
+    highlight: Boolean = false,
     onFocused: () -> Unit = {},
+    onLongClick: (() -> Unit)? = null,
     onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
@@ -46,26 +57,34 @@ fun Bubble(
             .padding(vertical = 10.dp)
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocused() }
-            .clickable(remember { MutableInteractionSource() }, indication = null, onClick = onClick),
+            .combinedClickable(remember { MutableInteractionSource() }, indication = null,
+                onLongClick = onLongClick, onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Box(Modifier.size(84.dp).scale(scale), contentAlignment = Alignment.Center) {
+        val small = size < 70.dp
+        Box(Modifier.size(size + 8.dp).scale(scale), contentAlignment = Alignment.Center) {
             Box(
                 Modifier
-                    .size(76.dp)
+                    .size(size)
                     .shadow(if (focused) 18.dp else 6.dp, CircleShape,
                         ambientColor = look.top, spotColor = look.top)
                     .clip(CircleShape)
                     .background(Brush.linearGradient(listOf(look.top, look.bottom)))
-                    .border(if (focused) 3.dp else 1.dp,
-                        if (focused) Color.White else Color.White.copy(alpha = 0.25f), CircleShape),
+                    .border(if (focused || highlight) 3.dp else 1.dp,
+                        if (highlight) Color(0xFFFFD25A) else if (focused) Color.White else Color.White.copy(alpha = 0.25f),
+                        CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
+                if (image != null) {
+                    Image(image, contentDescription = label, contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize())
+                } else {
+                    Text(look.short, color = Color.White, fontWeight = FontWeight.Black,
+                        fontSize = (if (look.short.length > 3) 15 else 19).let { if (small) it - 5 else it }.sp)
+                }
                 // Glossy highlight across the top half.
                 Box(Modifier.fillMaxSize().background(
                     Brush.verticalGradient(0f to Color.White.copy(alpha = 0.35f), 0.5f to Color.Transparent)))
-                Text(look.short, color = Color.White, fontWeight = FontWeight.Black,
-                    fontSize = if (look.short.length > 3) 15.sp else 19.sp)
             }
             if (badge != null) Box(
                 Modifier.align(Alignment.TopEnd)
@@ -75,10 +94,10 @@ fun Bubble(
             ) { Text(badge, color = TextBright, fontSize = 10.sp, fontWeight = FontWeight.Bold) }
         }
         Spacer(Modifier.height(6.dp))
-        Text(label, color = if (focused) TextBright else TextDim, fontSize = 12.sp,
+        Text(label, color = if (focused) TextBright else TextDim, fontSize = if (small) 10.sp else 12.sp,
             fontWeight = if (focused) FontWeight.Bold else FontWeight.Medium,
             maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
-            modifier = Modifier.width(100.dp))
+            modifier = Modifier.width(if (small) 68.dp else 100.dp))
     }
 }
 
@@ -86,6 +105,7 @@ fun Bubble(
  * One game in a list: a coloured letter tile plus the title, on a frosted card
  * that lights up in the system's colours when selected.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun GameCard(
     title: String,
@@ -93,6 +113,10 @@ fun GameCard(
     look: SystemLook,
     tile: String = title.firstOrNull { it.isLetterOrDigit() }?.uppercase() ?: "?",
     focusRequester: FocusRequester? = null,
+    image: ImageBitmap? = null,
+    highlight: Boolean = false,
+    onFocused: () -> Unit = {},
+    onLongClick: (() -> Unit)? = null,
     onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
@@ -104,15 +128,16 @@ fun GameCard(
             .padding(horizontal = 16.dp, vertical = 4.dp)
             .scale(scale)
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
-            .onFocusChanged { focused = it.isFocused }
+            .onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocused() }
             .clip(shape)
             .background(
                 if (focused) Brush.horizontalGradient(listOf(look.top.copy(alpha = 0.9f), look.bottom.copy(alpha = 0.9f)))
                 else Brush.horizontalGradient(listOf(Color.White.copy(alpha = 0.09f), Color.White.copy(alpha = 0.04f)))
             )
-            .border(if (focused) 2.dp else 1.dp,
-                if (focused) Color.White else Color.White.copy(alpha = 0.08f), shape)
-            .clickable(remember { MutableInteractionSource() }, indication = null, onClick = onClick)
+            .border(if (focused || highlight) 2.dp else 1.dp,
+                if (highlight) Color(0xFFFFD25A) else if (focused) Color.White else Color.White.copy(alpha = 0.08f), shape)
+            .combinedClickable(remember { MutableInteractionSource() }, indication = null,
+                onLongClick = onLongClick, onClick = onClick)
             .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -121,7 +146,11 @@ fun GameCard(
                 .background(Brush.linearGradient(listOf(look.top, look.bottom)))
                 .border(1.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(12.dp)),
             contentAlignment = Alignment.Center,
-        ) { Text(tile, color = Color.White, fontWeight = FontWeight.Black, fontSize = 18.sp) }
+        ) {
+            if (image != null) Image(image, contentDescription = title, contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize())
+            else Text(tile, color = Color.White, fontWeight = FontWeight.Black, fontSize = 18.sp)
+        }
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(title, color = TextBright, fontSize = 16.sp,

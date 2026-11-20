@@ -91,13 +91,14 @@ fun GameBrowser(
                 label = "screen",
             ) { s ->
                 when (s) {
-                    Screen.Home -> HomeBubbles(
-                        library, emulators.size, scan, lastSystem,
+                    Screen.Home -> HomeScreen(
+                        activity, library, emulators.size, scan, lastSystem,
                         onFocusSystem = { accent = lookFor(it).bottom },
                         onOpenSystem = { lastSystem = it; screen = Screen.Games(it) },
                         onOpenApps = { screen = if (emulators.isEmpty()) Screen.GetEmulators else Screen.Apps },
                         onOpenSettings = onOpenSettings,
                         onPickFolder = onPickFolder,
+                        onRescan = onRescan,
                     )
                     is Screen.Games -> GamesList(activity, s.system, library[s.system].orEmpty(), emulators,
                         onRescan = onRescan, onGetEmulators = { screen = Screen.GetEmulators }) {
@@ -109,74 +110,9 @@ fun GameBrowser(
                 }
             }
             HintBar(
-                *if (screen == Screen.Home) arrayOf("A" to "Open")
+                *if (screen == Screen.Home) arrayOf("A" to "Open", "≡" to "Start: menu", "◫" to "Select: view")
                 else arrayOf("A" to "Play", "B" to "Back")
             )
-        }
-    }
-}
-
-@Composable
-private fun HomeBubbles(
-    library: Library,
-    emulatorCount: Int,
-    scan: ScanState,
-    lastSystem: GameSystem?,
-    onFocusSystem: (String) -> Unit,
-    onOpenSystem: (GameSystem) -> Unit,
-    onOpenApps: () -> Unit,
-    onOpenSettings: () -> Unit,
-    onPickFolder: () -> Unit,
-) {
-    val first = remember { FocusRequester() }
-    var title by remember { mutableStateOf("Games") }
-    var subtitle by remember { mutableStateOf("") }
-    val systems = library.entries.toList()
-    // Land on the system you came back from, or the first one.
-    val focusIndex = systems.indexOfFirst { it.key == lastSystem }.coerceAtLeast(0)
-    LaunchedEffect(systems.size, FocusKick.count.intValue) { runCatching { first.requestFocus() } }
-
-    Column(Modifier.fillMaxSize()) {
-        Column(Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
-            Text(title, color = TextBright, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-            Text(subtitle, color = TextDim, fontSize = 13.sp)
-        }
-        LazyVerticalGrid(
-            GridCells.Fixed(3),
-            Modifier.fillMaxSize().padding(horizontal = 8.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-        ) {
-            if (systems.isEmpty() && !scan.scanning) item {
-                Bubble(SystemLook("+", Color(0xFF4CFF9A), Color(0xFF138A4F)), "Add games",
-                    focusRequester = first,
-                    onFocused = {
-                        title = "Add your games"
-                        subtitle = if (scan.hasFolder) "No games found in that folder" else "Pick your games folder once"
-                    },
-                    onClick = onPickFolder)
-            }
-            systems.forEachIndexed { i, (system, games) ->
-                item(system.id) {
-                    Bubble(lookFor(system.id), system.name, badge = "${games.size}",
-                        focusRequester = if (i == focusIndex) first else null,
-                        onFocused = {
-                            title = system.name
-                            subtitle = "${games.size} games"
-                            onFocusSystem(system.id)
-                        },
-                        onClick = { onOpenSystem(system) })
-                }
-            }
-            item("emus") {
-                Bubble(EMULATORS_LOOK, "Emulators", badge = "$emulatorCount",
-                    onFocused = { title = "Emulators"; subtitle = "$emulatorCount installed" },
-                    onClick = onOpenApps)
-            }
-            item("settings") {
-                Bubble(SETTINGS_LOOK, "Settings",
-                    onFocused = { title = "Settings"; subtitle = "Screen size, games folder, controller" },
-                    onClick = onOpenSettings)
-            }
         }
     }
 }
@@ -196,7 +132,7 @@ private fun GamesList(
     val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
             runCatching {
-                activity.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                com.pockettaco.salsa.keepFolderAccess(activity, uri)
             }
             activity.settings.setFolderFor(system.id, uri)
             systemFolder = uri
@@ -213,7 +149,7 @@ private fun GamesList(
     if (askSetup == null) Column(Modifier.fillMaxSize()) {
         Row(Modifier.padding(horizontal = 20.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Column {
-                Text(system.name, color = TextBright, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                Text(systemName(system), color = TextBright, fontSize = 26.sp, fontWeight = FontWeight.Bold)
                 Text("${games.size} games · ${current?.name ?: "no emulator yet"}", color = TextDim, fontSize = 13.sp)
             }
         }
