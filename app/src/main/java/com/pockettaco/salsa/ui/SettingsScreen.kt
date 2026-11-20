@@ -15,7 +15,18 @@ import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import com.pockettaco.salsa.AppIcon
 import com.pockettaco.salsa.MainActivity
+import com.pockettaco.salsa.currentAppIcon
+import com.pockettaco.salsa.setAppIcon
 import com.pockettaco.salsa.canAppearOnTop
 import com.pockettaco.salsa.hasBluetoothPermission
 
@@ -50,6 +61,32 @@ fun SettingsScreen(
 
         Text("Screen covered by the Pocket Taco: ${(covered * 100).toInt()}%", color = Color.White)
         Slider(value = covered, onValueChange = onCoveredChange, valueRange = 0f..0.6f, steps = 11)
+
+        Text("App icon", color = Color.White, fontWeight = FontWeight.Bold)
+        var icon by remember { mutableStateOf(currentAppIcon(activity)) }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            AppIcon.entries.forEach { option ->
+                val picked = option == icon
+                Column(
+                    Modifier.weight(1f).clip(RoundedCornerShape(16.dp))
+                        .border(if (picked) 3.dp else 1.dp,
+                            if (picked) Color.White else Color(0xFF444444), RoundedCornerShape(16.dp))
+                        .clickable {
+                            if (!picked) { setAppIcon(activity, option); icon = option }
+                        }
+                        .padding(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Image(painterResource(option.preview), contentDescription = option.label,
+                        modifier = Modifier.size(72.dp).clip(RoundedCornerShape(18.dp))
+                            .background(Color(0xFF1B1550)))
+                    Text(option.label, color = if (picked) Color.White else Color(0xFFAAAAAA),
+                        style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+        Text("Your home screen can take a few seconds to show the new icon.",
+            color = Color(0xFF777777), style = MaterialTheme.typography.bodySmall)
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = onPickFolder) { Text("Choose games folder") }
