@@ -13,6 +13,15 @@ class MainActivity : ComponentActivity() {
     lateinit var settings: Settings
     lateinit var watcher: ControllerWatcher
 
+    /** True while a game is open in its window; the launcher shows plain black behind it. */
+    val gameWindowOpen = androidx.compose.runtime.mutableStateOf(false)
+
+    /** You came back to the launcher (Home button, or tapped it): show the menus again. */
+    override fun onTopResumedActivityChanged(isTopResumedActivity: Boolean) {
+        super.onTopResumedActivityChanged(isTopResumedActivity)
+        if (isTopResumedActivity) gameWindowOpen.value = false
+    }
+
     /** Set by the UI so the controller's B button can step back a screen. */
     var onBackRequest: (() -> Boolean)? = null
 
