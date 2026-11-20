@@ -102,10 +102,15 @@ fun SettingsScreen(
         Text("Your home screen can take a few seconds to show the new icon.",
             color = Color(0xFF777777), style = MaterialTheme.typography.bodySmall)
 
+        Text("Games", color = Color.White, fontWeight = FontWeight.Bold)
+        Text("Main folder: ${com.pockettaco.salsa.folderLabel(activity.settings.romFolder)}",
+            color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = onPickFolder) { Text("Choose games folder") }
             OutlinedButton(onClick = onRescan) { Text("Rescan games") }
         }
+
+        SystemsSection(activity, onRescan)
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Treat any controller as a Pocket Taco", color = Color.White, modifier = Modifier.weight(1f))
@@ -226,5 +231,75 @@ private fun MenuButtonsSection(activity: MainActivity) {
             st.backKey = k; st.backScan = sc
             selectKey = st.selectKey; backKey = st.backKey
         }) { Text("Swap them") }
+    }
+}
+
+/**
+ * One row per system: which emulator it opens with (change to any installed app)
+ * and an optional extra folder just for that system.
+ */
+@Composable
+private fun SystemsSection(activity: MainActivity, onRescan: () -> Unit) {
+    val installed = remember { com.pockettaco.salsa.installedEmulators(activity) }
+    var version by remember { mutableIntStateOf(0) }   // bump to redraw after a change
+    var openFor by remember { mutableStateOf<String?>(null) }  // system whose app list is open
+    var showAllApps by remember { mutableStateOf(false) }
+    var folderFor by remember { mutableStateOf<String?>(null) }
+    val allApps = remember(showAllApps) { if (showAllApps) com.pockettaco.salsa.loadApps(activity) else emptyList() }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        val id = folderFor
+        if (uri != null && id != null) {
+            runCatching {
+                activity.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            activity.settings.setFolderFor(id, uri)
+            version++
+            onRescan()
+        }
+    }
+
+    Text("Systems", color = Color.White, fontWeight = FontWeight.Bold)
+    Text("Pick the app each system opens with, and add a folder if a system's games live somewhere else.",
+        color = Color(0xFF999999), style = MaterialTheme.typography.bodySmall)
+    key(version) {
+        com.pockettaco.salsa.SYSTEMS.forEach { system ->
+            val chosen = activity.settings.emulatorFor(system.id)
+            val current = com.pockettaco.salsa.currentEmulator(activity, system, installed)
+            val folder = activity.settings.folderFor(system.id)
+            Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                Text(system.name, color = Color.White)
+                Text(
+                    "App: ${current?.name ?: "none installed"}${if (chosen == null && current != null) " (automatic)" else ""}" +
+                        "   ·   Extra folder: ${if (folder == null) "none" else com.pockettaco.salsa.folderLabel(folder)}",
+                    color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { openFor = if (openFor == system.id) null else system.id; showAllApps = false }) {
+                        Text(if (openFor == system.id) "Close" else "Change app")
+                    }
+                    OutlinedButton(onClick = { folderFor = system.id; picker.launch(null) }) { Text("Folder") }
+                    if (folder != null) TextButton(onClick = {
+                        activity.settings.setFolderFor(system.id, null); version++; onRescan()
+                    }) { Text("Remove folder") }
+                }
+                if (openFor == system.id) {
+                    fun pick(pkg: String?) {
+                        activity.settings.setEmulatorFor(system.id, pkg); openFor = null; version++
+                    }
+                    TextButton(onClick = { pick(null) }) { Text("Automatic (best installed emulator)") }
+                    installed.filter { system.id in it.systems }.forEach { emu ->
+                        TextButton(onClick = { pick(emu.pkg) }) {
+                            Text(emu.name + if (emu.pkg == current?.pkg) "  ✓" else "")
+                        }
+                    }
+                    if (!showAllApps) TextButton(onClick = { showAllApps = true }) { Text("Show all apps…") }
+                    else allApps.forEach { app ->
+                        TextButton(onClick = { pick(app.pkg) }) {
+                            Text(app.label + if (app.pkg == current?.pkg) "  ✓" else "")
+                        }
+                    }
+                }
+            }
+        }
     }
 }

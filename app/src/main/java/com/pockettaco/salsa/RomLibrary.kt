@@ -17,7 +17,39 @@ typealias Library = Map<GameSystem, List<Game>>
  * Uses one database-style query per folder instead of asking about every file
  * one at a time, which is much faster with thousands of games.
  */
-fun scanRoms(context: Context, folder: Uri, onProgress: (Int) -> Unit = {}): Library {
+fun scanRoms(
+    context: Context,
+    folder: Uri,
+    onlySystem: GameSystem? = null,
+    onProgress: (Int) -> Unit = {},
+): Library = organise(scanList(context, folder, onlySystem, onProgress))
+
+/**
+ * Scans the main games folder plus any per-system folders set in Settings, and merges them.
+ * In a per-system folder, every matching file (and every .zip/.7z) counts as that system.
+ */
+fun scanAll(context: Context, settings: Settings, onProgress: (Int) -> Unit = {}): Library {
+    val all = mutableListOf<Game>()
+    fun add(list: List<Game>) { all += list; onProgress(all.size) }
+    settings.romFolder?.takeIf { canStillRead(context, it) }?.let { main ->
+        add(scanList(context, main, null) { n -> onProgress(all.size + n) })
+    }
+    for (system in SYSTEMS) {
+        val folder = settings.folderFor(system.id) ?: continue
+        if (!canStillRead(context, folder)) continue
+        add(scanList(context, folder, system) { n -> onProgress(all.size + n) })
+    }
+    return organise(all.distinctBy { it.uri.toString() })
+}
+
+/** A short, readable name for a picked folder, like "ROMs/GBA". */
+fun folderLabel(folder: Uri?): String {
+    if (folder == null) return "not set"
+    val id = runCatching { DocumentsContract.getTreeDocumentId(folder) }.getOrNull() ?: return folder.toString()
+    return id.substringAfter(':').ifEmpty { "Phone storage" }
+}
+
+private fun scanList(context: Context, folder: Uri, onlySystem: GameSystem?, onProgress: (Int) -> Unit): List<Game> {
     val byExt = SYSTEMS.flatMap { s -> s.extensions.map { it to s } }.toMap()
     val found = mutableListOf<Game>()
     val resolver = context.contentResolver
@@ -45,7 +77,9 @@ fun scanRoms(context: Context, folder: Uri, onProgress: (Int) -> Unit = {}): Lib
                     // .zip/.7z could be any console: use a tag in the name ("# NDS")
                     // or the folder it sits in ("nds", "Nintendo DS").
                     val fromArchive = if (ext in ARCHIVES) (systemFromTag(base) ?: folderSystem) else null
-                    val sys = byExt[ext] ?: fromArchive ?: continue
+                    val sys = if (onlySystem != null) {
+                        if (ext in onlySystem.extensions || ext in ARCHIVES) onlySystem else continue
+                    } else byExt[ext] ?: fromArchive ?: continue
                     found += Game(cleanTitle(base), DocumentsContract.buildDocumentUriUsingTree(folder, id), sys)
                     if (found.size % 25 == 0) onProgress(found.size)
                 }
@@ -53,9 +87,9 @@ fun scanRoms(context: Context, folder: Uri, onProgress: (Int) -> Unit = {}): Lib
         }
         for ((id, name) in subfolders) walk(id, depth + 1, systemFromText(name) ?: folderSystem)
     }
-    walk(DocumentsContract.getTreeDocumentId(folder), 0, null)
+    walk(DocumentsContract.getTreeDocumentId(folder), 0, onlySystem)
     onProgress(found.size)
-    return organise(found)
+    return found
 }
 
 private fun organise(games: List<Game>): Library = games.groupBy { it.system }

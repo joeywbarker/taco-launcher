@@ -87,6 +87,11 @@ class Settings(context: Context) {
 
     /** Which emulator app the user chose for each system, e.g. "gba" -> package. */
     fun emulatorFor(system: String): String? = prefs.getString("emu_$system", null)
-    fun setEmulatorFor(system: String, pkg: String) =
+    fun setEmulatorFor(system: String, pkg: String?) =
         prefs.edit().putString("emu_$system", pkg).apply()
+
+    /** An extra games folder just for one system (on top of the main folder), or null. */
+    fun folderFor(system: String): Uri? = prefs.getString("folder_$system", null)?.let(Uri::parse)
+    fun setFolderFor(system: String, folder: Uri?) =
+        prefs.edit().putString("folder_$system", folder?.toString()).apply()
 }

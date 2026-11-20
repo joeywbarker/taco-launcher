@@ -92,6 +92,53 @@ private val NAME_HINTS = linkedMapOf(
     "mupen" to setOf("n64"),
 )
 
+/**
+ * The apps you can pick for a system: installed emulators that play it, plus whatever
+ * app you chose for it in Settings (any installed app is allowed).
+ */
+fun emulatorChoices(context: Context, system: GameSystem, installed: List<Emulator>): List<Emulator> {
+    val list = installed.filter { system.id in it.systems }.toMutableList()
+    val chosen = context.getSharedPreferences("taco", Context.MODE_PRIVATE).getString("emu_${system.id}", null)
+    if (chosen != null && list.none { it.pkg == chosen }) {
+        val label = runCatching {
+            val pm = context.packageManager
+            pm.getApplicationInfo(chosen, 0).loadLabel(pm).toString()
+        }.getOrNull()
+        if (label != null) list.add(0, Emulator(chosen, label, setOf(system.id)))
+    }
+    return list
+}
+
+/** The emulator a system uses right now: the one picked in Settings, else the first that fits. */
+fun currentEmulator(context: Context, system: GameSystem, installed: List<Emulator>): Emulator? {
+    val choices = emulatorChoices(context, system, installed)
+    val chosen = context.getSharedPreferences("taco", Context.MODE_PRIVATE).getString("emu_${system.id}", null)
+    return choices.firstOrNull { it.pkg == chosen } ?: choices.firstOrNull()
+}
+
+/** Emulators to suggest on a phone that has none. RetroArch first: it plays almost everything. */
+data class Suggestion(val pkg: String, val name: String, val why: String)
+
+val SUGGESTED_EMULATORS = listOf(
+    Suggestion("com.retroarch", "RetroArch", "Recommended: one free app for GB, GBC, GBA, NES, SNES, Genesis and more"),
+    Suggestion("com.swordfish.lemuroid", "Lemuroid", "Simple all-in-one for the classic systems"),
+    Suggestion("me.magnum.melonds", "melonDS", "Nintendo DS"),
+    Suggestion("org.ppsspp.ppsspp", "PPSSPP", "PSP"),
+    Suggestion("com.github.stenzek.duckstation", "DuckStation", "PlayStation"),
+    Suggestion("org.mupen64plusae.v3.fzurita", "M64Plus FZ", "Nintendo 64"),
+)
+
+/** Opens an app's Play Store page (or the web page if the Play Store app isn't there). */
+fun openStorePage(context: Context, pkg: String) {
+    val market = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$pkg")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    runCatching { context.startActivity(market) }.onFailure {
+        runCatching {
+            context.startActivity(Intent(Intent.ACTION_VIEW,
+                Uri.parse("https://play.google.com/store/apps/details?id=$pkg")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
+    }
+}
+
 /** Play Store page for RetroArch, the one free app that plays every system here. */
 fun getRetroArchIntent(): Intent =
     Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.retroarch"))

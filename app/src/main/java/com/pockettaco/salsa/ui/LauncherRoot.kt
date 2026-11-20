@@ -46,17 +46,18 @@ fun LauncherRoot(activity: MainActivity) {
     }
 
     LaunchedEffect(romFolder, rescanKey) {
-        val folder = romFolder ?: return@LaunchedEffect
-        if (!canStillRead(activity, folder)) {
+        val folder = romFolder
+        if (folder != null && !canStillRead(activity, folder)) {
             // Android forgot our access (rare). Ask once instead of showing nothing.
             romFolder = null
             activity.settings.romFolder = null
-            return@LaunchedEffect
         }
+        val anySystemFolder = SYSTEMS.any { activity.settings.folderFor(it.id) != null }
+        if (romFolder == null && !anySystemFolder) return@LaunchedEffect
         scanning = true
         scanCount = 0
         val fresh = withContext(Dispatchers.IO) {
-            scanRoms(activity, folder) { n -> scanCount = n }
+            scanAll(activity, activity.settings) { n -> scanCount = n }
         }
         library = fresh
         withContext(Dispatchers.IO) { saveLibrary(activity, fresh) }
@@ -85,6 +86,7 @@ fun LauncherRoot(activity: MainActivity) {
                             activity, library, scanState,
                             onPickFolder = { picker.launch(null) },
                             onOpenSettings = { showSettings = true },
+                            onRescan = { rescanKey++ },
                         )
                     }
                     else -> NormalLayout(activity, onOpenSettings = { showSettings = true })

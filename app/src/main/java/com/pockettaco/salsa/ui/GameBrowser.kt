@@ -1,6 +1,9 @@
 package com.pockettaco.salsa.ui
 
+import android.content.Intent
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -30,6 +33,7 @@ private sealed interface Screen {
     data object Home : Screen
     data class Games(val system: GameSystem) : Screen
     data object Apps : Screen
+    data object GetEmulators : Screen
 }
 
 /**
@@ -43,11 +47,18 @@ fun GameBrowser(
     scan: ScanState,
     onPickFolder: () -> Unit,
     onOpenSettings: () -> Unit,
+    onRescan: () -> Unit = {},
 ) {
     var screen by remember { mutableStateOf<Screen>(Screen.Home) }
     var lastSystem by remember { mutableStateOf<GameSystem?>(null) }
     var accent by remember { mutableStateOf(Color(0xFF4B2FD6)) }
-    val emulators = remember { installedEmulators(activity) }
+    // Checked again whenever you come back to the launcher (say, after installing one).
+    val emulators = remember(FocusKick.count.intValue) { installedEmulators(activity) }
+    // A phone with no emulators: offer downloads first (once per visit).
+    var offeredDownloads by remember { mutableStateOf(false) }
+    LaunchedEffect(emulators.isEmpty()) {
+        if (emulators.isEmpty() && !offeredDownloads) { offeredDownloads = true; screen = Screen.GetEmulators }
+    }
     val tacoName by activity.watcher.deviceName.collectAsStateWithLifecycle()
 
     DisposableEffect(screen) {
@@ -84,14 +95,17 @@ fun GameBrowser(
                         library, emulators.size, scan, lastSystem,
                         onFocusSystem = { accent = lookFor(it).bottom },
                         onOpenSystem = { lastSystem = it; screen = Screen.Games(it) },
-                        onOpenApps = { screen = Screen.Apps },
+                        onOpenApps = { screen = if (emulators.isEmpty()) Screen.GetEmulators else Screen.Apps },
                         onOpenSettings = onOpenSettings,
                         onPickFolder = onPickFolder,
                     )
-                    is Screen.Games -> GamesList(activity, s.system, library[s.system].orEmpty(), emulators) {
+                    is Screen.Games -> GamesList(activity, s.system, library[s.system].orEmpty(), emulators,
+                        onRescan = onRescan, onGetEmulators = { screen = Screen.GetEmulators }) {
                         screen = Screen.Home
                     }
-                    Screen.Apps -> EmulatorList(activity, emulators) { screen = Screen.Home }
+                    Screen.Apps -> EmulatorList(activity, emulators,
+                        onGetMore = { screen = Screen.GetEmulators }) { screen = Screen.Home }
+                    Screen.GetEmulators -> GetEmulatorsList(activity, emulators) { screen = Screen.Home }
                 }
             }
             HintBar(
@@ -173,15 +187,26 @@ private fun GamesList(
     system: GameSystem,
     games: List<Game>,
     emulators: List<Emulator>,
+    onRescan: () -> Unit,
+    onGetEmulators: () -> Unit,
     onBack: () -> Unit,
 ) {
     val look = lookFor(system.id)
+    var systemFolder by remember { mutableStateOf(activity.settings.folderFor(system.id)) }
+    val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) {
+            runCatching {
+                activity.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            activity.settings.setFolderFor(system.id, uri)
+            systemFolder = uri
+            onRescan()
+        }
+    }
     val first = remember { FocusRequester() }
     LaunchedEffect(FocusKick.count.intValue) { runCatching { first.requestFocus() } }
-    val choices = emulators.filter { system.id in it.systems }
-    var current by remember {
-        mutableStateOf(choices.firstOrNull { it.pkg == activity.settings.emulatorFor(system.id) } ?: choices.firstOrNull())
-    }
+    val choices = remember(emulators) { emulatorChoices(activity, system, emulators) }
+    var current by remember(choices) { mutableStateOf(currentEmulator(activity, system, emulators)) }
     var askSetup by remember { mutableStateOf<Game?>(null) }
 
     // While the prompt is up it replaces the list, so the D-pad can't wander behind it.
@@ -196,9 +221,8 @@ private fun GamesList(
             item("back") { GameCard("Back", "or press B", SETTINGS_LOOK, tile = "←", onClick = onBack) }
             item("emu") {
                 if (choices.isEmpty()) {
-                    GameCard("Get RetroArch", "Free, plays every system", EMULATORS_LOOK, tile = "↓") {
-                        runCatching { activity.startActivity(getRetroArchIntent()) }
-                    }
+                    GameCard("Get an emulator", "RetroArch recommended: free, plays almost everything",
+                        EMULATORS_LOOK, tile = "↓", onClick = onGetEmulators)
                 } else GameCard(
                     "Open ${current?.name}",
                     "Games below play with it",
@@ -213,6 +237,13 @@ private fun GamesList(
                     current = next
                     activity.settings.setEmulatorFor(system.id, next.pkg)
                 }
+            }
+            item("folder") {
+                GameCard(
+                    if (systemFolder == null) "Add a folder for ${system.name}" else "Folder: ${folderLabel(systemFolder)}",
+                    if (systemFolder == null) "Games also come from your main folder" else "Press A to pick a different folder",
+                    SETTINGS_LOOK, tile = "📁",
+                ) { folderPicker.launch(null) }
             }
             items(games, key = { it.uri.toString() }) { game ->
                 GameCard(game.title, look = look,
@@ -301,7 +332,7 @@ private fun RetroArchSetupPrompt(
 }
 
 @Composable
-private fun EmulatorList(activity: MainActivity, emulators: List<Emulator>, onBack: () -> Unit) {
+private fun EmulatorList(activity: MainActivity, emulators: List<Emulator>, onGetMore: () -> Unit, onBack: () -> Unit) {
     val first = remember { FocusRequester() }
     LaunchedEffect(FocusKick.count.intValue) { runCatching { first.requestFocus() } }
     Column(Modifier.fillMaxSize()) {
@@ -312,11 +343,41 @@ private fun EmulatorList(activity: MainActivity, emulators: List<Emulator>, onBa
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 6.dp)) {
             item("back") { GameCard("Back", "or press B", SETTINGS_LOOK, tile = "←", onClick = onBack) }
             items(emulators, key = { it.pkg }) { emu ->
-                GameCard(emu.name, emu.systems.joinToString(" · ") { lookFor(it).short }, EMULATORS_LOOK,
+                // Which systems use this emulator right now.
+                val usedFor = SYSTEMS.filter { currentEmulator(activity, it, emulators)?.pkg == emu.pkg }
+                GameCard(emu.name,
+                    if (usedFor.isEmpty()) "Not used for any system yet" else "Plays: " + usedFor.joinToString(" · ") { lookFor(it.id).short },
+                    EMULATORS_LOOK,
                     focusRequester = if (emu == emulators.first()) first else null) {
                     openAppFitted(activity, emu.pkg)
                 }
             }
+            item("more") { GameCard("Get more emulators", "Free downloads", EMULATORS_LOOK, tile = "↓", onClick = onGetMore) }
+        }
+    }
+}
+
+/** Download suggestions, RetroArch first. Shown on its own when the phone has no emulators. */
+@Composable
+private fun GetEmulatorsList(activity: MainActivity, emulators: List<Emulator>, onBack: () -> Unit) {
+    val first = remember { FocusRequester() }
+    LaunchedEffect(FocusKick.count.intValue) { runCatching { first.requestFocus() } }
+    val have = emulators.map { it.pkg }.toSet()
+    Column(Modifier.fillMaxSize()) {
+        Column(Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
+            Text(if (emulators.isEmpty()) "No emulators yet" else "Get emulators",
+                color = TextBright, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+            Text("Games need an emulator app. Start with RetroArch.", color = TextDim, fontSize = 13.sp)
+        }
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 6.dp)) {
+            SUGGESTED_EMULATORS.forEachIndexed { i, s ->
+                item(s.pkg) {
+                    GameCard(s.name, if (s.pkg in have) "Installed" else s.why, EMULATORS_LOOK,
+                        tile = if (s.pkg in have) "✓" else "↓",
+                        focusRequester = if (i == 0) first else null) { openStorePage(activity, s.pkg) }
+                }
+            }
+            item("back") { GameCard("Back", "or press B", SETTINGS_LOOK, tile = "←", onClick = onBack) }
         }
     }
 }
