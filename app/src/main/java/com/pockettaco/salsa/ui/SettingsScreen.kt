@@ -63,6 +63,8 @@ fun SettingsScreen(
         Slider(value = covered, onValueChange = onCoveredChange, valueRange = 0f..0.6f, steps = 11)
         GameWindowSection(activity, covered)
 
+        ButtonMappingSection(activity)
+
         Text("App icon", color = Color.White, fontWeight = FontWeight.Bold)
         var icon by remember { mutableStateOf(currentAppIcon(activity)) }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {

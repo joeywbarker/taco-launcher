@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Taco Launcher</string>
+    <string name="mapper_name">Taco Launcher buttons</string>
+    <string name="mapper_description">Lets Pocket Taco buttons and combos (like Start + Select) do things anywhere, even inside emulators: go home, go back, open Taco Launcher, take a screenshot and more. It only listens to controller buttons and never reads what is on screen.</string>
 </resources>

@@ -22,6 +22,9 @@ class MainActivity : ComponentActivity() {
         if (isTopResumedActivity) gameWindowOpen.value = false
     }
 
+    /** Set by Settings while it waits for you to press buttons for a new mapping. */
+    var onKeyCapture: ((KeyEvent) -> Unit)? = null
+
     /** Set by the UI so the controller's B button can step back a screen. */
     var onBackRequest: (() -> Boolean)? = null
 
@@ -48,6 +51,7 @@ class MainActivity : ComponentActivity() {
      * on Back, so at the top level B simply does nothing.
      */
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        onKeyCapture?.let { it(event); return true }
         when (event.keyCode) {
             KeyEvent.KEYCODE_BUTTON_A -> return super.dispatchKeyEvent(
                 KeyEvent(event.action, KeyEvent.KEYCODE_DPAD_CENTER)
