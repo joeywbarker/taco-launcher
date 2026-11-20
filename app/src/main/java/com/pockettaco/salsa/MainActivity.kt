@@ -76,7 +76,10 @@ class MainActivity : ComponentActivity() {
         when (code) {
             KeyEvent.KEYCODE_BUTTON_A -> {
                 // Keep the controller's details on the event; just make it a "press".
-                val handled = super.dispatchKeyEvent(KeyEvent.changeKeyCode(event, KeyEvent.KEYCODE_DPAD_CENTER))
+                val handled = super.dispatchKeyEvent(KeyEvent(
+                    event.downTime, event.eventTime, event.action, KeyEvent.KEYCODE_DPAD_CENTER,
+                    event.repeatCount, event.metaState, event.deviceId, event.scanCode, event.flags, event.source,
+                ))
                 // Nothing focused, so nothing was pressed: put focus back on the menu.
                 if (!handled && event.action == KeyEvent.ACTION_UP) FocusKick.kick()
                 return true
