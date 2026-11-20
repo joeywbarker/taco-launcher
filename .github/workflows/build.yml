@@ -28,15 +28,19 @@ jobs:
           gradle-version: "8.14.3"
 
       - name: Build debug APK
-        run: gradle :app:assembleDebug
+        run: gradle :app:assembleDebug -PbuildNumber=${{ github.run_number }}
 
+      # Two copies: one with the version in its name (a new file name every update),
+      # and one always called TacoLauncher.apk for the never-changing link.
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk TacoLauncher.apk
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk TacoLauncher.apk
+          cp app/build/outputs/apk/debug/app-debug.apk TacoLauncher-v1.0.${{ github.run_number }}.apk
 
       - uses: actions/upload-artifact@v4
         with:
           name: TacoLauncher
-          path: TacoLauncher.apk
+          path: TacoLauncher-v1.0.${{ github.run_number }}.apk
 
       - name: Publish to the "latest" release
         if: github.ref == 'refs/heads/main'
@@ -47,3 +51,15 @@ jobs:
           body: Built from ${{ github.sha }}. Download TacoLauncher.apk on your phone and open it to install.
           prerelease: true
           files: TacoLauncher.apk
+
+      # Its own release per version. github.com/joeywbarker/taco-launcher/releases/latest
+      # always opens the newest one.
+      - name: Publish this version
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: Taco Launcher v1.0.${{ github.run_number }}
+          body: Built from ${{ github.sha }}. Download TacoLauncher-v1.0.${{ github.run_number }}.apk on your phone and open it to install.
+          make_latest: true
+          files: TacoLauncher-v1.0.${{ github.run_number }}.apk

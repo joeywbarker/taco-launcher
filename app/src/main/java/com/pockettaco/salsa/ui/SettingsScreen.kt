@@ -152,6 +152,12 @@ fun SettingsScreen(
         Text("Devices Android sees: ${devices.joinToString().ifEmpty { "none" }}",
             color = Color(0xFF777777), style = MaterialTheme.typography.bodySmall)
 
+        val version = runCatching {
+            activity.packageManager.getPackageInfo(activity.packageName, 0).versionName
+        }.getOrNull()
+        Text("Taco Launcher version ${version ?: "?"}",
+            color = Color(0xFF777777), style = MaterialTheme.typography.bodySmall)
+
         TextButton(onClick = onClose) { Text("Done") }
     }
 }

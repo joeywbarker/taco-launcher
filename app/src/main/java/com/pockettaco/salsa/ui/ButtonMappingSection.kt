@@ -74,9 +74,16 @@ fun ButtonMappingSection(activity: MainActivity) {
                 "If Android says it's restricted: Settings → Apps → Taco Launcher → ⋮ → Allow restricted settings, then try again.",
             color = Color(0xFFFFC107), style = MaterialTheme.typography.bodySmall,
         )
-        OutlinedButton(onClick = {
-            activity.startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))
-        }) { Text("Turn on button mapping") }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = {
+                activity.startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            }) { Text("Turn on button mapping") }
+            // App info is where the ⋮ → "Allow restricted settings" option lives.
+            OutlinedButton(onClick = {
+                activity.startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    android.net.Uri.parse("package:${activity.packageName}")))
+            }) { Text("App info") }
+        }
     } else {
         Text("On: these work inside games. In this menu A and B always work normally.",
             color = Color(0xFF4CFF9A), style = MaterialTheme.typography.bodySmall)
