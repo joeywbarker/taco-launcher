@@ -25,6 +25,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import com.pockettaco.salsa.AppIcon
+import com.pockettaco.salsa.buttonName
 import com.pockettaco.salsa.FocusKick
 import com.pockettaco.salsa.MainActivity
 import com.pockettaco.salsa.currentAppIcon
@@ -67,15 +68,7 @@ fun SettingsScreen(
             Spacer(Modifier.width(12.dp))
             Text("Settings", style = MaterialTheme.typography.headlineSmall, color = Color.White)
         }
-        var swap by remember { mutableStateOf(activity.settings.swapAB) }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Swap A and B", color = Color.White)
-                Text("Turn on if B selects instead of going back. Last button pressed: ${activity.lastButton.value ?: "none"}",
-                    color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall)
-            }
-            Switch(swap, { swap = it; activity.settings.swapAB = it })
-        }
+        MenuButtonsSection(activity)
 
         Text("Screen covered by the Pocket Taco: ${(covered * 100).toInt()}%", color = Color.White)
         Slider(value = covered, onValueChange = onCoveredChange, valueRange = 0f..0.6f, steps = 11)
@@ -159,5 +152,60 @@ fun SettingsScreen(
             color = Color(0xFF777777), style = MaterialTheme.typography.bodySmall)
 
         TextButton(onClick = onClose) { Text("Done") }
+    }
+}
+
+/**
+ * Teach the launcher which Taco button is Select (A) and which is Back (B), so it works
+ * whatever codes the controller sends.
+ */
+@Composable
+private fun MenuButtonsSection(activity: MainActivity) {
+    var selectKey by remember { mutableIntStateOf(activity.settings.selectKey) }
+    var backKey by remember { mutableIntStateOf(activity.settings.backKey) }
+    /** 0 = not teaching, 1 = waiting for A, 2 = waiting for B. */
+    var step by remember { mutableIntStateOf(0) }
+    var pickedSelect by remember { mutableIntStateOf(0) }
+
+    fun stop() { step = 0; activity.onKeyCapture = null }
+    fun start() {
+        step = 1
+        activity.onKeyCapture = { e ->
+            if (e.action == android.view.KeyEvent.ACTION_UP) {
+                activity.lastButton.value = "${buttonName(e.keyCode)} (code ${e.keyCode})"
+                if (step == 1) { pickedSelect = e.keyCode; step = 2 }
+                else if (step == 2 && e.keyCode != pickedSelect) {
+                    activity.settings.selectKey = pickedSelect
+                    activity.settings.backKey = e.keyCode
+                    selectKey = pickedSelect
+                    backKey = e.keyCode
+                    stop()
+                }
+            }
+        }
+    }
+    LaunchedEffect(step) { if (step != 0) { kotlinx.coroutines.delay(15000); stop() } }
+    DisposableEffect(Unit) { onDispose { stop() } }
+
+    Text("A and B buttons", color = Color.White, fontWeight = FontWeight.Bold)
+    Text(
+        when (step) {
+            1 -> "Press the button marked A on your Taco (select)…"
+            2 -> "Now press the button marked B (back)…"
+            else -> "A (select) = ${buttonName(selectKey)} (code $selectKey)   ·   " +
+                "B (back) = ${buttonName(backKey)} (code $backKey)\n" +
+                "Last button pressed: ${activity.lastButton.value ?: "none"}"
+        },
+        color = if (step != 0) Color(0xFF4CFF9A) else Color(0xFFAAAAAA),
+        style = MaterialTheme.typography.bodySmall,
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(onClick = { if (step == 0) start() else stop() }) {
+            Text(if (step == 0) "Teach A and B" else "Cancel")
+        }
+        if (step == 0) TextButton(onClick = {
+            activity.settings.selectKey = backKey; activity.settings.backKey = selectKey
+            val s = selectKey; selectKey = backKey; backKey = s
+        }) { Text("Swap them") }
     }
 }

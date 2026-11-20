@@ -197,10 +197,15 @@ private fun GamesList(
                         runCatching { activity.startActivity(getRetroArchIntent()) }
                     }
                 } else GameCard(
-                    "Play with ${current?.name}",
-                    if (choices.size > 1) "Press A to switch emulator" else null,
+                    "Open ${current?.name}",
+                    "Games below play with it",
                     EMULATORS_LOOK, tile = "▶",
                 ) {
+                    current?.let { openAppFitted(activity, it.pkg) }
+                }
+            }
+            if (choices.size > 1) item("switch") {
+                GameCard("Switch emulator", "Now: ${current?.name}", EMULATORS_LOOK, tile = "⇄") {
                     val next = choices[(choices.indexOf(current) + 1) % choices.size]
                     current = next
                     activity.settings.setEmulatorFor(system.id, next.pkg)

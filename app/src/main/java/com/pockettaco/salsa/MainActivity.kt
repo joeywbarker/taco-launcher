@@ -65,15 +65,18 @@ class MainActivity : ComponentActivity() {
      */
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         onKeyCapture?.let { it(event); return true }
-        lastButton.value = buttonName(event.keyCode)
-        // Game Boy style controllers label the buttons the other way round from Android.
-        val code = when {
-            !settings.swapAB -> event.keyCode
-            event.keyCode == KeyEvent.KEYCODE_BUTTON_A -> KeyEvent.KEYCODE_BUTTON_B
-            event.keyCode == KeyEvent.KEYCODE_BUTTON_B -> KeyEvent.KEYCODE_BUTTON_A
+        if (event.action == KeyEvent.ACTION_DOWN) {
+            lastButton.value = "${buttonName(event.keyCode)} (code ${event.keyCode})"
+        }
+        // Whatever codes the controller sends, use the buttons taught in Settings.
+        val code = when (event.keyCode) {
+            settings.backKey -> KeyEvent.KEYCODE_BUTTON_B
+            settings.selectKey -> KeyEvent.KEYCODE_BUTTON_A
+            KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_BUTTON_B -> KeyEvent.KEYCODE_UNKNOWN
             else -> event.keyCode
         }
         when (code) {
+            KeyEvent.KEYCODE_UNKNOWN -> return true
             KeyEvent.KEYCODE_BUTTON_A -> {
                 // Keep the controller's details on the event; just make it a "press".
                 val handled = super.dispatchKeyEvent(KeyEvent(

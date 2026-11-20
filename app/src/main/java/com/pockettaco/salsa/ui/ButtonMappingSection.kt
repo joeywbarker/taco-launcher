@@ -30,8 +30,7 @@ fun ButtonMappingSection(activity: MainActivity) {
     /** The action we're waiting on a button press for, or null. */
     var listeningFor by remember { mutableStateOf<MapAction?>(null) }
     val captured = remember { mutableStateListOf<Int>() }
-    val swap = activity.settings.swapAB
-    fun name(keys: List<Int>) = keys.joinToString(" + ") { tacoButtonName(it, swap) }
+    fun name(keys: List<Int>) = keys.joinToString(" + ") { tacoButtonName(it, activity.settings) }
 
     fun update(list: List<Mapping>) { mappings = list; saveMappings(activity, list) }
 
