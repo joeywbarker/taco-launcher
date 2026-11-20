@@ -35,12 +35,20 @@ class ButtonMapperService : AccessibilityService() {
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
         if (ButtonMapperState.capturing) return false
+        val device = event.device
+        val name = device?.name?.lowercase().orEmpty()
+        // Some controllers report their buttons as a "keyboard", so also accept any real
+        // (non-virtual) device sending gamepad button codes, and anything named like the Taco.
         val fromController = event.isFromSource(InputDevice.SOURCE_GAMEPAD) ||
             event.isFromSource(InputDevice.SOURCE_JOYSTICK) ||
-            (event.device?.name?.lowercase()?.let { "gamesir" in it || "pocket" in it } == true)
+            "gamesir" in name || "pocket" in name ||
+            (device != null && !device.isVirtual && KeyEvent.isGamepadButton(event.keyCode))
         if (!fromController) return false
         reloadIfNeeded()
         val k = event.keyCode
+        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+            ButtonMapperState.lastKey = "${buttonName(k)} (code $k) from ${device?.name ?: "unknown"}"
+        }
 
         when (event.action) {
             KeyEvent.ACTION_DOWN -> {
@@ -65,10 +73,13 @@ class ButtonMapperService : AccessibilityService() {
 
     private fun perform(action: MapAction) {
         when (action) {
-            MapAction.TACO_LAUNCHER -> startActivity(
-                Intent(this, MainActivity::class.java)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-            )
+            MapAction.EXIT_GAME -> {
+                // Go to the phone's home first (Taco Launcher when it's the default home app),
+                // then bring Taco Launcher up full screen so it sits over the game window.
+                performGlobalAction(GLOBAL_ACTION_HOME)
+                handler.postDelayed({ openLauncher() }, 250)
+            }
+            MapAction.TACO_LAUNCHER -> openLauncher()
             MapAction.HOME -> performGlobalAction(GLOBAL_ACTION_HOME)
             MapAction.BACK -> performGlobalAction(GLOBAL_ACTION_BACK)
             MapAction.RECENTS -> performGlobalAction(GLOBAL_ACTION_RECENTS)
@@ -79,6 +90,22 @@ class ButtonMapperService : AccessibilityService() {
             MapAction.VOLUME_UP -> volume(AudioManager.ADJUST_RAISE)
             MapAction.VOLUME_DOWN -> volume(AudioManager.ADJUST_LOWER)
         }
+    }
+
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+
+    private fun openLauncher() {
+        val intent = Intent(this, MainActivity::class.java).addFlags(
+            Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
+                Intent.FLAG_ACTIVITY_SINGLE_TOP
+        )
+        val options = android.app.ActivityOptions.makeBasic()
+        // 1 = full screen window mode (hidden method, so call it by name).
+        runCatching {
+            android.app.ActivityOptions::class.java
+                .getMethod("setLaunchWindowingMode", Int::class.javaPrimitiveType).invoke(options, 1)
+        }
+        runCatching { startActivity(intent, options.toBundle()) }.onFailure { startActivity(intent) }
     }
 
     private fun volume(direction: Int) {
