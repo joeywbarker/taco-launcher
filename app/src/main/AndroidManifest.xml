@@ -17,6 +17,8 @@
 
     <application
         android:label="@string/app_name"
+        android:icon="@mipmap/ic_taco"
+        android:roundIcon="@mipmap/ic_taco"
         android:theme="@android:style/Theme.Material.NoActionBar"
         android:supportsRtl="true">
 
@@ -32,9 +34,47 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.HOME" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- One app-drawer entry per icon style. Exactly one is switched on at a time
+             (Settings > App icon). -->
+        <activity-alias
+            android:name=".IconTaco"
+            android:targetActivity=".MainActivity"
+            android:icon="@mipmap/ic_taco"
+            android:roundIcon="@mipmap/ic_taco"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".IconTacoName"
+            android:targetActivity=".MainActivity"
+            android:icon="@mipmap/ic_taco_name"
+            android:roundIcon="@mipmap/ic_taco_name"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".IconCatapult"
+            android:targetActivity=".MainActivity"
+            android:icon="@mipmap/ic_catapult"
+            android:roundIcon="@mipmap/ic_catapult"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
 
         <!-- Wakes up when any Bluetooth device connects; opens us if it's the Taco. -->
         <receiver
