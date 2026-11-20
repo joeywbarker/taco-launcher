@@ -75,6 +75,9 @@ fun LauncherRoot(activity: MainActivity) {
                             onClose = { showSettings = false },
                         )
                     }
+                    taco && activity.gameWindowOpen.value -> Box(Modifier.fillMaxSize().background(Color.Black)) {
+                        // Behind the game window: plain black for now. A spot for something fun later.
+                    }
                     taco -> TacoLayout(covered = covered) {
                         GameBrowser(
                             activity, library, scanState,

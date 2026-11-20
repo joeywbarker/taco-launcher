@@ -61,6 +61,7 @@ fun SettingsScreen(
 
         Text("Screen covered by the Pocket Taco: ${(covered * 100).toInt()}%", color = Color.White)
         Slider(value = covered, onValueChange = onCoveredChange, valueRange = 0f..0.6f, steps = 11)
+        GameWindowSection(activity, covered)
 
         ButtonMappingSection(activity)
 

@@ -32,6 +32,21 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("openOnConnect", true)
         set(v) = prefs.edit().putBoolean("openOnConnect", v).apply()
 
+    /** Size the game window to each console's screen shape (so the game fills it, no gaps). */
+    var autoFitGame: Boolean
+        get() = prefs.getBoolean("autoFitGame", true)
+        set(v) = prefs.edit().putBoolean("autoFitGame", v).apply()
+
+    /** Game window height as a share of the whole screen, when not auto-sized. */
+    var windowHeight: Float
+        get() = prefs.getFloat("windowHeight", 0.6f)
+        set(v) = prefs.edit().putFloat("windowHeight", v.coerceIn(0.2f, 1f)).apply()
+
+    /** Where the game window sits in the space above the Taco: 0 = top, 1 = just above the Taco. */
+    var windowPosition: Float
+        get() = prefs.getFloat("windowPosition", 1f)
+        set(v) = prefs.edit().putFloat("windowPosition", v.coerceIn(0f, 1f)).apply()
+
     /** The ROMs folder the user picked (a "tree" Uri from the system picker). */
     var romFolder: Uri?
         get() = prefs.getString("roms", null)?.let(Uri::parse)

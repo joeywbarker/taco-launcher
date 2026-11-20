@@ -213,7 +213,7 @@ private fun GamesList(
                     if (emu == null) runCatching {
                         activity.startActivity(openWithAnyApp(game.uri))
                     } else runCatching {
-                        startFitted(activity, launchIntent(activity, emu, system, game.uri))
+                        startFitted(activity, launchIntent(activity, emu, system, game.uri), system)
                     }.onFailure {
                         Toast.makeText(activity, "${emu.name} couldn't open that game. Pick another app.", Toast.LENGTH_LONG).show()
                         runCatching { activity.startActivity(openWithAnyApp(game.uri)) }
