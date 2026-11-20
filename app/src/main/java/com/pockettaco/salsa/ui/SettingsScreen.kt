@@ -102,10 +102,15 @@ fun SettingsScreen(
         Text("Your home screen can take a few seconds to show the new icon.",
             color = Color(0xFF777777), style = MaterialTheme.typography.bodySmall)
 
+        Text("Games", color = Color.White, fontWeight = FontWeight.Bold)
+        Text("Main folder: ${com.pockettaco.salsa.folderLabel(activity.settings.romFolder)}",
+            color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = onPickFolder) { Text("Choose games folder") }
             OutlinedButton(onClick = onRescan) { Text("Rescan games") }
         }
+
+        SystemsSection(activity, onRescan)
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Treat any controller as a Pocket Taco", color = Color.White, modifier = Modifier.weight(1f))
@@ -165,36 +170,52 @@ private fun MenuButtonsSection(activity: MainActivity) {
     var backKey by remember { mutableIntStateOf(activity.settings.backKey) }
     /** 0 = not teaching, 1 = waiting for A, 2 = waiting for B. */
     var step by remember { mutableIntStateOf(0) }
-    var pickedSelect by remember { mutableIntStateOf(0) }
+    var pickedKey by remember { mutableIntStateOf(0) }
+    var pickedScan by remember { mutableIntStateOf(0) }
+    var note by remember { mutableStateOf<String?>(null) }
 
     fun stop() { step = 0; activity.onKeyCapture = null }
     fun start() {
         step = 1
+        note = null
         activity.onKeyCapture = { e ->
             if (e.action == android.view.KeyEvent.ACTION_UP) {
-                activity.lastButton.value = "${buttonName(e.keyCode)} (code ${e.keyCode})"
-                if (step == 1) { pickedSelect = e.keyCode; step = 2 }
-                else if (step == 2 && e.keyCode != pickedSelect) {
-                    activity.settings.selectKey = pickedSelect
-                    activity.settings.backKey = e.keyCode
-                    selectKey = pickedSelect
-                    backKey = e.keyCode
-                    stop()
+                val sig = "${buttonName(e.keyCode)} (code ${e.keyCode}, scan ${e.scanCode})"
+                activity.lastButton.value = sig
+                if (step == 1) {
+                    pickedKey = e.keyCode; pickedScan = e.scanCode; step = 2
+                } else if (step == 2) {
+                    if (e.keyCode == pickedKey && e.scanCode == pickedScan) {
+                        note = "That's the same signal as A: $sig. Press the B button."
+                    } else {
+                        // Only keep the scan detail when it's needed to tell the two apart.
+                        val sameCode = e.keyCode == pickedKey
+                        activity.settings.selectKey = pickedKey
+                        activity.settings.selectScan = if (sameCode) pickedScan else 0
+                        activity.settings.backKey = e.keyCode
+                        activity.settings.backScan = if (sameCode) e.scanCode else 0
+                        selectKey = pickedKey
+                        backKey = e.keyCode
+                        note = "Saved."
+                        stop()
+                    }
                 }
             }
         }
     }
-    LaunchedEffect(step) { if (step != 0) { kotlinx.coroutines.delay(15000); stop() } }
+    LaunchedEffect(step) { if (step != 0) { kotlinx.coroutines.delay(20000); stop() } }
     DisposableEffect(Unit) { onDispose { stop() } }
 
     Text("A and B buttons", color = Color.White, fontWeight = FontWeight.Bold)
     Text(
         when (step) {
             1 -> "Press the button marked A on your Taco (select)…"
-            2 -> "Now press the button marked B (back)…"
+            2 -> (note ?: "Now press the button marked B (back)…") +
+                "\nA was: ${buttonName(pickedKey)} (code $pickedKey, scan $pickedScan)"
             else -> "A (select) = ${buttonName(selectKey)} (code $selectKey)   ·   " +
                 "B (back) = ${buttonName(backKey)} (code $backKey)\n" +
-                "Last button pressed: ${activity.lastButton.value ?: "none"}"
+                "Last button pressed: ${activity.lastButton.value ?: "none"}" +
+                (note?.let { "\n$it" } ?: "")
         },
         color = if (step != 0) Color(0xFF4CFF9A) else Color(0xFFAAAAAA),
         style = MaterialTheme.typography.bodySmall,
@@ -204,8 +225,81 @@ private fun MenuButtonsSection(activity: MainActivity) {
             Text(if (step == 0) "Teach A and B" else "Cancel")
         }
         if (step == 0) TextButton(onClick = {
-            activity.settings.selectKey = backKey; activity.settings.backKey = selectKey
-            val s = selectKey; selectKey = backKey; backKey = s
+            val st = activity.settings
+            val k = st.selectKey; val sc = st.selectScan
+            st.selectKey = st.backKey; st.selectScan = st.backScan
+            st.backKey = k; st.backScan = sc
+            selectKey = st.selectKey; backKey = st.backKey
         }) { Text("Swap them") }
+    }
+}
+
+/**
+ * One row per system: which emulator it opens with (change to any installed app)
+ * and an optional extra folder just for that system.
+ */
+@Composable
+private fun SystemsSection(activity: MainActivity, onRescan: () -> Unit) {
+    val installed = remember { com.pockettaco.salsa.installedEmulators(activity) }
+    var version by remember { mutableIntStateOf(0) }   // bump to redraw after a change
+    var openFor by remember { mutableStateOf<String?>(null) }  // system whose app list is open
+    var showAllApps by remember { mutableStateOf(false) }
+    var folderFor by remember { mutableStateOf<String?>(null) }
+    val allApps = remember(showAllApps) { if (showAllApps) com.pockettaco.salsa.loadApps(activity) else emptyList() }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        val id = folderFor
+        if (uri != null && id != null) {
+            runCatching {
+                activity.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            activity.settings.setFolderFor(id, uri)
+            version++
+            onRescan()
+        }
+    }
+
+    Text("Systems", color = Color.White, fontWeight = FontWeight.Bold)
+    Text("Pick the app each system opens with, and add a folder if a system's games live somewhere else.",
+        color = Color(0xFF999999), style = MaterialTheme.typography.bodySmall)
+    key(version) {
+        com.pockettaco.salsa.SYSTEMS.forEach { system ->
+            val chosen = activity.settings.emulatorFor(system.id)
+            val current = com.pockettaco.salsa.currentEmulator(activity, system, installed)
+            val folder = activity.settings.folderFor(system.id)
+            Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                Text(system.name, color = Color.White)
+                Text(
+                    "App: ${current?.name ?: "none installed"}${if (chosen == null && current != null) " (automatic)" else ""}" +
+                        "   ·   Extra folder: ${if (folder == null) "none" else com.pockettaco.salsa.folderLabel(folder)}",
+                    color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { openFor = if (openFor == system.id) null else system.id; showAllApps = false }) {
+                        Text(if (openFor == system.id) "Close" else "Change app")
+                    }
+                    OutlinedButton(onClick = { folderFor = system.id; picker.launch(null) }) { Text("Folder") }
+                    if (folder != null) TextButton(onClick = {
+                        activity.settings.setFolderFor(system.id, null); version++; onRescan()
+                    }) { Text("Remove folder") }
+                }
+                if (openFor == system.id) {
+                    fun pick(pkg: String?) {
+                        activity.settings.setEmulatorFor(system.id, pkg); openFor = null; version++
+                    }
+                    TextButton(onClick = { pick(null) }) { Text("Automatic (best installed emulator)") }
+                    installed.filter { system.id in it.systems }.forEach { emu ->
+                        TextButton(onClick = { pick(emu.pkg) }) {
+                            Text(emu.name + if (emu.pkg == current?.pkg) "  ✓" else "")
+                        }
+                    }
+                    if (!showAllApps) TextButton(onClick = { showAllApps = true }) { Text("Show all apps…") }
+                    else allApps.forEach { app ->
+                        TextButton(onClick = { pick(app.pkg) }) {
+                            Text(app.label + if (app.pkg == current?.pkg) "  ✓" else "")
+                        }
+                    }
+                }
+            }
+        }
     }
 }

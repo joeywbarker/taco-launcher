@@ -64,6 +64,22 @@ class Settings(context: Context) {
             if (swapAB) android.view.KeyEvent.KEYCODE_BUTTON_A else android.view.KeyEvent.KEYCODE_BUTTON_B)
         set(v) = prefs.edit().putInt("backKey", v).apply()
 
+    /** Extra detail for the taught buttons: the controller's own number for the button (0 = any). */
+    var selectScan: Int
+        get() = prefs.getInt("selectScan", 0)
+        set(v) = prefs.edit().putInt("selectScan", v).apply()
+    var backScan: Int
+        get() = prefs.getInt("backScan", 0)
+        set(v) = prefs.edit().putInt("backScan", v).apply()
+
+    fun isSelect(e: android.view.KeyEvent) = e.keyCode == selectKey && (selectScan == 0 || e.scanCode == selectScan)
+    fun isBack(e: android.view.KeyEvent) = e.keyCode == backKey && (backScan == 0 || e.scanCode == backScan)
+
+    /** The person said the Taco is set up in RetroArch, so stop asking before games. */
+    var retroArchPadReady: Boolean
+        get() = prefs.getBoolean("retroArchPadReady", false)
+        set(v) = prefs.edit().putBoolean("retroArchPadReady", v).apply()
+
     /** The ROMs folder the user picked (a "tree" Uri from the system picker). */
     var romFolder: Uri?
         get() = prefs.getString("roms", null)?.let(Uri::parse)
@@ -71,6 +87,11 @@ class Settings(context: Context) {
 
     /** Which emulator app the user chose for each system, e.g. "gba" -> package. */
     fun emulatorFor(system: String): String? = prefs.getString("emu_$system", null)
-    fun setEmulatorFor(system: String, pkg: String) =
+    fun setEmulatorFor(system: String, pkg: String?) =
         prefs.edit().putString("emu_$system", pkg).apply()
+
+    /** An extra games folder just for one system (on top of the main folder), or null. */
+    fun folderFor(system: String): Uri? = prefs.getString("folder_$system", null)?.let(Uri::parse)
+    fun setFolderFor(system: String, folder: Uri?) =
+        prefs.edit().putString("folder_$system", folder?.toString()).apply()
 }
