@@ -35,6 +35,8 @@ class ButtonMapperService : AccessibilityService() {
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
         if (ButtonMapperState.capturing) return false
+        // In Taco Launcher's own menus, every button belongs to the menus (A select, B back...).
+        if (ButtonMapperState.launcherInFront) { held.clear(); swallowed.clear(); return false }
         val device = event.device
         val name = device?.name?.lowercase().orEmpty()
         // Some controllers report their buttons as a "keyboard", so also accept any real

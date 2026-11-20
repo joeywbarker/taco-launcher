@@ -119,7 +119,7 @@ private fun HomeBubbles(
     val systems = library.entries.toList()
     // Land on the system you came back from, or the first one.
     val focusIndex = systems.indexOfFirst { it.key == lastSystem }.coerceAtLeast(0)
-    LaunchedEffect(systems.size) { runCatching { first.requestFocus() } }
+    LaunchedEffect(systems.size, FocusKick.count.intValue) { runCatching { first.requestFocus() } }
 
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
@@ -176,7 +176,7 @@ private fun GamesList(
 ) {
     val look = lookFor(system.id)
     val first = remember { FocusRequester() }
-    LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
+    LaunchedEffect(FocusKick.count.intValue) { runCatching { first.requestFocus() } }
     val choices = emulators.filter { system.id in it.systems }
     var current by remember {
         mutableStateOf(choices.firstOrNull { it.pkg == activity.settings.emulatorFor(system.id) } ?: choices.firstOrNull())
@@ -236,7 +236,7 @@ private fun GamesList(
 @Composable
 private fun EmulatorList(activity: MainActivity, emulators: List<Emulator>, onBack: () -> Unit) {
     val first = remember { FocusRequester() }
-    LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
+    LaunchedEffect(FocusKick.count.intValue) { runCatching { first.requestFocus() } }
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
             Text("Emulators", color = TextBright, fontSize = 26.sp, fontWeight = FontWeight.Bold)
