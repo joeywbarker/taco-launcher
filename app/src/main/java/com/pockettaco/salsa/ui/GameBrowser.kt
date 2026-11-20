@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -181,8 +182,10 @@ private fun GamesList(
     var current by remember {
         mutableStateOf(choices.firstOrNull { it.pkg == activity.settings.emulatorFor(system.id) } ?: choices.firstOrNull())
     }
+    var askSetup by remember { mutableStateOf<Game?>(null) }
 
-    Column(Modifier.fillMaxSize()) {
+    // While the prompt is up it replaces the list, so the D-pad can't wander behind it.
+    if (askSetup == null) Column(Modifier.fillMaxSize()) {
         Row(Modifier.padding(horizontal = 20.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Column {
                 Text(system.name, color = TextBright, fontSize = 26.sp, fontWeight = FontWeight.Bold)
@@ -215,24 +218,83 @@ private fun GamesList(
                 GameCard(game.title, look = look,
                     focusRequester = if (game == games.first()) first else null) {
                     val emu = current
-                    if (emu == null) runCatching {
-                        activity.startActivity(openWithAnyApp(game.uri))
-                    } else {
-                        // Try the chosen emulator, then any RetroArch, and only then ask Android.
-                        val tries = listOf(emu) + choices.filter {
-                            it != emu && (it.pkg.startsWith("com.retroarch") || "retroarch" in it.name.lowercase())
-                        }
-                        val worked = tries.firstOrNull { e ->
-                            runCatching { startFitted(activity, launchIntent(activity, e, system, game.uri), system) }.isSuccess
-                        }
-                        if (worked == null) {
-                            Toast.makeText(activity, "${emu.name} couldn't open that game. Pick another app.", Toast.LENGTH_LONG).show()
-                            runCatching { activity.startActivity(openWithAnyApp(game.uri)) }
-                        } else if (worked != emu) {
-                            Toast.makeText(activity, "Opened with ${worked.name}", Toast.LENGTH_SHORT).show()
-                        }
-                    }
+                    if (emu != null && isRetroArch(emu) && !activity.settings.retroArchPadReady) {
+                        askSetup = game   // ask first; they can still play anyway
+                    } else launchGame(activity, system, emu, choices, game)
                 }
+            }
+        }
+    }
+    askSetup?.let { game ->
+        RetroArchSetupPrompt(
+            activity,
+            onSetUp = { current?.let { openAppFitted(activity, it.pkg) }; askSetup = null },
+            onPlay = { askSetup = null; launchGame(activity, system, current, choices, game) },
+            onDone = {
+                activity.settings.retroArchPadReady = true
+                askSetup = null
+                launchGame(activity, system, current, choices, game)
+            },
+            onCancel = { askSetup = null },
+        )
+    }
+}
+
+private fun isRetroArch(e: Emulator) = e.pkg.startsWith("com.retroarch") || "retroarch" in e.name.lowercase()
+
+private fun launchGame(activity: MainActivity, system: GameSystem, emu: Emulator?, choices: List<Emulator>, game: Game) {
+    if (emu == null) {
+        runCatching { activity.startActivity(openWithAnyApp(game.uri)) }
+        return
+    }
+    // Try the chosen emulator, then any RetroArch, and only then ask Android.
+    val tries = listOf(emu) + choices.filter { it != emu && isRetroArch(it) }
+    val worked = tries.firstOrNull { e ->
+        runCatching { startFitted(activity, launchIntent(activity, e, system, game.uri), system) }.isSuccess
+    }
+    if (worked == null) {
+        Toast.makeText(activity, "${emu.name} couldn't open that game. Pick another app.", Toast.LENGTH_LONG).show()
+        runCatching { activity.startActivity(openWithAnyApp(game.uri)) }
+    } else if (worked != emu) {
+        Toast.makeText(activity, "Opened with ${worked.name}", Toast.LENGTH_SHORT).show()
+    }
+}
+
+/**
+ * Shown over the game list before a RetroArch game when the Taco hasn't been set up in
+ * RetroArch yet. Taco Launcher can't look inside RetroArch's files, so it asks.
+ */
+@Composable
+private fun RetroArchSetupPrompt(
+    activity: MainActivity,
+    onSetUp: () -> Unit,
+    onPlay: () -> Unit,
+    onDone: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    val first = remember { FocusRequester() }
+    LaunchedEffect(FocusKick.count.intValue) { runCatching { first.requestFocus() } }
+    // B closes the prompt; give back whatever B did before.
+    DisposableEffect(Unit) {
+        val previous = activity.onBackRequest
+        val handler: () -> Boolean = { onCancel(); true }
+        activity.onBackRequest = handler
+        onDispose { if (activity.onBackRequest === handler) activity.onBackRequest = previous }
+    }
+    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.92f))) {
+        Column(Modifier.fillMaxSize().padding(vertical = 8.dp)) {
+            Text("Set up your Taco in RetroArch?", color = TextBright, fontSize = 22.sp,
+                fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 20.dp))
+            Text(
+                "RetroArch doesn't know the Pocket Taco's buttons yet. In RetroArch: Settings → Input → " +
+                    "Port 1 Controls → Set All Controls, then Save Controller Profile. You only do this once.",
+                color = TextDim, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+            )
+            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 6.dp)) {
+                item { GameCard("Set up now", "Opens RetroArch's menu", EMULATORS_LOOK, tile = "⚙",
+                    focusRequester = first, onClick = onSetUp) }
+                item { GameCard("Play anyway", "Ask again next time", SETTINGS_LOOK, tile = "▶", onClick = onPlay) }
+                item { GameCard("Already set up, don't ask again", null, SETTINGS_LOOK, tile = "✓", onClick = onDone) }
             }
         }
     }

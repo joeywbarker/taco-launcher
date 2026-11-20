@@ -75,6 +75,11 @@ class Settings(context: Context) {
     fun isSelect(e: android.view.KeyEvent) = e.keyCode == selectKey && (selectScan == 0 || e.scanCode == selectScan)
     fun isBack(e: android.view.KeyEvent) = e.keyCode == backKey && (backScan == 0 || e.scanCode == backScan)
 
+    /** The person said the Taco is set up in RetroArch, so stop asking before games. */
+    var retroArchPadReady: Boolean
+        get() = prefs.getBoolean("retroArchPadReady", false)
+        set(v) = prefs.edit().putBoolean("retroArchPadReady", v).apply()
+
     /** The ROMs folder the user picked (a "tree" Uri from the system picker). */
     var romFolder: Uri?
         get() = prefs.getString("roms", null)?.let(Uri::parse)
