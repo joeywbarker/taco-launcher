@@ -212,11 +212,20 @@ private fun GamesList(
                     val emu = current
                     if (emu == null) runCatching {
                         activity.startActivity(openWithAnyApp(game.uri))
-                    } else runCatching {
-                        startFitted(activity, launchIntent(activity, emu, system, game.uri), system)
-                    }.onFailure {
-                        Toast.makeText(activity, "${emu.name} couldn't open that game. Pick another app.", Toast.LENGTH_LONG).show()
-                        runCatching { activity.startActivity(openWithAnyApp(game.uri)) }
+                    } else {
+                        // Try the chosen emulator, then any RetroArch, and only then ask Android.
+                        val tries = listOf(emu) + choices.filter {
+                            it != emu && (it.pkg.startsWith("com.retroarch") || "retroarch" in it.name.lowercase())
+                        }
+                        val worked = tries.firstOrNull { e ->
+                            runCatching { startFitted(activity, launchIntent(activity, e, system, game.uri), system) }.isSuccess
+                        }
+                        if (worked == null) {
+                            Toast.makeText(activity, "${emu.name} couldn't open that game. Pick another app.", Toast.LENGTH_LONG).show()
+                            runCatching { activity.startActivity(openWithAnyApp(game.uri)) }
+                        } else if (worked != emu) {
+                            Toast.makeText(activity, "Opened with ${worked.name}", Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
             }
