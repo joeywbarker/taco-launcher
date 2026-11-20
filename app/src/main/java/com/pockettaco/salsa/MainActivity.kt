@@ -37,6 +37,17 @@ class MainActivity : ComponentActivity() {
         settings = Settings(this)
         watcher = ControllerWatcher(this, settings)
         setContent { LauncherRoot(this) }
+        // Newer Android can send a Back button straight to the "back" system instead of to
+        // dispatchKeyEvent. Catch it there too, so teaching B and going back always work.
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                val capture = onKeyCapture
+                if (capture != null) {
+                    capture(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_BACK))
+                    capture(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_BACK))
+                } else onBackRequest?.invoke()
+            }
+        })
         if (settings.openOnConnect && !hasBluetoothPermission(this) && android.os.Build.VERSION.SDK_INT >= 31) {
             requestPermissions(arrayOf(android.Manifest.permission.BLUETOOTH_CONNECT), 1)
         }
@@ -66,13 +77,14 @@ class MainActivity : ComponentActivity() {
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         onKeyCapture?.let { it(event); return true }
         if (event.action == KeyEvent.ACTION_DOWN) {
-            lastButton.value = "${buttonName(event.keyCode)} (code ${event.keyCode})"
+            lastButton.value = "${buttonName(event.keyCode)} (code ${event.keyCode}, scan ${event.scanCode})"
         }
         // Whatever codes the controller sends, use the buttons taught in Settings.
-        val code = when (event.keyCode) {
-            settings.backKey -> KeyEvent.KEYCODE_BUTTON_B
-            settings.selectKey -> KeyEvent.KEYCODE_BUTTON_A
-            KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_BUTTON_B -> KeyEvent.KEYCODE_UNKNOWN
+        val code = when {
+            settings.isBack(event) -> KeyEvent.KEYCODE_BUTTON_B
+            settings.isSelect(event) -> KeyEvent.KEYCODE_BUTTON_A
+            event.keyCode == KeyEvent.KEYCODE_BUTTON_A || event.keyCode == KeyEvent.KEYCODE_BUTTON_B ->
+                KeyEvent.KEYCODE_UNKNOWN
             else -> event.keyCode
         }
         when (code) {

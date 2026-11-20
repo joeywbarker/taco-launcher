@@ -64,6 +64,17 @@ class Settings(context: Context) {
             if (swapAB) android.view.KeyEvent.KEYCODE_BUTTON_A else android.view.KeyEvent.KEYCODE_BUTTON_B)
         set(v) = prefs.edit().putInt("backKey", v).apply()
 
+    /** Extra detail for the taught buttons: the controller's own number for the button (0 = any). */
+    var selectScan: Int
+        get() = prefs.getInt("selectScan", 0)
+        set(v) = prefs.edit().putInt("selectScan", v).apply()
+    var backScan: Int
+        get() = prefs.getInt("backScan", 0)
+        set(v) = prefs.edit().putInt("backScan", v).apply()
+
+    fun isSelect(e: android.view.KeyEvent) = e.keyCode == selectKey && (selectScan == 0 || e.scanCode == selectScan)
+    fun isBack(e: android.view.KeyEvent) = e.keyCode == backKey && (backScan == 0 || e.scanCode == backScan)
+
     /** The ROMs folder the user picked (a "tree" Uri from the system picker). */
     var romFolder: Uri?
         get() = prefs.getString("roms", null)?.let(Uri::parse)

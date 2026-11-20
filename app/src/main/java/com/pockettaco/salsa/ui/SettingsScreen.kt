@@ -165,36 +165,52 @@ private fun MenuButtonsSection(activity: MainActivity) {
     var backKey by remember { mutableIntStateOf(activity.settings.backKey) }
     /** 0 = not teaching, 1 = waiting for A, 2 = waiting for B. */
     var step by remember { mutableIntStateOf(0) }
-    var pickedSelect by remember { mutableIntStateOf(0) }
+    var pickedKey by remember { mutableIntStateOf(0) }
+    var pickedScan by remember { mutableIntStateOf(0) }
+    var note by remember { mutableStateOf<String?>(null) }
 
     fun stop() { step = 0; activity.onKeyCapture = null }
     fun start() {
         step = 1
+        note = null
         activity.onKeyCapture = { e ->
             if (e.action == android.view.KeyEvent.ACTION_UP) {
-                activity.lastButton.value = "${buttonName(e.keyCode)} (code ${e.keyCode})"
-                if (step == 1) { pickedSelect = e.keyCode; step = 2 }
-                else if (step == 2 && e.keyCode != pickedSelect) {
-                    activity.settings.selectKey = pickedSelect
-                    activity.settings.backKey = e.keyCode
-                    selectKey = pickedSelect
-                    backKey = e.keyCode
-                    stop()
+                val sig = "${buttonName(e.keyCode)} (code ${e.keyCode}, scan ${e.scanCode})"
+                activity.lastButton.value = sig
+                if (step == 1) {
+                    pickedKey = e.keyCode; pickedScan = e.scanCode; step = 2
+                } else if (step == 2) {
+                    if (e.keyCode == pickedKey && e.scanCode == pickedScan) {
+                        note = "That's the same signal as A: $sig. Press the B button."
+                    } else {
+                        // Only keep the scan detail when it's needed to tell the two apart.
+                        val sameCode = e.keyCode == pickedKey
+                        activity.settings.selectKey = pickedKey
+                        activity.settings.selectScan = if (sameCode) pickedScan else 0
+                        activity.settings.backKey = e.keyCode
+                        activity.settings.backScan = if (sameCode) e.scanCode else 0
+                        selectKey = pickedKey
+                        backKey = e.keyCode
+                        note = "Saved."
+                        stop()
+                    }
                 }
             }
         }
     }
-    LaunchedEffect(step) { if (step != 0) { kotlinx.coroutines.delay(15000); stop() } }
+    LaunchedEffect(step) { if (step != 0) { kotlinx.coroutines.delay(20000); stop() } }
     DisposableEffect(Unit) { onDispose { stop() } }
 
     Text("A and B buttons", color = Color.White, fontWeight = FontWeight.Bold)
     Text(
         when (step) {
             1 -> "Press the button marked A on your Taco (select)…"
-            2 -> "Now press the button marked B (back)…"
+            2 -> (note ?: "Now press the button marked B (back)…") +
+                "\nA was: ${buttonName(pickedKey)} (code $pickedKey, scan $pickedScan)"
             else -> "A (select) = ${buttonName(selectKey)} (code $selectKey)   ·   " +
                 "B (back) = ${buttonName(backKey)} (code $backKey)\n" +
-                "Last button pressed: ${activity.lastButton.value ?: "none"}"
+                "Last button pressed: ${activity.lastButton.value ?: "none"}" +
+                (note?.let { "\n$it" } ?: "")
         },
         color = if (step != 0) Color(0xFF4CFF9A) else Color(0xFFAAAAAA),
         style = MaterialTheme.typography.bodySmall,
@@ -204,8 +220,11 @@ private fun MenuButtonsSection(activity: MainActivity) {
             Text(if (step == 0) "Teach A and B" else "Cancel")
         }
         if (step == 0) TextButton(onClick = {
-            activity.settings.selectKey = backKey; activity.settings.backKey = selectKey
-            val s = selectKey; selectKey = backKey; backKey = s
+            val st = activity.settings
+            val k = st.selectKey; val sc = st.selectScan
+            st.selectKey = st.backKey; st.selectScan = st.backScan
+            st.backKey = k; st.backScan = sc
+            selectKey = st.selectKey; backKey = st.backKey
         }) { Text("Swap them") }
     }
 }
