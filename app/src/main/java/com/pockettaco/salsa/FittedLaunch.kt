@@ -13,6 +13,10 @@ import android.graphics.Rect
  * If the phone refuses, the app just opens full screen as before.
  */
 fun startFitted(activity: MainActivity, intent: Intent, system: GameSystem? = null) {
+    // A game: make sure the emulator starts fresh. "Leave game" keeps the emulator running
+    // in the background, and RetroArch shows a black screen if a second game window opens
+    // while the old one is still alive. Android only lets us close it once it's out of sight.
+    if (system != null) closeLeftoverEmulator(activity, intent)
     val fit = activity.settings.fitEmulators && activity.watcher.connected.value
     if (!fit) {
         activity.startActivity(intent)
@@ -64,4 +68,14 @@ fun gameWindowRect(
     val h = wanted.coerceAtMost(available)
     val top = ((available - h) * position).toInt()
     return Rect(0, top, width, top + h.toInt())
+}
+
+private fun closeLeftoverEmulator(activity: MainActivity, intent: Intent) {
+    val pkg = intent.component?.packageName ?: intent.`package` ?: return
+    if (pkg == activity.packageName) return
+    val am = activity.getSystemService(android.app.ActivityManager::class.java) ?: return
+    // Android doesn't tell us whether another app is running, so always ask; it's a no-op if not.
+    runCatching { am.killBackgroundProcesses(pkg) }
+    // Give Android a moment to finish closing it before the new game window opens.
+    Thread.sleep(400)
 }
