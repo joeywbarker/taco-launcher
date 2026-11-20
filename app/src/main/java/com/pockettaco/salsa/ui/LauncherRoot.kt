@@ -24,6 +24,8 @@ import kotlinx.coroutines.withContext
 @Composable
 fun LauncherRoot(activity: MainActivity) {
     val tacoOn by activity.watcher.connected.collectAsStateWithLifecycle()
+    // The real controller, even when "Always use the Taco layout" keeps the layout on.
+    val tacoName by activity.watcher.deviceName.collectAsStateWithLifecycle()
     var covered by remember { mutableFloatStateOf(activity.settings.coveredFraction) }
     var romFolder by remember { mutableStateOf(activity.settings.romFolder) }
     // Start with the saved list so games show up instantly, then refresh it.
@@ -66,7 +68,7 @@ fun LauncherRoot(activity: MainActivity) {
         Surface(Modifier.fillMaxSize(), color = Color(0xFF101014)) {
             AnimatedContent(targetState = tacoOn to showSettings, label = "mode") { (taco, settingsOpen) ->
                 when {
-                    settingsOpen -> TacoLayout(covered = if (taco) covered else 0f) {
+                    settingsOpen -> TacoLayout(covered = if (taco) covered else 0f, tacoName = tacoName) {
                         SettingsScreen(
                             activity, covered,
                             onCoveredChange = { covered = it; activity.settings.coveredFraction = it },
@@ -78,7 +80,7 @@ fun LauncherRoot(activity: MainActivity) {
                     taco && activity.gameWindowOpen.value -> Box(Modifier.fillMaxSize().background(Color.Black)) {
                         // Behind the game window: plain black for now. A spot for something fun later.
                     }
-                    taco -> TacoLayout(covered = covered) {
+                    taco -> TacoLayout(covered = covered, tacoName = tacoName) {
                         GameBrowser(
                             activity, library, scanState,
                             onPickFolder = { picker.launch(null) },
@@ -98,7 +100,7 @@ fun LauncherRoot(activity: MainActivity) {
  * OLED screen and nothing important is ever hidden under the controller.
  */
 @Composable
-fun TacoLayout(covered: Float, content: @Composable () -> Unit) {
+fun TacoLayout(covered: Float, tacoName: String? = null, content: @Composable () -> Unit) {
     Column(Modifier.fillMaxSize()) {
         Box(
             Modifier.fillMaxWidth().weight(1f - covered).statusBarsPadding()
@@ -109,7 +111,7 @@ fun TacoLayout(covered: Float, content: @Composable () -> Unit) {
                 contentAlignment = Alignment.TopCenter,
             ) {
                 Text(
-                    "Pocket Taco connected",
+                    if (tacoName != null) "Pocket Taco connected" else "Pocket Taco not connected",
                     color = Color(0xFF333333),
                     style = MaterialTheme.typography.labelSmall,
                     modifier = Modifier.padding(8.dp),

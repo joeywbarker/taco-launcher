@@ -84,10 +84,11 @@ object FocusKick {
     fun kick() { count.intValue++ }
 }
 
-/** Button name as printed on the Taco (A and B are swapped when the Swap A/B setting is on). */
-fun tacoButtonName(code: Int, swapAB: Boolean): String = when {
-    swapAB && code == KeyEvent.KEYCODE_BUTTON_A -> "B"
-    swapAB && code == KeyEvent.KEYCODE_BUTTON_B -> "A"
+/** Button name as printed on the Taco, using the Select (A) and Back (B) buttons taught in Settings. */
+fun tacoButtonName(code: Int, settings: Settings): String = when (code) {
+    settings.selectKey -> "A"
+    settings.backKey -> "B"
+    KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_BUTTON_B -> buttonName(code) + "?"
     else -> buttonName(code)
 }
 

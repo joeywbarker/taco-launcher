@@ -125,6 +125,21 @@ fun launchIntent(context: Context, emu: Emulator, system: GameSystem, game: Uri)
             component = retroActivity
             putExtra("ROM", toFilePath(game))
             putExtra("LIBRETRO", "/data/data/${emu.pkg}/cores/${core}_libretro_android.so")
+            // Without these, RetroArch starts with no settings: "Config directory not set" and
+            // controllers show as "not configured". These match what RetroArch's own menu passes.
+            val sdcard = android.os.Environment.getExternalStorageDirectory().absolutePath
+            val external = "$sdcard/Android/data/${emu.pkg}/files"
+            putExtra("CONFIGFILE", "$external/retroarch.cfg")
+            putExtra("EXTERNAL", external)
+            putExtra("SDCARD", sdcard)
+            putExtra("DATADIR", "/data/data/${emu.pkg}")
+            runCatching { context.packageManager.getApplicationInfo(emu.pkg, 0) }.getOrNull()?.let {
+                putExtra("APK", it.sourceDir)
+                putExtra("DATADIR", it.dataDir)
+            }
+            android.provider.Settings.Secure.getString(
+                context.contentResolver, android.provider.Settings.Secure.DEFAULT_INPUT_METHOD
+            )?.let { putExtra("IME", it) }
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
     }

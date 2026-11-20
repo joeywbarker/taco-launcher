@@ -52,6 +52,18 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("swapAB", true)
         set(v) = prefs.edit().putBoolean("swapAB", v).apply()
 
+    /** The controller button that selects (A) in the menus. Taught in Settings. */
+    var selectKey: Int
+        get() = prefs.getInt("selectKey",
+            if (swapAB) android.view.KeyEvent.KEYCODE_BUTTON_B else android.view.KeyEvent.KEYCODE_BUTTON_A)
+        set(v) = prefs.edit().putInt("selectKey", v).apply()
+
+    /** The controller button that goes back (B) in the menus. Taught in Settings. */
+    var backKey: Int
+        get() = prefs.getInt("backKey",
+            if (swapAB) android.view.KeyEvent.KEYCODE_BUTTON_A else android.view.KeyEvent.KEYCODE_BUTTON_B)
+        set(v) = prefs.edit().putInt("backKey", v).apply()
+
     /** The ROMs folder the user picked (a "tree" Uri from the system picker). */
     var romFolder: Uri?
         get() = prefs.getString("roms", null)?.let(Uri::parse)
