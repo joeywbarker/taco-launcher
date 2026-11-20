@@ -150,7 +150,7 @@ private fun retroArchActivity(context: Context, emu: Emulator): ComponentName? {
 }
 
 private val RETROARCH_CORES = mapOf(
-    "gb" to "gambatte", "gbc" to "gambatte", "gba" to "mgba", "nes" to "fceumm",
+    "gb" to "mgba", "gbc" to "mgba", "gba" to "mgba", "nes" to "fceumm",
     "snes" to "snes9x", "n64" to "mupen64plus_next", "nds" to "melonds",
     "genesis" to "genesis_plus_gx", "sms" to "genesis_plus_gx", "gg" to "genesis_plus_gx",
     "pce" to "mednafen_pce_fast", "ngp" to "mednafen_ngp", "psx" to "swanstation", "psp" to "ppsspp",

@@ -22,6 +22,9 @@ class MainActivity : ComponentActivity() {
         if (isTopResumedActivity) gameWindowOpen.value = false
     }
 
+    /** Name of the last controller button pressed, shown in Settings to help set things up. */
+    val lastButton = androidx.compose.runtime.mutableStateOf<String?>(null)
+
     /** Set by Settings while it waits for you to press buttons for a new mapping. */
     var onKeyCapture: ((KeyEvent) -> Unit)? = null
 
@@ -52,7 +55,15 @@ class MainActivity : ComponentActivity() {
      */
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         onKeyCapture?.let { it(event); return true }
-        when (event.keyCode) {
+        lastButton.value = buttonName(event.keyCode)
+        // Game Boy style controllers label the buttons the other way round from Android.
+        val code = when {
+            !settings.swapAB -> event.keyCode
+            event.keyCode == KeyEvent.KEYCODE_BUTTON_A -> KeyEvent.KEYCODE_BUTTON_B
+            event.keyCode == KeyEvent.KEYCODE_BUTTON_B -> KeyEvent.KEYCODE_BUTTON_A
+            else -> event.keyCode
+        }
+        when (code) {
             KeyEvent.KEYCODE_BUTTON_A -> return super.dispatchKeyEvent(
                 KeyEvent(event.action, KeyEvent.KEYCODE_DPAD_CENTER)
             )

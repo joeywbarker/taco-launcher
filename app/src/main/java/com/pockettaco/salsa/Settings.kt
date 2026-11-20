@@ -47,6 +47,11 @@ class Settings(context: Context) {
         get() = prefs.getFloat("windowPosition", 1f)
         set(v) = prefs.edit().putFloat("windowPosition", v.coerceIn(0f, 1f)).apply()
 
+    /** Pocket Taco uses Game Boy style labels: swap so the button marked B goes back. */
+    var swapAB: Boolean
+        get() = prefs.getBoolean("swapAB", true)
+        set(v) = prefs.edit().putBoolean("swapAB", v).apply()
+
     /** The ROMs folder the user picked (a "tree" Uri from the system picker). */
     var romFolder: Uri?
         get() = prefs.getString("roms", null)?.let(Uri::parse)

@@ -57,7 +57,20 @@ fun SettingsScreen(
     }
     Column(Modifier.fillMaxSize().systemBarsPadding().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text("Settings", style = MaterialTheme.typography.headlineSmall, color = Color.White)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedButton(onClick = onClose) { Text("← Back") }
+            Spacer(Modifier.width(12.dp))
+            Text("Settings", style = MaterialTheme.typography.headlineSmall, color = Color.White)
+        }
+        var swap by remember { mutableStateOf(activity.settings.swapAB) }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Swap A and B", color = Color.White)
+                Text("Turn on if B selects instead of going back. Last button pressed: ${activity.lastButton.value ?: "none"}",
+                    color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall)
+            }
+            Switch(swap, { swap = it; activity.settings.swapAB = it })
+        }
 
         Text("Screen covered by the Pocket Taco: ${(covered * 100).toInt()}%", color = Color.White)
         Slider(value = covered, onValueChange = onCoveredChange, valueRange = 0f..0.6f, steps = 11)

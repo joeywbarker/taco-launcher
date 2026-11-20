@@ -21,7 +21,6 @@ fun startFitted(activity: MainActivity, intent: Intent, system: GameSystem? = nu
     val screen = activity.windowManager.currentWindowMetrics.bounds
     val rect = gameWindowRect(activity.settings, screen.width(), screen.height(), system?.let { SCREEN_SHAPES[it.id] })
     val options = ActivityOptions.makeBasic().setLaunchBounds(rect)
-    activity.gameWindowOpen.value = true
     // 5 = "freeform" window mode. The method is hidden, so call it by name.
     runCatching {
         ActivityOptions::class.java.getMethod("setLaunchWindowingMode", Int::class.javaPrimitiveType)
@@ -30,6 +29,7 @@ fun startFitted(activity: MainActivity, intent: Intent, system: GameSystem? = nu
     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK)
     runCatching { activity.startActivity(intent, options.toBundle()) }
         .onFailure { activity.startActivity(intent) }
+    activity.gameWindowOpen.value = true
 }
 
 /** Opens an installed app by package name, fitted when Taco mode is on. */
