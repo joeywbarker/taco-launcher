@@ -12,8 +12,10 @@ android {
         applicationId = "com.pockettaco.salsa"
         minSdk = 29
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1"
+        // GitHub passes in its build number so every build gets a new version (1.0.<number>).
+        val build = (project.findProperty("buildNumber") as String?)?.toIntOrNull() ?: 1
+        versionCode = build
+        versionName = "1.0.$build"
     }
 
     // A fixed signing key kept in the repo. Without it, GitHub makes a new
