@@ -74,6 +74,21 @@ object ButtonMapperState {
     @Volatile var reload = true
     /** The last controller button the background service saw, shown in Settings as a check. */
     @Volatile var lastKey: String? = null
+    /** True while Taco Launcher's own menus have the screen; the service then stays out of the way. */
+    @Volatile var launcherInFront = false
+}
+
+/** Asks the open menu screen to put focus back on its first (or last used) item. */
+object FocusKick {
+    val count = androidx.compose.runtime.mutableIntStateOf(0)
+    fun kick() { count.intValue++ }
+}
+
+/** Button name as printed on the Taco (A and B are swapped when the Swap A/B setting is on). */
+fun tacoButtonName(code: Int, swapAB: Boolean): String = when {
+    swapAB && code == KeyEvent.KEYCODE_BUTTON_A -> "B"
+    swapAB && code == KeyEvent.KEYCODE_BUTTON_B -> "A"
+    else -> buttonName(code)
 }
 
 fun buttonName(code: Int): String = when (code) {

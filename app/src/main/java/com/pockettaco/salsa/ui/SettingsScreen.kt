@@ -7,6 +7,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import android.Manifest
@@ -24,6 +25,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import com.pockettaco.salsa.AppIcon
+import com.pockettaco.salsa.FocusKick
 import com.pockettaco.salsa.MainActivity
 import com.pockettaco.salsa.currentAppIcon
 import com.pockettaco.salsa.setAppIcon
@@ -58,7 +60,10 @@ fun SettingsScreen(
     Column(Modifier.fillMaxSize().systemBarsPadding().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            OutlinedButton(onClick = onClose) { Text("← Back") }
+            val backFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+            LaunchedEffect(FocusKick.count.intValue) { runCatching { backFocus.requestFocus() } }
+            OutlinedButton(onClick = onClose,
+                modifier = androidx.compose.ui.Modifier.focusRequester(backFocus)) { Text("← Back") }
             Spacer(Modifier.width(12.dp))
             Text("Settings", style = MaterialTheme.typography.headlineSmall, color = Color.White)
         }

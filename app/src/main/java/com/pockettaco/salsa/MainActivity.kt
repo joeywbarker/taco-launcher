@@ -42,6 +42,16 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * When the launcher gets the screen back (after a game, Home, or a popup), make sure a
+     * menu item has focus again. Without it, A has nothing to press.
+     */
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        ButtonMapperState.launcherInFront = hasFocus
+        if (hasFocus) FocusKick.kick()
+    }
+
     override fun onStart() { super.onStart(); watcher.start() }
     override fun onStop() { watcher.stop(); super.onStop() }
 
@@ -64,9 +74,13 @@ class MainActivity : ComponentActivity() {
             else -> event.keyCode
         }
         when (code) {
-            KeyEvent.KEYCODE_BUTTON_A -> return super.dispatchKeyEvent(
-                KeyEvent(event.action, KeyEvent.KEYCODE_DPAD_CENTER)
-            )
+            KeyEvent.KEYCODE_BUTTON_A -> {
+                // Keep the controller's details on the event; just make it a "press".
+                val handled = super.dispatchKeyEvent(KeyEvent.changeKeyCode(event, KeyEvent.KEYCODE_DPAD_CENTER))
+                // Nothing focused, so nothing was pressed: put focus back on the menu.
+                if (!handled && event.action == KeyEvent.ACTION_UP) FocusKick.kick()
+                return true
+            }
             KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_ESCAPE -> {
                 if (event.action == KeyEvent.ACTION_UP) onBackRequest?.invoke()
                 return true
