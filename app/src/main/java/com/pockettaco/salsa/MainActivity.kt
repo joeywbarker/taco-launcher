@@ -88,18 +88,21 @@ class MainActivity : ComponentActivity() {
             lastButton.value = "${buttonName(event.keyCode)} (code ${event.keyCode}, scan ${event.scanCode})"
         }
         // Whatever codes the controller sends, use the buttons taught in Settings.
-        if (!settings.isBack(event) && !settings.isSelect(event) && settings.isFavorite(event)) {
+        val button = settings.buttonFor(event)
+        if (button != null && button == settings.favoriteButton && button != TacoButton.A && button != TacoButton.B) {
             onFavoriteButton?.let { hook ->
                 if (event.action == KeyEvent.ACTION_UP) hook()
                 return true
             }
         }
-        val code = when {
-            settings.isBack(event) -> KeyEvent.KEYCODE_BUTTON_B
-            settings.isSelect(event) -> KeyEvent.KEYCODE_BUTTON_A
-            event.keyCode == KeyEvent.KEYCODE_BUTTON_A || event.keyCode == KeyEvent.KEYCODE_BUTTON_B ->
-                KeyEvent.KEYCODE_UNKNOWN
-            else -> event.keyCode
+        val code = when (button) {
+            TacoButton.B -> KeyEvent.KEYCODE_BUTTON_B
+            TacoButton.A -> KeyEvent.KEYCODE_BUTTON_A
+            TacoButton.START -> KeyEvent.KEYCODE_BUTTON_START
+            TacoButton.SELECT -> KeyEvent.KEYCODE_BUTTON_SELECT
+            TacoButton.HOME -> KeyEvent.KEYCODE_UNKNOWN   // Home does nothing in the menus
+            else -> if (event.keyCode == KeyEvent.KEYCODE_BUTTON_A || event.keyCode == KeyEvent.KEYCODE_BUTTON_B)
+                KeyEvent.KEYCODE_UNKNOWN else event.keyCode
         }
         when (code) {
             KeyEvent.KEYCODE_BUTTON_START, KeyEvent.KEYCODE_BUTTON_SELECT, KeyEvent.KEYCODE_MENU -> {

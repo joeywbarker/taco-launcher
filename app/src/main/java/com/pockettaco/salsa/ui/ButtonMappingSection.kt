@@ -89,6 +89,10 @@ fun ButtonMappingSection(activity: MainActivity) {
         Text("Last button seen in a game: " + (lastKey ?: "none yet"),
             color = Color(0xFFBBBBBB), style = MaterialTheme.typography.bodySmall)
     }
+    if (mappings.any { KeyEvent.KEYCODE_BUTTON_SELECT in it.keys && it.keys.size > 1 }) Text(
+        "Heads up: a Select combo here blocks RetroArch's Select hotkeys (like Select + B for its menu) inside games.",
+        color = Color(0xFFFFC107), style = MaterialTheme.typography.bodySmall,
+    )
     Text("Choose Set, then press the button you want (or hold two together for a combo).",
         color = Color(0xFF999999), style = MaterialTheme.typography.bodySmall)
 

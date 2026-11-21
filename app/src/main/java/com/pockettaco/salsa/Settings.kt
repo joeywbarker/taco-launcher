@@ -72,15 +72,37 @@ class Settings(context: Context) {
         get() = prefs.getInt("backScan", 0)
         set(v) = prefs.edit().putInt("backScan", v).apply()
 
-    /** The button that adds or removes a favorite in a game list (0 = off). Y unless you change it. */
-    var favoriteKey: Int
-        get() = prefs.getInt("favoriteKey", android.view.KeyEvent.KEYCODE_BUTTON_Y)
-        set(v) = prefs.edit().putInt("favoriteKey", v).apply()
-    var favoriteScan: Int
-        get() = prefs.getInt("favoriteScan", 0)
-        set(v) = prefs.edit().putInt("favoriteScan", v).apply()
-    fun isFavorite(e: android.view.KeyEvent) =
-        favoriteKey != 0 && e.keyCode == favoriteKey && (favoriteScan == 0 || e.scanCode == favoriteScan)
+    /**
+     * The signal each Taco button sends (taught in Settings → Teach buttons). A and B use
+     * [selectKey]/[backKey]; the rest are kept as "code:scan" (scan 0 = any).
+     */
+    fun signalFor(b: TacoButton): Pair<Int, Int> = when (b) {
+        TacoButton.A -> selectKey to selectScan
+        TacoButton.B -> backKey to backScan
+        else -> prefs.getString("btn_${b.name}", null)?.split(':')?.let {
+            (it[0].toIntOrNull() ?: b.defaultCode) to (it.getOrNull(1)?.toIntOrNull() ?: 0)
+        } ?: (b.defaultCode to 0)
+    }
+
+    fun setSignal(b: TacoButton, code: Int, scan: Int) {
+        when (b) {
+            TacoButton.A -> { selectKey = code; selectScan = scan }
+            TacoButton.B -> { backKey = code; backScan = scan }
+            else -> prefs.edit().putString("btn_${b.name}", "$code:$scan").apply()
+        }
+    }
+
+    /** Which Taco button this key press is, using what was taught (A and B win ties). */
+    fun buttonFor(e: android.view.KeyEvent): TacoButton? = TacoButton.entries.firstOrNull { b ->
+        val (code, scan) = signalFor(b)
+        code != 0 && e.keyCode == code && (scan == 0 || e.scanCode == scan)
+    }
+
+    /** The button that adds or removes a favorite in a game list (null = off). Y unless changed. */
+    var favoriteButton: TacoButton?
+        get() = prefs.getString("favoriteButton", TacoButton.Y.name)?.let { n -> TacoButton.entries.firstOrNull { it.name == n } }
+        set(v) = prefs.edit().putString("favoriteButton", v?.name ?: "OFF").apply()
+    fun isFavorite(e: android.view.KeyEvent) = favoriteButton != null && buttonFor(e) == favoriteButton
 
     fun isSelect(e: android.view.KeyEvent) = e.keyCode == selectKey && (selectScan == 0 || e.scanCode == selectScan)
     fun isBack(e: android.view.KeyEvent) = e.keyCode == backKey && (backScan == 0 || e.scanCode == backScan)
@@ -104,4 +126,17 @@ class Settings(context: Context) {
     fun folderFor(system: String): Uri? = prefs.getString("folder_$system", null)?.let(Uri::parse)
     fun setFolderFor(system: String, folder: Uri?) =
         prefs.edit().putString("folder_$system", folder?.toString()).apply()
+}
+
+/** The buttons printed on the Pocket Taco, in the order Settings asks for them. */
+enum class TacoButton(val label: String, val defaultCode: Int) {
+    A("A", android.view.KeyEvent.KEYCODE_BUTTON_A),
+    B("B", android.view.KeyEvent.KEYCODE_BUTTON_B),
+    X("X", android.view.KeyEvent.KEYCODE_BUTTON_X),
+    Y("Y", android.view.KeyEvent.KEYCODE_BUTTON_Y),
+    L("L", android.view.KeyEvent.KEYCODE_BUTTON_L1),
+    R("R", android.view.KeyEvent.KEYCODE_BUTTON_R1),
+    SELECT("Select", android.view.KeyEvent.KEYCODE_BUTTON_SELECT),
+    START("Start", android.view.KeyEvent.KEYCODE_BUTTON_START),
+    HOME("Home", android.view.KeyEvent.KEYCODE_BUTTON_MODE),
 }
