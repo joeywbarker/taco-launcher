@@ -153,7 +153,11 @@ fun GameBrowser(
                         onOpenFavorites = { screen = Screen.Favorites },
                         onRandom = { playRandom(allGames) },
                         lastPlayed = recent.firstOrNull(),
-                        onLastPlayed = { recent.firstOrNull()?.let(play) },
+                        onLastPlayed = {
+                            val last = recent.firstOrNull()
+                            if (last != null) play(last)
+                            else Toast.makeText(activity, "Play any game once, then Quick Start jumps right back into it.", Toast.LENGTH_LONG).show()
+                        },
                         recentCount = recent.size,
                         onOpenRecent = { screen = Screen.Recent },
                         onOpenApps = { screen = if (emulators.isEmpty()) Screen.GetEmulators else Screen.Apps },
