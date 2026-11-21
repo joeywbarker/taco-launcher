@@ -246,9 +246,9 @@ private fun GamesList(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ToolbarButton("←", "Back", SETTINGS_LOOK, onBack, focusRequester = toolbarFocus)
+            ToolbarButton("←", "Back", SETTINGS_LOOK, toolbarFocus, onBack)
             ToolbarButton("🎲", "Random", RANDOM_LOOK) { onRandom(list) }
-            if (choices.isEmpty()) ToolbarButton("↓", "Get an emulator", EMULATORS_LOOK, onGetEmulators)
+            if (choices.isEmpty()) ToolbarButton("↓", "Get an emulator", EMULATORS_LOOK, onClick = onGetEmulators)
             else ToolbarButton("▶", "Open ${current?.name ?: "emulator"}", EMULATORS_LOOK) {
                 current?.let { openAppFitted(activity, it.pkg) }
             }
@@ -326,7 +326,7 @@ private fun AllFavoritesList(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ToolbarButton("←", "Back", SETTINGS_LOOK, onBack, focusRequester = toolbarFocus)
+            ToolbarButton("←", "Back", SETTINGS_LOOK, toolbarFocus, onBack)
             ToolbarButton("🎲", "Random favorite", RANDOM_LOOK) { onRandom(favorites) }
         }
         if (favorites.isEmpty()) {

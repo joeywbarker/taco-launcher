@@ -231,7 +231,7 @@ fun GameRow(
 
 /** A small pill button for the slim toolbar above a game list. */
 @Composable
-fun ToolbarButton(icon: String, label: String, look: SystemLook, onClick: () -> Unit, focusRequester: FocusRequester? = null) {
+fun ToolbarButton(icon: String, label: String, look: SystemLook, focusRequester: FocusRequester? = null, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     Row(
         Modifier
