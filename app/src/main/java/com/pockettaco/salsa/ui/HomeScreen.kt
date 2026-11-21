@@ -50,6 +50,9 @@ fun HomeScreen(
     lastSystem: GameSystem?,
     onFocusSystem: (String) -> Unit,
     onOpenSystem: (GameSystem) -> Unit,
+    favoriteCount: Int,
+    onOpenFavorites: () -> Unit,
+    onRandom: () -> Unit,
     onOpenApps: () -> Unit,
     onOpenSettings: () -> Unit,
     onPickFolder: () -> Unit,
@@ -112,6 +115,9 @@ fun HomeScreen(
                     },
                     onOpenSystem = onOpenSystem,
                     onMenu = { id -> panel = Panel.Menu(id) },
+                    favoriteCount = favoriteCount,
+                    onOpenFavorites = onOpenFavorites,
+                    onRandom = onRandom,
                     onOpenApps = onOpenApps,
                     onOpenSettings = onOpenSettings,
                     onPickFolder = onPickFolder,
@@ -185,6 +191,9 @@ private fun SystemsView(
     onFocused: (id: String?, title: String, subtitle: String) -> Unit,
     onOpenSystem: (GameSystem) -> Unit,
     onMenu: (String?) -> Unit,
+    favoriteCount: Int,
+    onOpenFavorites: () -> Unit,
+    onRandom: () -> Unit,
     onOpenApps: () -> Unit,
     onOpenSettings: () -> Unit,
     onPickFolder: () -> Unit,
@@ -210,6 +219,18 @@ private fun SystemsView(
                     onFocused = { onFocused(system.id, name, "${games.size} games") },
                     onLongClick = { onMenu(system.id) },
                     onClick = { onOpenSystem(system) })
+            }
+            if (systems.isNotEmpty()) {
+                item("favorites") {
+                    GameCard("Favorites", "$favoriteCount games from every system", FAVORITES_LOOK, tile = "★",
+                        onFocused = { onFocused(null, "★ Favorites", "$favoriteCount games from every system") },
+                        onClick = onOpenFavorites)
+                }
+                item("random") {
+                    GameCard("Random game", "Picks any game from any system", RANDOM_LOOK, tile = "🎲",
+                        onFocused = { onFocused(null, "🎲 Random game", "Picks any game from any system") },
+                        onClick = onRandom)
+                }
             }
             item("emus") {
                 GameCard("Emulators", "$emulatorCount installed", EMULATORS_LOOK, tile = "EMU",
@@ -244,6 +265,18 @@ private fun SystemsView(
                     onFocused = { onFocused(system.id, name, "${games.size} games") },
                     onLongClick = { onMenu(system.id) },
                     onClick = { onOpenSystem(system) })
+            }
+        }
+        if (systems.isNotEmpty()) {
+            item("favorites") {
+                Bubble(FAVORITES_LOOK, "Favorites", badge = "$favoriteCount", size = size,
+                    onFocused = { onFocused(null, "★ Favorites", "$favoriteCount games from every system") },
+                    onClick = onOpenFavorites)
+            }
+            item("random") {
+                Bubble(RANDOM_LOOK, "Random", size = size,
+                    onFocused = { onFocused(null, "🎲 Random game", "Picks any game from any system") },
+                    onClick = onRandom)
             }
         }
         item("emus") {

@@ -164,8 +164,12 @@ fun GameCard(
 }
 
 /** A game as a square tile with its title underneath (the Grid view). */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun GameTile(title: String, look: SystemLook, focusRequester: FocusRequester? = null, onClick: () -> Unit) {
+fun GameTile(
+    title: String, look: SystemLook, focusRequester: FocusRequester? = null,
+    onFocused: () -> Unit = {}, onLongClick: (() -> Unit)? = null, onClick: () -> Unit,
+) {
     var focused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (focused) 1.06f else 1f, label = "s")
     val shape = RoundedCornerShape(14.dp)
@@ -174,8 +178,9 @@ fun GameTile(title: String, look: SystemLook, focusRequester: FocusRequester? = 
             .padding(6.dp)
             .scale(scale)
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
-            .onFocusChanged { focused = it.isFocused }
-            .clickable(remember { MutableInteractionSource() }, indication = null, onClick = onClick),
+            .onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocused() }
+            .combinedClickable(remember { MutableInteractionSource() }, indication = null,
+                onLongClick = onLongClick, onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(
@@ -195,19 +200,24 @@ fun GameTile(title: String, look: SystemLook, focusRequester: FocusRequester? = 
 }
 
 /** A game as one slim line of text (the Compact view): fits many more on screen. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun GameRow(title: String, look: SystemLook, focusRequester: FocusRequester? = null, onClick: () -> Unit) {
+fun GameRow(
+    title: String, look: SystemLook, focusRequester: FocusRequester? = null,
+    onFocused: () -> Unit = {}, onLongClick: (() -> Unit)? = null, onClick: () -> Unit,
+) {
     var focused by remember { mutableStateOf(false) }
     Row(
         Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 1.dp)
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
-            .onFocusChanged { focused = it.isFocused }
+            .onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocused() }
             .clip(RoundedCornerShape(8.dp))
             .background(if (focused) Brush.horizontalGradient(listOf(look.top, look.bottom))
                 else Brush.horizontalGradient(listOf(Color.Transparent, Color.Transparent)))
-            .clickable(remember { MutableInteractionSource() }, indication = null, onClick = onClick)
+            .combinedClickable(remember { MutableInteractionSource() }, indication = null,
+                onLongClick = onLongClick, onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -221,11 +231,12 @@ fun GameRow(title: String, look: SystemLook, focusRequester: FocusRequester? = n
 
 /** A small pill button for the slim toolbar above a game list. */
 @Composable
-fun ToolbarButton(icon: String, label: String, look: SystemLook, onClick: () -> Unit) {
+fun ToolbarButton(icon: String, label: String, look: SystemLook, onClick: () -> Unit, focusRequester: FocusRequester? = null) {
     var focused by remember { mutableStateOf(false) }
     Row(
         Modifier
             .padding(end = 6.dp)
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .onFocusChanged { focused = it.isFocused }
             .clip(RoundedCornerShape(50))
             .background(if (focused) Brush.horizontalGradient(listOf(look.top, look.bottom))

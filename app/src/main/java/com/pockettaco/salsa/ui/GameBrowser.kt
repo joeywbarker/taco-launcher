@@ -18,6 +18,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
@@ -34,7 +37,10 @@ import com.pockettaco.salsa.*
 
 private sealed interface Screen {
     data object Home : Screen
-    data class Games(val system: GameSystem) : Screen
+    /** A system's games; [favorites] shows only its ★ favorites. */
+    data class Games(val system: GameSystem, val favorites: Boolean = false) : Screen
+    /** Favorites from every system. */
+    data object Favorites : Screen
     data object Apps : Screen
     data object GetEmulators : Screen
 }
@@ -64,9 +70,36 @@ fun GameBrowser(
     }
     val tacoName by activity.watcher.deviceName.collectAsStateWithLifecycle()
 
+    // Play a game with its system's emulator; ask about RetroArch setup first if needed.
+    var askSetup by remember { mutableStateOf<Game?>(null) }
+    val play: (Game) -> Unit = { game ->
+        val emu = currentEmulator(activity, game.system, emulators)
+        if (emu != null && isRetroArch(emu) && !activity.settings.retroArchPadReady) {
+            askSetup = game
+        } else {
+            launchGame(activity, game.system, emu, emulatorChoices(activity, game.system, emulators), game)
+        }
+    }
+    val playRandom: (List<Game>) -> Unit = { list ->
+        if (list.isEmpty()) Toast.makeText(activity, "No games here yet", Toast.LENGTH_SHORT).show()
+        else {
+            val game = list.random()
+            Toast.makeText(activity, "🎲 ${game.title}", Toast.LENGTH_SHORT).show()
+            play(game)
+        }
+    }
+    val shown = arrange(library.entries.map { it.key to it.value })
+    val allGames = shown.flatMap { it.second }
+    val allFavorites = Custom.favoritesIn(allGames)
+
     DisposableEffect(screen) {
         val handler: () -> Boolean = {
-            if (screen != Screen.Home) { screen = Screen.Home; true } else false
+            val s = screen
+            when {
+                s is Screen.Games && s.favorites -> { screen = Screen.Games(s.system); true }
+                s != Screen.Home -> { screen = Screen.Home; true }
+                else -> false
+            }
         }
         activity.onBackRequest = handler
         onDispose { if (activity.onBackRequest === handler) activity.onBackRequest = null }
@@ -83,7 +116,22 @@ fun GameBrowser(
                     color = accent, trackColor = Color.White.copy(alpha = 0.1f),
                 )
             }
-            AnimatedContent(
+            val setupFor = askSetup
+            if (setupFor != null) Box(Modifier.weight(1f)) {
+                val emu = currentEmulator(activity, setupFor.system, emulators)
+                val choices = emulatorChoices(activity, setupFor.system, emulators)
+                RetroArchSetupPrompt(
+                    activity,
+                    onSetUp = { emu?.let { openAppFitted(activity, it.pkg) }; askSetup = null },
+                    onPlay = { askSetup = null; launchGame(activity, setupFor.system, emu, choices, setupFor) },
+                    onDone = {
+                        activity.settings.retroArchPadReady = true
+                        askSetup = null
+                        launchGame(activity, setupFor.system, emu, choices, setupFor)
+                    },
+                    onCancel = { askSetup = null },
+                )
+            } else AnimatedContent(
                 targetState = screen,
                 transitionSpec = {
                     val forward = targetState != Screen.Home
@@ -98,13 +146,21 @@ fun GameBrowser(
                         activity, library, emulators.size, scan, lastSystem,
                         onFocusSystem = { accent = lookFor(it).bottom },
                         onOpenSystem = { lastSystem = it; screen = Screen.Games(it) },
+                        favoriteCount = allFavorites.size,
+                        onOpenFavorites = { screen = Screen.Favorites },
+                        onRandom = { playRandom(allGames) },
                         onOpenApps = { screen = if (emulators.isEmpty()) Screen.GetEmulators else Screen.Apps },
                         onOpenSettings = onOpenSettings,
                         onPickFolder = onPickFolder,
                         onRescan = onRescan,
                     )
                     is Screen.Games -> GamesList(activity, s.system, library[s.system].orEmpty(), emulators,
+                        favoritesOnly = s.favorites, onPlay = play, onRandom = playRandom,
+                        onOpenFavorites = { screen = Screen.Games(s.system, favorites = true) },
                         onRescan = onRescan, onGetEmulators = { screen = Screen.GetEmulators }) {
+                        screen = if (s.favorites) Screen.Games(s.system) else Screen.Home
+                    }
+                    Screen.Favorites -> AllFavoritesList(activity, allFavorites, onPlay = play, onRandom = playRandom) {
                         screen = Screen.Home
                     }
                     Screen.Apps -> EmulatorList(activity, emulators,
@@ -114,7 +170,8 @@ fun GameBrowser(
             }
             HintBar(
                 *if (screen == Screen.Home) arrayOf("A" to "Open", "≡" to "Start: menu", "◫" to "Select: view")
-                else arrayOf("A" to "Play", "B" to "Back", "◫" to "Select: view")
+                else arrayOf("A" to "Play", "B" to "Back",
+                    buttonName(activity.settings.favoriteKey).take(2) to "Favorite", "≡" to "Start: menu")
             )
         }
     }
@@ -126,6 +183,10 @@ private fun GamesList(
     system: GameSystem,
     games: List<Game>,
     emulators: List<Emulator>,
+    favoritesOnly: Boolean,
+    onPlay: (Game) -> Unit,
+    onRandom: (List<Game>) -> Unit,
+    onOpenFavorites: () -> Unit,
     onRescan: () -> Unit,
     onGetEmulators: () -> Unit,
     onBack: () -> Unit,
@@ -142,23 +203,41 @@ private fun GamesList(
             onRescan()
         }
     }
-    val first = remember { FocusRequester() }
-    LaunchedEffect(FocusKick.count.intValue) { runCatching { first.requestFocus() } }
+    val favorites = Custom.favoritesIn(games)
+    val list = if (favoritesOnly) favorites else games
     val choices = remember(emulators) { emulatorChoices(activity, system, emulators) }
     var current by remember(choices) { mutableStateOf(currentEmulator(activity, system, emulators)) }
-    var askSetup by remember { mutableStateOf<Game?>(null) }
-    DisposableEffect(system.id) {
-        val select: () -> Boolean = { Custom.nextGameView(system.id); true }
-        activity.onSelectButton = select
-        onDispose { if (activity.onSelectButton === select) activity.onSelectButton = null }
+    var menuFor by remember { mutableStateOf<Game?>(null) }
+    var focused by remember { mutableStateOf<Game?>(null) }
+    val gridState = rememberLazyGridState()
+
+    GameButtons(activity, menuOpen = menuFor != null, focused = { focused?.takeIf { it in games } },
+        onMenu = { menuFor = it }, onSelect = { Custom.nextGameView(system.id) })
+
+    menuFor?.let { game ->
+        GameMenu(activity, game, onPlay = { menuFor = null; onPlay(game) }) { menuFor = null }
+        return
     }
 
-    // While the prompt is up it replaces the list, so the D-pad can't wander behind it.
-    if (askSetup == null) Column(Modifier.fillMaxSize()) {
+    // Focus the game you were on (or the first one), also after a menu closes.
+    val target = focused?.takeIf { it in list } ?: list.firstOrNull()
+    val toolbarFocus = remember { FocusRequester() }
+    val gameFocus = remember { FocusRequester() }
+    LaunchedEffect(FocusKick.count.intValue, list.isEmpty()) {
+        withFrameNanos { }
+        runCatching { if (target != null) gameFocus.requestFocus() else toolbarFocus.requestFocus() }
+    }
+
+    Column(Modifier.fillMaxSize()) {
         Row(Modifier.padding(horizontal = 20.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Column {
-                Text(systemName(system), color = TextBright, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-                Text("${games.size} games · ${current?.name ?: "no emulator yet"}", color = TextDim, fontSize = 13.sp)
+                Text(if (favoritesOnly) "★ Favorites" else systemName(system),
+                    color = TextBright, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    if (favoritesOnly) "${systemName(system)} · ${list.size} favorites"
+                    else "${games.size} games · ${current?.name ?: "no emulator yet"}",
+                    color = TextDim, fontSize = 13.sp,
+                )
             }
         }
         val view = Custom.gameView(system.id)
@@ -167,7 +246,8 @@ private fun GamesList(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ToolbarButton("←", "Back", SETTINGS_LOOK, onBack)
+            ToolbarButton("←", "Back", SETTINGS_LOOK, onBack, focusRequester = toolbarFocus)
+            ToolbarButton("🎲", "Random", RANDOM_LOOK) { onRandom(list) }
             if (choices.isEmpty()) ToolbarButton("↓", "Get an emulator", EMULATORS_LOOK, onGetEmulators)
             else ToolbarButton("▶", "Open ${current?.name ?: "emulator"}", EMULATORS_LOOK) {
                 current?.let { openAppFitted(activity, it.pkg) }
@@ -178,43 +258,169 @@ private fun GamesList(
                 activity.settings.setEmulatorFor(system.id, next.pkg)
             }
             ToolbarButton("◫", view.label, SETTINGS_LOOK) { Custom.nextGameView(system.id) }
-            ToolbarButton("📁", if (systemFolder == null) "Add folder" else folderLabel(systemFolder), SETTINGS_LOOK) {
+            if (!favoritesOnly) ToolbarButton("📁", if (systemFolder == null) "Add folder" else folderLabel(systemFolder), SETTINGS_LOOK) {
                 folderPicker.launch(null)
             }
+        }
+        if (favoritesOnly && list.isEmpty()) {
+            NoFavoritesYet(activity)
+            return@Column
         }
         LazyVerticalGrid(
             GridCells.Fixed(if (view == GameView.GRID) 3 else 1),
             Modifier.fillMaxSize().padding(horizontal = if (view == GameView.GRID) 10.dp else 0.dp),
+            state = gridState,
             contentPadding = PaddingValues(vertical = 6.dp),
         ) {
-            items(games, key = { it.uri.toString() }) { game ->
-                val play = {
-                    val emu = current
-                    if (emu != null && isRetroArch(emu) && !activity.settings.retroArchPadReady) {
-                        askSetup = game   // ask first; they can still play anyway
-                    } else launchGame(activity, system, emu, choices, game)
-                }
-                val focus = if (game == games.first()) first else null
+            // This system's own favorites folder, at the top of its list.
+            if (!favoritesOnly) item("favorites", span = { GridItemSpan(maxLineSpan) }) {
+                GameRow("★  Favorites (${favorites.size})", FAVORITES_LOOK, onClick = onOpenFavorites)
+            }
+            items(list, key = { it.uri.toString() }) { game ->
+                val focus = if (game == target) gameFocus else null
+                val title = if (!favoritesOnly && game in favorites) "★ ${game.title}" else game.title
+                val onFocused = { focused = game }
+                val onHold = { menuFor = game }
                 when (view) {
-                    GameView.LIST -> GameCard(game.title, look = look, focusRequester = focus, onClick = play)
-                    GameView.GRID -> GameTile(game.title, look, focus, play)
-                    GameView.COMPACT -> GameRow(game.title, look, focus, play)
+                    GameView.LIST -> GameCard(title, look = look, focusRequester = focus,
+                        onFocused = onFocused, onLongClick = onHold) { onPlay(game) }
+                    GameView.GRID -> GameTile(title, look, focus, onFocused, onHold) { onPlay(game) }
+                    GameView.COMPACT -> GameRow(title, look, focus, onFocused, onHold) { onPlay(game) }
                 }
             }
         }
     }
-    askSetup?.let { game ->
-        RetroArchSetupPrompt(
-            activity,
-            onSetUp = { current?.let { openAppFitted(activity, it.pkg) }; askSetup = null },
-            onPlay = { askSetup = null; launchGame(activity, system, current, choices, game) },
-            onDone = {
-                activity.settings.retroArchPadReady = true
-                askSetup = null
-                launchGame(activity, system, current, choices, game)
-            },
-            onCancel = { askSetup = null },
-        )
+}
+
+/** Favorites from every system, on the home screen. */
+@Composable
+private fun AllFavoritesList(
+    activity: MainActivity,
+    favorites: List<Game>,
+    onPlay: (Game) -> Unit,
+    onRandom: (List<Game>) -> Unit,
+    onBack: () -> Unit,
+) {
+    var menuFor by remember { mutableStateOf<Game?>(null) }
+    var focused by remember { mutableStateOf<Game?>(null) }
+    val listState = rememberLazyListState()
+    GameButtons(activity, menuOpen = menuFor != null, focused = { focused?.takeIf { it in favorites } },
+        onMenu = { menuFor = it }, onSelect = null)
+    menuFor?.let { game ->
+        GameMenu(activity, game, onPlay = { menuFor = null; onPlay(game) }) { menuFor = null }
+        return
+    }
+    val target = focused?.takeIf { it in favorites } ?: favorites.firstOrNull()
+    val toolbarFocus = remember { FocusRequester() }
+    val gameFocus = remember { FocusRequester() }
+    LaunchedEffect(FocusKick.count.intValue, favorites.isEmpty()) {
+        withFrameNanos { }
+        runCatching { if (target != null) gameFocus.requestFocus() else toolbarFocus.requestFocus() }
+    }
+    Column(Modifier.fillMaxSize()) {
+        Column(Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
+            Text("★ Favorites", color = TextBright, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+            Text("${favorites.size} games from every system", color = TextDim, fontSize = 13.sp)
+        }
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ToolbarButton("←", "Back", SETTINGS_LOOK, onBack, focusRequester = toolbarFocus)
+            ToolbarButton("🎲", "Random favorite", RANDOM_LOOK) { onRandom(favorites) }
+        }
+        if (favorites.isEmpty()) {
+            NoFavoritesYet(activity)
+            return@Column
+        }
+        LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(vertical = 6.dp)) {
+            items(favorites, key = { it.uri.toString() }) { game ->
+                val look = lookFor(game.system.id)
+                GameCard(game.title, systemName(game.system), look, tile = look.short,
+                    focusRequester = if (game == target) gameFocus else null,
+                    image = Custom.icon(game.system.id),
+                    onFocused = { focused = game }, onLongClick = { menuFor = game }) { onPlay(game) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NoFavoritesYet(activity: MainActivity) {
+    val button = buttonName(activity.settings.favoriteKey)
+    Text(
+        "No favorites yet. On any game, press $button, or hold A (or press Start) and pick Add to favorites.",
+        color = TextDim, fontSize = 14.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+    )
+}
+
+/**
+ * Controller buttons in a game list: the favorite button (Y unless changed) stars the
+ * selected game, Start opens its menu, Select switches the view.
+ */
+@Composable
+private fun GameButtons(
+    activity: MainActivity,
+    menuOpen: Boolean,
+    focused: () -> Game?,
+    onMenu: (Game) -> Unit,
+    onSelect: (() -> Unit)?,
+) {
+    val open by rememberUpdatedState(menuOpen)
+    val current by rememberUpdatedState(focused)
+    val menu by rememberUpdatedState(onMenu)
+    val select by rememberUpdatedState(onSelect)
+    DisposableEffect(Unit) {
+        val fav: () -> Boolean = {
+            if (!open) current()?.let { game ->
+                val now = Custom.toggleFavorite(game)
+                Toast.makeText(activity, if (now) "★ Added to favorites" else "Removed from favorites",
+                    Toast.LENGTH_SHORT).show()
+            }
+            true
+        }
+        val start: () -> Boolean = { if (!open) current()?.let { menu(it) }; true }
+        val sel: () -> Boolean = { if (!open) select?.invoke(); true }
+        activity.onFavoriteButton = fav
+        activity.onStartButton = start
+        activity.onSelectButton = sel
+        onDispose {
+            if (activity.onFavoriteButton === fav) activity.onFavoriteButton = null
+            if (activity.onStartButton === start) activity.onStartButton = null
+            if (activity.onSelectButton === sel) activity.onSelectButton = null
+        }
+    }
+}
+
+/** Hold A on a game (or press Start) for this. */
+@Composable
+private fun GameMenu(activity: MainActivity, game: Game, onPlay: () -> Unit, onClose: () -> Unit) {
+    val first = remember { FocusRequester() }
+    LaunchedEffect(FocusKick.count.intValue) { withFrameNanos { }; runCatching { first.requestFocus() } }
+    DisposableEffect(Unit) {
+        val previous = activity.onBackRequest
+        val handler: () -> Boolean = { onClose(); true }
+        activity.onBackRequest = handler
+        onDispose { if (activity.onBackRequest === handler) activity.onBackRequest = previous }
+    }
+    val fav = Custom.isFavorite(game)
+    val look = lookFor(game.system.id)
+    Column(Modifier.fillMaxSize()) {
+        Column(Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
+            Text(game.title, color = TextBright, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 2)
+            Text("${systemName(game.system)} · B to close", color = TextDim, fontSize = 13.sp)
+        }
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 6.dp)) {
+            item("play") { GameCard("Play", null, look, tile = "▶", focusRequester = first, onClick = onPlay) }
+            item("fav") {
+                GameCard(if (fav) "Remove from favorites" else "Add to favorites",
+                    if (fav) null else "Shows up in ★ Favorites here and on the home screen",
+                    FAVORITES_LOOK, tile = if (fav) "☆" else "★") {
+                    Custom.toggleFavorite(game); onClose()
+                }
+            }
+            item("cancel") { GameCard("Cancel", null, SETTINGS_LOOK, tile = "✕", onClick = onClose) }
+        }
     }
 }
 

@@ -89,6 +89,7 @@ fun SettingsScreen(
             }
             "controller" -> {
             MenuButtonsSection(activity)
+            FavoriteButtonSection(activity)
             ButtonMappingSection(activity)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Treat any controller as a Pocket Taco", color = Color.White, modifier = Modifier.weight(1f))
@@ -332,6 +333,55 @@ private fun MenuButtonsSection(activity: MainActivity) {
             st.backKey = k; st.backScan = sc
             selectKey = st.selectKey; backKey = st.backKey
         }) { Text("Swap them") }
+    }
+}
+
+/** Which button adds a game to favorites in a game list (Y unless you change it). */
+@Composable
+private fun FavoriteButtonSection(activity: MainActivity) {
+    var key by remember { mutableIntStateOf(activity.settings.favoriteKey) }
+    var waiting by remember { mutableStateOf(false) }
+    var note by remember { mutableStateOf<String?>(null) }
+    fun stop() { waiting = false; activity.onKeyCapture = null }
+    fun start() {
+        waiting = true
+        note = null
+        activity.onKeyCapture = { e ->
+            if (e.action == android.view.KeyEvent.ACTION_UP) {
+                val st = activity.settings
+                if (st.isSelect(e) || st.isBack(e)) {
+                    note = "That's your A or B button. Press a different one (like Y, X, L or R)."
+                } else {
+                    st.favoriteKey = e.keyCode
+                    st.favoriteScan = 0
+                    key = e.keyCode
+                    note = "Saved."
+                    stop()
+                }
+            }
+        }
+    }
+    LaunchedEffect(waiting) { if (waiting) { kotlinx.coroutines.delay(20000); stop() } }
+    DisposableEffect(Unit) { onDispose { stop() } }
+
+    Text("Favorite button", color = Color.White, fontWeight = FontWeight.Bold)
+    Text(
+        if (waiting) (note ?: "Press the button you want for favorites…")
+        else (if (key == 0) "Off. You can still hold A on a game (or press Start) to favorite it."
+            else "${buttonName(key)} (code $key) adds or removes the selected game from ★ Favorites. " +
+                "Holding A on a game (or pressing Start) also works.") + (note?.let { "\n$it" } ?: ""),
+        color = if (waiting) Color(0xFF4CFF9A) else Color(0xFFAAAAAA),
+        style = MaterialTheme.typography.bodySmall,
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(onClick = { if (waiting) stop() else start() }) {
+            Text(if (waiting) "Cancel" else "Set favorite button")
+        }
+        if (!waiting) TextButton(onClick = {
+            val y = android.view.KeyEvent.KEYCODE_BUTTON_Y
+            val next = if (key == 0) y else 0
+            activity.settings.favoriteKey = next; activity.settings.favoriteScan = 0; key = next; note = null
+        }) { Text(if (key == 0) "Use Y" else "Turn off") }
     }
 }
 

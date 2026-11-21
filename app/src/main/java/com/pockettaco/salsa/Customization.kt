@@ -117,16 +117,40 @@ object Custom {
         else runCatching { BitmapFactory.decodeFile(file.path)?.asImageBitmap() }.getOrNull()
     }
 
+    /** Favorite games, saved as "system|file" so each system keeps its own. */
+    var favorites: Set<String>
+        get() { read(); return p().getStringSet("favorites", emptySet())!!.toSet() }
+        private set(v) { p().edit().putStringSet("favorites", v).apply(); changed() }
+
+    fun isFavorite(game: Game) = favoriteKey(game) in favorites
+
+    /** The games in [games] that are favorites, keeping their order. */
+    fun favoritesIn(games: List<Game>): List<Game> {
+        val keys = favorites
+        return if (keys.isEmpty()) emptyList() else games.filter { favoriteKey(it) in keys }
+    }
+
+    /** Adds or removes a favorite; returns true if it's now a favorite. */
+    fun toggleFavorite(game: Game): Boolean {
+        val key = favoriteKey(game)
+        val now = key !in favorites
+        favorites = if (now) favorites + key else favorites - key
+        return now
+    }
+
     fun removeIcon(id: String) { iconFile(id).delete(); changed() }
 
     /** Clears the view, order, names, colours, pictures and background. */
     fun resetAll() {
-        p().edit().clear().apply()
+        val keep = p().getStringSet("favorites", emptySet())!!.toSet()   // favorites aren't "look"
+        p().edit().clear().putStringSet("favorites", keep).apply()
         File(dir, "icons").deleteRecursively()
         backgroundFile().delete()
         changed()
     }
 }
+
+private fun favoriteKey(game: Game) = "${game.system.id}|" + fileKey(game.uri)
 
 /** The name shown for a system: yours if you renamed it. */
 fun systemName(system: GameSystem): String = Custom.name(system.id) ?: system.name
