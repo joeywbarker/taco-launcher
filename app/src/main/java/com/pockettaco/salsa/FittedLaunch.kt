@@ -17,10 +17,10 @@ fun startFitted(activity: MainActivity, intent: Intent, system: GameSystem? = nu
     // in the background, and RetroArch shows a black screen if a second game window opens
     // while the old one is still alive. Android only lets us close it once it's out of sight.
     if (system != null) closeLeftoverEmulator(activity, intent)
-    // Reuse the emulator's one window instead of opening another each time (they piled up).
-    // For a game, clear what was in it so the new game starts cleanly.
     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    if (system != null) intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
+    // A game gets a fresh window: reusing RetroArch's old one while it's still alive gives a
+    // black screen. Keep these windows out of Recent apps so they don't pile up there.
+    if (system != null) intent.addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
     val fit = activity.settings.fitEmulators && activity.watcher.connected.value
     if (!fit) {
         activity.startActivity(intent)

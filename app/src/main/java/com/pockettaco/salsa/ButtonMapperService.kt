@@ -78,11 +78,14 @@ class ButtonMapperService : AccessibilityService() {
     private fun perform(action: MapAction) {
         when (action) {
             MapAction.EXIT_GAME -> {
-                // Go to the phone's home first (Taco Launcher when it's the default home app),
-                // then bring Taco Launcher up full screen so it sits over the game window.
-                performGlobalAction(GLOBAL_ACTION_HOME)
-                handler.postDelayed({ openLauncher() }, 250)
+                // Home first tucks the game's pop-up window away; then bring Taco Launcher up
+                // full screen. Keep trying for a moment: if another home screen (Samsung's)
+                // grabs the front, we'd otherwise be left there.
+                if (foreground != null && foreground != packageName) performGlobalAction(GLOBAL_ACTION_HOME)
+                bringBack(attempt = 0)
             }
+            // Android's Back opens RetroArch's menu (and backs out of it), with no RetroArch setup.
+            MapAction.EMULATOR_MENU -> performGlobalAction(GLOBAL_ACTION_BACK)
             MapAction.TACO_LAUNCHER -> openLauncher()
             MapAction.HOME -> performGlobalAction(GLOBAL_ACTION_HOME)
             MapAction.BACK -> performGlobalAction(GLOBAL_ACTION_BACK)
@@ -97,6 +100,15 @@ class ButtonMapperService : AccessibilityService() {
     }
 
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+
+    private fun bringBack(attempt: Int) {
+        handler.postDelayed({
+            openLauncher()
+            handler.postDelayed({
+                if (foreground != packageName && attempt < 3) bringBack(attempt + 1)
+            }, 300)
+        }, if (attempt == 0) 300L else 200L)
+    }
 
     private fun openLauncher() {
         val intent = Intent(this, MainActivity::class.java).addFlags(
