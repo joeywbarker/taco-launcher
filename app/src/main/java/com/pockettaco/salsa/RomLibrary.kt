@@ -25,22 +25,31 @@ fun scanRoms(
 ): Library = organise(scanList(context, folder, onlySystem, onProgress))
 
 /**
- * Scans the main games folder plus any per-system folders set in Settings, and merges them.
+ * Scans the main games folder plus any per-system folders set in Settings.
+ * A system with its own folder takes its games ONLY from that folder (the main
+ * folder's copies of that system are left out, so nothing is listed twice).
  * In a per-system folder, every matching file (and every .zip/.7z) counts as that system.
  */
 fun scanAll(context: Context, settings: Settings, onProgress: (Int) -> Unit = {}): Library {
     val all = mutableListOf<Game>()
     fun add(list: List<Game>) { all += list; onProgress(all.size) }
+    val ownFolder = SYSTEMS.filter { s ->
+        settings.folderFor(s.id)?.let { canStillRead(context, it) } == true
+    }.toSet()
     settings.romFolder?.takeIf { canStillRead(context, it) }?.let { main ->
-        add(scanList(context, main, null) { n -> onProgress(all.size + n) })
+        add(scanList(context, main, null) { n -> onProgress(all.size + n) }.filter { it.system !in ownFolder })
     }
-    for (system in SYSTEMS) {
+    for (system in ownFolder) {
         val folder = settings.folderFor(system.id) ?: continue
-        if (!canStillRead(context, folder)) continue
         add(scanList(context, folder, system) { n -> onProgress(all.size + n) })
     }
-    return organise(all.distinctBy { it.uri.toString() })
+    // The same file reached through two folders has two different addresses; match on the file itself.
+    return organise(all.distinctBy { "${it.system.id}/" + fileKey(it.uri) })
 }
+
+/** "primary:ROMs/GBA/Game.gba"-style id of a file, the same however it was reached. */
+private fun fileKey(uri: Uri): String =
+    runCatching { DocumentsContract.getDocumentId(uri) }.getOrNull() ?: uri.toString()
 
 /** A short, readable name for a picked folder, like "ROMs/GBA". */
 fun folderLabel(folder: Uri?): String {

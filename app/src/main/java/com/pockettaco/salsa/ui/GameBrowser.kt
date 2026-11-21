@@ -177,7 +177,7 @@ private fun GamesList(
             item("folder") {
                 GameCard(
                     if (systemFolder == null) "Add a folder for ${system.name}" else "Folder: ${folderLabel(systemFolder)}",
-                    if (systemFolder == null) "Games also come from your main folder" else "Press A to pick a different folder",
+                    if (systemFolder == null) "Use a different folder just for this system" else "Only this folder is used for ${systemName(system)}",
                     SETTINGS_LOOK, tile = "📁",
                 ) { folderPicker.launch(null) }
             }
