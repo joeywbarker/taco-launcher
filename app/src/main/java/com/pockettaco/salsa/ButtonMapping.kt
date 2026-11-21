@@ -25,22 +25,19 @@ data class Mapping(val keys: List<Int>, val action: MapAction) {
 }
 
 /**
- * Batocera-style defaults, with Select as the hotkey button:
- * Home or Select+Start = leave the game, Select+B = the emulator's menu.
+ * Defaults: Select+Start = the emulator's menu (RetroArch's menu, the game keeps going),
+ * Home = leave the game and come back to Taco Launcher.
  */
-fun defaultMappings(context: Context): List<Mapping> {
-    val b = Settings(context).signalFor(TacoButton.B).first
-    return listOf(
-        Mapping(listOf(KeyEvent.KEYCODE_BUTTON_MODE), MapAction.EXIT_GAME),
-        Mapping(SELECT_START, MapAction.EXIT_GAME),
-        Mapping(listOf(KeyEvent.KEYCODE_BUTTON_SELECT, b).sorted(), MapAction.EMULATOR_MENU),
-    )
-}
+@Suppress("UNUSED_PARAMETER")
+fun defaultMappings(context: Context): List<Mapping> = listOf(
+    Mapping(listOf(KeyEvent.KEYCODE_BUTTON_MODE), MapAction.EXIT_GAME),
+    Mapping(SELECT_START, MapAction.EMULATOR_MENU),
+)
 
 private val SELECT_START = listOf(KeyEvent.KEYCODE_BUTTON_SELECT, KeyEvent.KEYCODE_BUTTON_START).sorted()
 
 /** Bump when the defaults change in a way saved lists should pick up. */
-private const val MAPPINGS_VERSION = 4
+private const val MAPPINGS_VERSION = 5
 
 fun loadMappings(context: Context): List<Mapping> {
     val prefs = context.getSharedPreferences("taco", Context.MODE_PRIVATE)
@@ -55,11 +52,14 @@ fun loadMappings(context: Context): List<Mapping> {
             if (isOldHome) m.copy(action = MapAction.EXIT_GAME) else m
         }
     }
-    // Version 4: Batocera-style Select hotkeys. Add them unless those buttons already do something.
+    // Version 5: Select+Start opens the emulator's menu instead of leaving the game, and the
+    // short-lived Select+B menu combo goes (on this Taco, B can send the same signal as A).
+    if (version == 4) {
+        list = list.filterNot { it.action == MapAction.EMULATOR_MENU && it.keys.size == 2 && KeyEvent.KEYCODE_BUTTON_SELECT in it.keys && it.keys != SELECT_START }
+    }
+    list = list.map { if (it.keys == SELECT_START && it.action == MapAction.EXIT_GAME) it.copy(action = MapAction.EMULATOR_MENU) else it }
     defaultMappings(context).forEach { d ->
-        if (list.none { it.keys == d.keys } && list.none { it.action == d.action && d.action == MapAction.EMULATOR_MENU }) {
-            list = list.filterNot { it.keys == d.keys } + d
-        }
+        if (list.none { it.keys == d.keys } && list.none { it.action == d.action }) list = list + d
     }
     saveMappings(context, list)
     return list

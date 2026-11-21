@@ -356,10 +356,10 @@ private fun MenuButtonsSection(activity: MainActivity) {
 @Composable
 private fun RetroArchHotkeysSection(activity: MainActivity) {
     var open by remember { mutableStateOf(false) }
-    Text("Game hotkeys (like Batocera)", color = Color.White, fontWeight = FontWeight.Bold)
+    Text("Game hotkeys", color = Color.White, fontWeight = FontWeight.Bold)
     Text(
-        "Select is the hotkey button. Hold Select + press Start = leave the game, back here.  " +
-            "Select + B = the emulator's menu (RetroArch's menu, no setup needed).  Home = leave the game too.  " +
+        "Select + Start = RetroArch's menu (the game keeps going; press again to go back).  " +
+            "Home = leave the game and come back here; RetroArch closes and saves.  " +
             "These need button mapping switched on (above). Change them in the list above.",
         color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall,
     )
@@ -368,7 +368,7 @@ private fun RetroArchHotkeysSection(activity: MainActivity) {
             "1. Settings → Input → Hotkeys → Hotkey Enable → press Select.\n" +
             "2. Save State → press Y.  Load State → press X.  Fast-Forward (Toggle) → press Right.\n" +
             "3. Main Menu → Configuration File → Save Current Configuration.\n" +
-            "To fully close RetroArch: Select + B, then Quit RetroArch in its menu.",
+            "Leaving with Home closes RetroArch fully, so turn on Settings → Saving → Auto Save State if you want to resume exactly.",
         color = Color(0xFFDDDDDD), style = MaterialTheme.typography.bodySmall,
     )
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
