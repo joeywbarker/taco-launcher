@@ -471,7 +471,9 @@ private fun RetroArchSetupPrompt(
                 fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 20.dp))
             Text(
                 "RetroArch doesn't know the Pocket Taco's buttons yet. In RetroArch: Settings → Input → " +
-                    "Port 1 Controls → Set All Controls, then Save Controller Profile. You only do this once.",
+                    "Port 1 Controls → Set All Controls, then Save Controller Profile. You only do this once.\n" +
+                    "Menu in a game: Settings → Input → Hotkeys → Menu Toggle (Controller Combo) → Hold Start. " +
+                    "To keep settings: Main Menu → Configuration File → Save Current Configuration.",
                 color = TextDim, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
             )
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 6.dp)) {

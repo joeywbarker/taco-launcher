@@ -25,23 +25,30 @@ data class Mapping(val keys: List<Int>, val action: MapAction) {
 
 val DEFAULT_MAPPINGS = listOf(
     // The Taco's Home button does nothing in emulators by default: make it go to our launcher.
+    // Select+Start is NOT a default any more: RetroArch uses it to open its own menu.
     Mapping(listOf(KeyEvent.KEYCODE_BUTTON_MODE), MapAction.EXIT_GAME),
-    Mapping(listOf(KeyEvent.KEYCODE_BUTTON_SELECT, KeyEvent.KEYCODE_BUTTON_START).sorted(), MapAction.EXIT_GAME),
 )
 
+private val SELECT_START = listOf(KeyEvent.KEYCODE_BUTTON_SELECT, KeyEvent.KEYCODE_BUTTON_START).sorted()
+
 /** Bump when the defaults change in a way saved lists should pick up. */
-private const val MAPPINGS_VERSION = 2
+private const val MAPPINGS_VERSION = 3
 
 fun loadMappings(context: Context): List<Mapping> {
     val prefs = context.getSharedPreferences("taco", Context.MODE_PRIVATE)
     val raw = prefs.getString("mappings", null) ?: return DEFAULT_MAPPINGS
     val list = parseMappings(raw)
     if (prefs.getInt("mappingsVersion", 1) < MAPPINGS_VERSION) {
-        // Old defaults (Home -> open launcher, Select+Start -> Back) didn't leave the game. Upgrade them.
-        val upgraded = list.map { m ->
+        // Old default Home -> open launcher didn't leave the game: upgrade it. The old
+        // Select+Start default (Back, later Leave game) took RetroArch's menu combo: drop it.
+        val upgraded = list.mapNotNull { m ->
             val isOldHome = m.keys == listOf(KeyEvent.KEYCODE_BUTTON_MODE) && m.action == MapAction.TACO_LAUNCHER
-            val isOldCombo = m.keys == DEFAULT_MAPPINGS[1].keys && m.action == MapAction.BACK
-            if (isOldHome || isOldCombo) m.copy(action = MapAction.EXIT_GAME) else m
+            val isOldCombo = m.keys == SELECT_START && (m.action == MapAction.BACK || m.action == MapAction.EXIT_GAME)
+            when {
+                isOldCombo -> null
+                isOldHome -> m.copy(action = MapAction.EXIT_GAME)
+                else -> m
+            }
         }
         prefs.edit().putInt("mappingsVersion", MAPPINGS_VERSION).apply()
         saveMappings(context, upgraded)
