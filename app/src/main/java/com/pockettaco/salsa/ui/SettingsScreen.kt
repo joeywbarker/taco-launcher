@@ -356,26 +356,23 @@ private fun MenuButtonsSection(activity: MainActivity) {
 @Composable
 private fun RetroArchHotkeysSection(activity: MainActivity) {
     var open by remember { mutableStateOf(false) }
-    Text("RetroArch hotkeys (like Batocera)", color = Color.White, fontWeight = FontWeight.Bold)
+    Text("Game hotkeys (like Batocera)", color = Color.White, fontWeight = FontWeight.Bold)
     Text(
-        "Hold Select + Start = quit the game and come back here.  Select + B = RetroArch menu.  " +
-            "Select + Y / X = save / load state.  Select + Right = fast forward.  " +
-            "Taco Launcher keeps Select combos free for RetroArch; Home leaves a game but keeps it paused.",
+        "Select is the hotkey button. Hold Select + press Start = leave the game, back here.  " +
+            "Select + B = the emulator's menu (RetroArch's menu, no setup needed).  Home = leave the game too.  " +
+            "These need button mapping switched on (above). Change them in the list above.",
         color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall,
     )
     if (open) Text(
-        "Set up once in RetroArch (open it below, without a game):\n" +
+        "Optional extras, set inside RetroArch (open it below, without a game):\n" +
             "1. Settings → Input → Hotkeys → Hotkey Enable → press Select.\n" +
-            "2. Same page: Quit → press Start.  Menu Toggle → press B.\n" +
-            "3. Save State → press Y.  Load State → press X.  Fast-Forward (Toggle) → press Right.\n" +
-            "4. Optional: Settings → Input → Hotkeys → Confirm Quit → Off, so one press quits.\n" +
-            "5. Main Menu → Configuration File → Save Current Configuration.\n" +
-            "If B does the same as A in RetroArch, your Taco is sending the same signal for both: " +
-            "re-pair it in Android mode (hold Home + A), then try again.",
+            "2. Save State → press Y.  Load State → press X.  Fast-Forward (Toggle) → press Right.\n" +
+            "3. Main Menu → Configuration File → Save Current Configuration.\n" +
+            "To fully close RetroArch: Select + B, then Quit RetroArch in its menu.",
         color = Color(0xFFDDDDDD), style = MaterialTheme.typography.bodySmall,
     )
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedButton(onClick = { open = !open }) { Text(if (open) "Hide steps" else "Show setup steps") }
+        OutlinedButton(onClick = { open = !open }) { Text(if (open) "Hide extras" else "Save state extras") }
         val ra = remember { com.pockettaco.salsa.installedEmulators(activity).firstOrNull { "retroarch" in it.pkg || "retroarch" in it.name.lowercase() } }
         if (ra != null) TextButton(onClick = { com.pockettaco.salsa.openAppFitted(activity, ra.pkg) }) { Text("Open RetroArch") }
     }

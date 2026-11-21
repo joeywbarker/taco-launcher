@@ -6,6 +6,7 @@ import android.view.KeyEvent
 /** What a button (or combo) can do. */
 enum class MapAction(val label: String) {
     EXIT_GAME("Leave game, back to menu"),
+    EMULATOR_MENU("Emulator menu (RetroArch menu)"),
     TACO_LAUNCHER("Open Taco Launcher"),
     HOME("Home"),
     BACK("Back"),
@@ -23,37 +24,44 @@ data class Mapping(val keys: List<Int>, val action: MapAction) {
     val label: String get() = keys.joinToString(" + ") { buttonName(it) }
 }
 
-val DEFAULT_MAPPINGS = listOf(
-    // The Taco's Home button does nothing in emulators by default: make it go to our launcher.
-    // Select+Start is NOT a default any more: RetroArch uses it to open its own menu.
-    Mapping(listOf(KeyEvent.KEYCODE_BUTTON_MODE), MapAction.EXIT_GAME),
-)
+/**
+ * Batocera-style defaults, with Select as the hotkey button:
+ * Home or Select+Start = leave the game, Select+B = the emulator's menu.
+ */
+fun defaultMappings(context: Context): List<Mapping> {
+    val b = Settings(context).signalFor(TacoButton.B).first
+    return listOf(
+        Mapping(listOf(KeyEvent.KEYCODE_BUTTON_MODE), MapAction.EXIT_GAME),
+        Mapping(SELECT_START, MapAction.EXIT_GAME),
+        Mapping(listOf(KeyEvent.KEYCODE_BUTTON_SELECT, b).sorted(), MapAction.EMULATOR_MENU),
+    )
+}
 
 private val SELECT_START = listOf(KeyEvent.KEYCODE_BUTTON_SELECT, KeyEvent.KEYCODE_BUTTON_START).sorted()
 
 /** Bump when the defaults change in a way saved lists should pick up. */
-private const val MAPPINGS_VERSION = 3
+private const val MAPPINGS_VERSION = 4
 
 fun loadMappings(context: Context): List<Mapping> {
     val prefs = context.getSharedPreferences("taco", Context.MODE_PRIVATE)
-    val raw = prefs.getString("mappings", null) ?: return DEFAULT_MAPPINGS
-    val list = parseMappings(raw)
-    if (prefs.getInt("mappingsVersion", 1) < MAPPINGS_VERSION) {
-        // Old default Home -> open launcher didn't leave the game: upgrade it. The old
-        // Select+Start default (Back, later Leave game) took RetroArch's menu combo: drop it.
-        val upgraded = list.mapNotNull { m ->
+    val raw = prefs.getString("mappings", null) ?: return defaultMappings(context)
+    var list = parseMappings(raw)
+    val version = prefs.getInt("mappingsVersion", 1)
+    if (version >= MAPPINGS_VERSION) return list
+    if (version < 3) {
+        // Old default Home -> open launcher didn't leave the game: upgrade it.
+        list = list.map { m ->
             val isOldHome = m.keys == listOf(KeyEvent.KEYCODE_BUTTON_MODE) && m.action == MapAction.TACO_LAUNCHER
-            val isOldCombo = m.keys == SELECT_START && (m.action == MapAction.BACK || m.action == MapAction.EXIT_GAME)
-            when {
-                isOldCombo -> null
-                isOldHome -> m.copy(action = MapAction.EXIT_GAME)
-                else -> m
-            }
+            if (isOldHome) m.copy(action = MapAction.EXIT_GAME) else m
         }
-        prefs.edit().putInt("mappingsVersion", MAPPINGS_VERSION).apply()
-        saveMappings(context, upgraded)
-        return upgraded
     }
+    // Version 4: Batocera-style Select hotkeys. Add them unless those buttons already do something.
+    defaultMappings(context).forEach { d ->
+        if (list.none { it.keys == d.keys } && list.none { it.action == d.action && d.action == MapAction.EMULATOR_MENU }) {
+            list = list.filterNot { it.keys == d.keys } + d
+        }
+    }
+    saveMappings(context, list)
     return list
 }
 

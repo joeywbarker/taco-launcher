@@ -528,8 +528,7 @@ private fun RetroArchSetupPrompt(
             Text(
                 "RetroArch doesn't know the Pocket Taco's buttons yet. In RetroArch: Settings → Input → " +
                     "Port 1 Controls → Set All Controls, then Save Controller Profile. You only do this once.\n" +
-                    "For hotkeys like Batocera (Select + Start quits, Select + B opens the menu), see " +
-                    "Taco Launcher Settings → Controller & buttons → RetroArch hotkeys.",
+                    "In a game: Select + B opens RetroArch's menu, Select + Start or Home comes back here.",
                 color = TextDim, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
             )
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 6.dp)) {
