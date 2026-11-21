@@ -528,7 +528,7 @@ private fun RetroArchSetupPrompt(
             Text(
                 "RetroArch doesn't know the Pocket Taco's buttons yet. In RetroArch: Settings → Input → " +
                     "Port 1 Controls → Set All Controls, then Save Controller Profile. You only do this once.\n" +
-                    "In a game: Select + B opens RetroArch's menu, Select + Start or Home comes back here.",
+                    "In a game: Select + Start opens RetroArch's menu, Home comes back here.",
                 color = TextDim, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
             )
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 6.dp)) {
