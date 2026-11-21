@@ -20,6 +20,9 @@ import kotlin.math.min
 /** How the home screen shows systems. Select on the controller steps through these. */
 enum class HomeView(val label: String) { BIG("Big icons"), SMALL("Small icons"), LIST("List") }
 
+/** How a system's game list looks. Select on the controller steps through these. */
+enum class GameView(val label: String) { LIST("List"), GRID("Grid"), COMPACT("Compact") }
+
 /** A background choice for the menus. */
 data class Backdrop(val name: String, val top: Color, val bottom: Color, val glow: Color)
 
@@ -72,6 +75,14 @@ object Custom {
         set(v) { p().edit().putString("view", v.name).apply(); changed() }
 
     fun nextView() { homeView = HomeView.entries[(homeView.ordinal + 1) % HomeView.entries.size] }
+
+    fun gameView(id: String): GameView {
+        read(); return runCatching { GameView.valueOf(p().getString("gview_$id", "LIST")!!) }.getOrDefault(GameView.LIST)
+    }
+    fun nextGameView(id: String) {
+        val next = GameView.entries[(gameView(id).ordinal + 1) % GameView.entries.size]
+        p().edit().putString("gview_$id", next.name).apply(); changed()
+    }
 
     /** System ids in the order you arranged them (systems not listed go after, in the usual order). */
     var order: List<String>

@@ -162,3 +162,59 @@ fun GameCard(
         if (focused) Text("▶", color = Color.White, fontSize = 14.sp)
     }
 }
+
+/** A game as a square tile with its title underneath (the Grid view). */
+@Composable
+fun GameTile(title: String, look: SystemLook, focusRequester: FocusRequester? = null, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(if (focused) 1.06f else 1f, label = "s")
+    val shape = RoundedCornerShape(14.dp)
+    Column(
+        Modifier
+            .padding(6.dp)
+            .scale(scale)
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
+            .onFocusChanged { focused = it.isFocused }
+            .clickable(remember { MutableInteractionSource() }, indication = null, onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            Modifier.fillMaxWidth().aspectRatio(1f).clip(shape)
+                .background(Brush.linearGradient(listOf(look.top, look.bottom)))
+                .border(if (focused) 3.dp else 1.dp, if (focused) Color.White else Color.White.copy(alpha = 0.2f), shape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(title.firstOrNull { it.isLetterOrDigit() }?.uppercase() ?: "?",
+                color = Color.White, fontWeight = FontWeight.Black, fontSize = 30.sp)
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(title, color = if (focused) TextBright else TextDim, fontSize = 11.sp,
+            fontWeight = if (focused) FontWeight.Bold else FontWeight.Medium,
+            maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center, lineHeight = 13.sp)
+    }
+}
+
+/** A game as one slim line of text (the Compact view): fits many more on screen. */
+@Composable
+fun GameRow(title: String, look: SystemLook, focusRequester: FocusRequester? = null, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 1.dp)
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
+            .onFocusChanged { focused = it.isFocused }
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (focused) Brush.horizontalGradient(listOf(look.top, look.bottom))
+                else Brush.horizontalGradient(listOf(Color.Transparent, Color.Transparent)))
+            .clickable(remember { MutableInteractionSource() }, indication = null, onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(8.dp).clip(CircleShape).background(look.top))
+        Spacer(Modifier.width(10.dp))
+        Text(title, color = if (focused) Color.White else TextBright, fontSize = 14.sp,
+            fontWeight = if (focused) FontWeight.Bold else FontWeight.Normal,
+            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+    }
+}
