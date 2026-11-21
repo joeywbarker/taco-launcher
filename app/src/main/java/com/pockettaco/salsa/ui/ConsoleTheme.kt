@@ -137,3 +137,6 @@ fun HintBar(vararg hints: Pair<String, String>) {
         }
     }
 }
+
+val FAVORITES_LOOK = SystemLook("★", Color(0xFFFFD25A), Color(0xFFB8740B))
+val RANDOM_LOOK = SystemLook("🎲", Color(0xFFFF8AD8), Color(0xFF8A1F7A))

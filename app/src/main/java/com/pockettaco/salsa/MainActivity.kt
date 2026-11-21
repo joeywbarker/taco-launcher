@@ -35,6 +35,9 @@ class MainActivity : ComponentActivity() {
     var onStartButton: (() -> Boolean)? = null
     var onSelectButton: (() -> Boolean)? = null
 
+    /** Set by a game list: the favorite button (Y unless changed in Settings) stars the selected game. */
+    var onFavoriteButton: (() -> Boolean)? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -85,6 +88,12 @@ class MainActivity : ComponentActivity() {
             lastButton.value = "${buttonName(event.keyCode)} (code ${event.keyCode}, scan ${event.scanCode})"
         }
         // Whatever codes the controller sends, use the buttons taught in Settings.
+        if (!settings.isBack(event) && !settings.isSelect(event) && settings.isFavorite(event)) {
+            onFavoriteButton?.let { hook ->
+                if (event.action == KeyEvent.ACTION_UP) hook()
+                return true
+            }
+        }
         val code = when {
             settings.isBack(event) -> KeyEvent.KEYCODE_BUTTON_B
             settings.isSelect(event) -> KeyEvent.KEYCODE_BUTTON_A

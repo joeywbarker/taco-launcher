@@ -48,7 +48,7 @@ fun scanAll(context: Context, settings: Settings, onProgress: (Int) -> Unit = {}
 }
 
 /** "primary:ROMs/GBA/Game.gba"-style id of a file, the same however it was reached. */
-private fun fileKey(uri: Uri): String =
+fun fileKey(uri: Uri): String =
     runCatching { DocumentsContract.getDocumentId(uri) }.getOrNull() ?: uri.toString()
 
 /** A short, readable name for a picked folder, like "ROMs/GBA". */

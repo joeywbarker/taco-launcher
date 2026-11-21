@@ -72,6 +72,16 @@ class Settings(context: Context) {
         get() = prefs.getInt("backScan", 0)
         set(v) = prefs.edit().putInt("backScan", v).apply()
 
+    /** The button that adds or removes a favorite in a game list (0 = off). Y unless you change it. */
+    var favoriteKey: Int
+        get() = prefs.getInt("favoriteKey", android.view.KeyEvent.KEYCODE_BUTTON_Y)
+        set(v) = prefs.edit().putInt("favoriteKey", v).apply()
+    var favoriteScan: Int
+        get() = prefs.getInt("favoriteScan", 0)
+        set(v) = prefs.edit().putInt("favoriteScan", v).apply()
+    fun isFavorite(e: android.view.KeyEvent) =
+        favoriteKey != 0 && e.keyCode == favoriteKey && (favoriteScan == 0 || e.scanCode == favoriteScan)
+
     fun isSelect(e: android.view.KeyEvent) = e.keyCode == selectKey && (selectScan == 0 || e.scanCode == selectScan)
     fun isBack(e: android.view.KeyEvent) = e.keyCode == backKey && (backScan == 0 || e.scanCode == backScan)
 
