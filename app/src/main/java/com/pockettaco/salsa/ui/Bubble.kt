@@ -218,3 +218,26 @@ fun GameRow(title: String, look: SystemLook, focusRequester: FocusRequester? = n
             maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
     }
 }
+
+/** A small pill button for the slim toolbar above a game list. */
+@Composable
+fun ToolbarButton(icon: String, label: String, look: SystemLook, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    Row(
+        Modifier
+            .padding(end = 6.dp)
+            .onFocusChanged { focused = it.isFocused }
+            .clip(RoundedCornerShape(50))
+            .background(if (focused) Brush.horizontalGradient(listOf(look.top, look.bottom))
+                else Brush.horizontalGradient(listOf(Color.White.copy(alpha = 0.08f), Color.White.copy(alpha = 0.08f))))
+            .border(1.dp, if (focused) Color.White else Color.White.copy(alpha = 0.15f), RoundedCornerShape(50))
+            .clickable(remember { MutableInteractionSource() }, indication = null, onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(icon, color = Color.White, fontSize = 13.sp)
+        Spacer(Modifier.width(6.dp))
+        Text(label, color = if (focused) Color.White else TextBright, fontSize = 13.sp,
+            fontWeight = if (focused) FontWeight.Bold else FontWeight.Medium, maxLines = 1)
+    }
+}

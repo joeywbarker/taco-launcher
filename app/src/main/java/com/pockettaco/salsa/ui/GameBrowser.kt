@@ -11,10 +11,11 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
@@ -161,43 +162,31 @@ private fun GamesList(
             }
         }
         val view = Custom.gameView(system.id)
-        val full: androidx.compose.foundation.lazy.grid.LazyGridItemSpanScope.() -> GridItemSpan = { GridItemSpan(maxLineSpan) }
+        // One slim row of small buttons instead of big cards, so the games get the screen.
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ToolbarButton("←", "Back", SETTINGS_LOOK, onBack)
+            if (choices.isEmpty()) ToolbarButton("↓", "Get an emulator", EMULATORS_LOOK, onGetEmulators)
+            else ToolbarButton("▶", "Open ${current?.name ?: "emulator"}", EMULATORS_LOOK) {
+                current?.let { openAppFitted(activity, it.pkg) }
+            }
+            if (choices.size > 1) ToolbarButton("⇄", "Switch emulator", EMULATORS_LOOK) {
+                val next = choices[(choices.indexOf(current) + 1) % choices.size]
+                current = next
+                activity.settings.setEmulatorFor(system.id, next.pkg)
+            }
+            ToolbarButton("◫", view.label, SETTINGS_LOOK) { Custom.nextGameView(system.id) }
+            ToolbarButton("📁", if (systemFolder == null) "Add folder" else folderLabel(systemFolder), SETTINGS_LOOK) {
+                folderPicker.launch(null)
+            }
+        }
         LazyVerticalGrid(
             GridCells.Fixed(if (view == GameView.GRID) 3 else 1),
             Modifier.fillMaxSize().padding(horizontal = if (view == GameView.GRID) 10.dp else 0.dp),
             contentPadding = PaddingValues(vertical = 6.dp),
         ) {
-            item("back", span = full) { GameCard("Back", "or press B", SETTINGS_LOOK, tile = "←", onClick = onBack) }
-            item("emu", span = full) {
-                if (choices.isEmpty()) {
-                    GameCard("Get an emulator", "RetroArch recommended: free, plays almost everything",
-                        EMULATORS_LOOK, tile = "↓", onClick = onGetEmulators)
-                } else GameCard(
-                    "Open ${current?.name}",
-                    "Games below play with it",
-                    EMULATORS_LOOK, tile = "▶",
-                ) {
-                    current?.let { openAppFitted(activity, it.pkg) }
-                }
-            }
-            if (choices.size > 1) item("switch", span = full) {
-                GameCard("Switch emulator", "Now: ${current?.name}", EMULATORS_LOOK, tile = "⇄") {
-                    val next = choices[(choices.indexOf(current) + 1) % choices.size]
-                    current = next
-                    activity.settings.setEmulatorFor(system.id, next.pkg)
-                }
-            }
-            item("view", span = full) {
-                GameCard("View: ${view.label}", "Press A or Select to switch (List, Grid, Compact)",
-                    SETTINGS_LOOK, tile = "◫") { Custom.nextGameView(system.id) }
-            }
-            item("folder", span = full) {
-                GameCard(
-                    if (systemFolder == null) "Add a folder for ${system.name}" else "Folder: ${folderLabel(systemFolder)}",
-                    if (systemFolder == null) "Use a different folder just for this system" else "Only this folder is used for ${systemName(system)}",
-                    SETTINGS_LOOK, tile = "📁",
-                ) { folderPicker.launch(null) }
-            }
             items(games, key = { it.uri.toString() }) { game ->
                 val play = {
                     val emu = current
