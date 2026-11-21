@@ -38,7 +38,7 @@ import com.pockettaco.salsa.*
 private sealed interface Screen {
     data object Home : Screen
     /** A system's games; [favorites] shows only its ★ favorites. */
-    data class Games(val system: GameSystem, val favorites: Boolean = false) : Screen
+    data class Games(val system: GameSystem, val favorites: Boolean = false, val recent: Boolean = false) : Screen
     /** Favorites from every system. */
     data object Favorites : Screen
     /** The last 10 different games you played. */
@@ -99,7 +99,7 @@ fun GameBrowser(
         val handler: () -> Boolean = {
             val s = screen
             when {
-                s is Screen.Games && s.favorites -> { screen = Screen.Games(s.system); true }
+                s is Screen.Games && (s.favorites || s.recent) -> { screen = Screen.Games(s.system); true }
                 s != Screen.Home -> { screen = Screen.Home; true }
                 else -> false
             }
@@ -162,10 +162,11 @@ fun GameBrowser(
                         onRescan = onRescan,
                     )
                     is Screen.Games -> GamesList(activity, s.system, library[s.system].orEmpty(), emulators,
-                        favoritesOnly = s.favorites, onPlay = play, onRandom = playRandom,
+                        favoritesOnly = s.favorites, recentOnly = s.recent, onPlay = play, onRandom = playRandom,
                         onOpenFavorites = { screen = Screen.Games(s.system, favorites = true) },
+                        onOpenRecent = { screen = Screen.Games(s.system, recent = true) },
                         onRescan = onRescan, onGetEmulators = { screen = Screen.GetEmulators }) {
-                        screen = if (s.favorites) Screen.Games(s.system) else Screen.Home
+                        screen = if (s.favorites || s.recent) Screen.Games(s.system) else Screen.Home
                     }
                     Screen.Favorites -> AllGamesList(activity, "★ Favorites", "${allFavorites.size} games from every system",
                         allFavorites, "Random favorite", null, onPlay = play, onRandom = playRandom) {
@@ -197,9 +198,11 @@ private fun GamesList(
     games: List<Game>,
     emulators: List<Emulator>,
     favoritesOnly: Boolean,
+    recentOnly: Boolean,
     onPlay: (Game) -> Unit,
     onRandom: (List<Game>) -> Unit,
     onOpenFavorites: () -> Unit,
+    onOpenRecent: () -> Unit,
     onRescan: () -> Unit,
     onGetEmulators: () -> Unit,
     onBack: () -> Unit,
@@ -217,7 +220,13 @@ private fun GamesList(
         }
     }
     val favorites = Custom.favoritesIn(games)
-    val list = if (favoritesOnly) favorites else games
+    val recentGames = Custom.recentFor(games)
+    val inFolder = favoritesOnly || recentOnly
+    val list = when {
+        favoritesOnly -> favorites
+        recentOnly -> recentGames
+        else -> games
+    }
     val choices = remember(emulators) { emulatorChoices(activity, system, emulators) }
     var current by remember(choices) { mutableStateOf(currentEmulator(activity, system, emulators)) }
     var menuFor by remember { mutableStateOf<Game?>(null) }
@@ -244,10 +253,11 @@ private fun GamesList(
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.padding(horizontal = 20.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Column {
-                Text(if (favoritesOnly) "★ Favorites" else systemName(system),
+                Text(if (favoritesOnly) "★ Favorites" else if (recentOnly) "🕘 Recently played" else systemName(system),
                     color = TextBright, fontSize = 26.sp, fontWeight = FontWeight.Bold)
                 Text(
                     if (favoritesOnly) "${systemName(system)} · ${list.size} favorites"
+                    else if (recentOnly) "${systemName(system)} · last ${list.size} games, newest first"
                     else "${games.size} games · ${current?.name ?: "no emulator yet"}",
                     color = TextDim, fontSize = 13.sp,
                 )
@@ -271,9 +281,14 @@ private fun GamesList(
                 activity.settings.setEmulatorFor(system.id, next.pkg)
             }
             ToolbarButton("◫", view.label, SETTINGS_LOOK) { Custom.nextGameView(system.id) }
-            if (!favoritesOnly) ToolbarButton("📁", if (systemFolder == null) "Add folder" else folderLabel(systemFolder), SETTINGS_LOOK) {
+            if (!inFolder) ToolbarButton("📁", if (systemFolder == null) "Add folder" else folderLabel(systemFolder), SETTINGS_LOOK) {
                 folderPicker.launch(null)
             }
+        }
+        if (recentOnly && list.isEmpty()) {
+            Text("Nothing played on ${systemName(system)} yet. Games you start show up here, newest first.",
+                color = TextDim, fontSize = 14.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp))
+            return@Column
         }
         if (favoritesOnly && list.isEmpty()) {
             NoFavoritesYet(activity)
@@ -286,12 +301,15 @@ private fun GamesList(
             contentPadding = PaddingValues(vertical = 6.dp),
         ) {
             // Jump back into this system's last game.
-            val last = if (favoritesOnly) null else Custom.lastIn(games)
+            val last = if (inFolder) null else Custom.lastIn(games)
             if (last != null) item("continue", span = { GridItemSpan(maxLineSpan) }) {
                 GameRow("▶  Continue: ${last.title}", look, onLongClick = { menuFor = last }) { onPlay(last) }
             }
             // This system's own favorites folder, at the top of its list.
-            if (!favoritesOnly) item("favorites", span = { GridItemSpan(maxLineSpan) }) {
+            if (!inFolder) item("recent", span = { GridItemSpan(maxLineSpan) }) {
+                GameRow("🕘  Recently played (${recentGames.size})", RECENT_LOOK, onClick = onOpenRecent)
+            }
+            if (!inFolder) item("favorites", span = { GridItemSpan(maxLineSpan) }) {
                 GameRow("★  Favorites (${favorites.size})", FAVORITES_LOOK, onClick = onOpenFavorites)
             }
             items(list, key = { it.uri.toString() }) { game ->

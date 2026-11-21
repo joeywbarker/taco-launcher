@@ -145,8 +145,20 @@ object Custom {
     fun addRecent(game: Game) {
         val key = "${game.system.id}|${game.uri}"
         val list = (listOf(key) + recent.filter { it != key }).take(10)
+        val id = game.system.id
+        val uri = game.uri.toString()
+        val mine = (listOf(uri) + p().getString("recent_$id", "")!!.split('\n').filter { it.isNotBlank() && it != uri }).take(10)
         p().edit().putString("recent", list.joinToString("\n"))
-            .putString("last_${game.system.id}", game.uri.toString()).apply(); changed()
+            .putString("last_$id", uri)
+            .putString("recent_$id", mine.joinToString("\n")).apply(); changed()
+    }
+
+    /** One system's last 10 different games, newest first. */
+    fun recentFor(games: List<Game>): List<Game> {
+        val id = games.firstOrNull()?.system?.id ?: return emptyList()
+        read()
+        val byUri = games.associateBy { it.uri.toString() }
+        return p().getString("recent_$id", "")!!.split('\n').mapNotNull { byUri[it] }
     }
 
     /** The last game you played for one system (kept even after 10 newer games elsewhere). */
@@ -169,7 +181,7 @@ object Custom {
     fun resetAll() {
         // Favorites and recently played aren't "look"; keep them.
         val keep = p().getStringSet("favorites", emptySet())!!.toSet()
-        val played = p().all.filterKeys { it == "recent" || it.startsWith("last_") }
+        val played = p().all.filterKeys { it == "recent" || it.startsWith("last_") || it.startsWith("recent_") }
         p().edit().clear().putStringSet("favorites", keep).apply {
             played.forEach { (k, v) -> putString(k, v as? String) }
         }.apply()
