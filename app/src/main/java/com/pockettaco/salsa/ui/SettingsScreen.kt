@@ -28,6 +28,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import com.pockettaco.salsa.AppIcon
 import com.pockettaco.salsa.buttonName
+import com.pockettaco.salsa.TacoButton
+import com.pockettaco.salsa.loadMappings
+import com.pockettaco.salsa.saveMappings
 import com.pockettaco.salsa.FocusKick
 import com.pockettaco.salsa.MainActivity
 import com.pockettaco.salsa.currentAppIcon
@@ -91,6 +94,7 @@ fun SettingsScreen(
             MenuButtonsSection(activity)
             FavoriteButtonSection(activity)
             ButtonMappingSection(activity)
+            RetroArchHotkeysSection(activity)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Treat any controller as a Pocket Taco", color = Color.White, modifier = Modifier.weight(1f))
                 Switch(anyPad, { anyPad = it; activity.settings.anyGamepadCounts = it; activity.watcher.refresh() })
@@ -268,120 +272,130 @@ private fun AboutSection(activity: MainActivity) {
  */
 @Composable
 private fun MenuButtonsSection(activity: MainActivity) {
-    var selectKey by remember { mutableIntStateOf(activity.settings.selectKey) }
-    var backKey by remember { mutableIntStateOf(activity.settings.backKey) }
-    /** 0 = not teaching, 1 = waiting for A, 2 = waiting for B. */
-    var step by remember { mutableIntStateOf(0) }
-    var pickedKey by remember { mutableIntStateOf(0) }
-    var pickedScan by remember { mutableIntStateOf(0) }
+    val st = activity.settings
+    var version by remember { mutableIntStateOf(0) }   // bump to redraw after saving
+    /** Index into TacoButton.entries we're waiting for, or -1 when not teaching. */
+    var step by remember { mutableIntStateOf(-1) }
+    val taught = remember { mutableStateMapOf<TacoButton, Pair<Int, Int>>() }
     var note by remember { mutableStateOf<String?>(null) }
+    val buttons = TacoButton.entries
 
-    fun stop() { step = 0; activity.onKeyCapture = null }
+    fun stop() { step = -1; activity.onKeyCapture = null }
+    fun save() {
+        // Keep the controller's own button number only where two buttons send the same code.
+        taught.forEach { (b, sig) ->
+            val shared = taught.any { (o, s2) -> o != b && s2.first == sig.first }
+            st.setSignal(b, sig.first, if (shared) sig.second else 0)
+        }
+        // The Home button leaves games: follow it if the Taco's Home sends something unusual.
+        taught[TacoButton.HOME]?.first?.let { home ->
+            val list = loadMappings(activity)
+            if (home != android.view.KeyEvent.KEYCODE_BUTTON_MODE && list.any { it.keys == listOf(android.view.KeyEvent.KEYCODE_BUTTON_MODE) }) {
+                saveMappings(activity, list.map { m ->
+                    if (m.keys == listOf(android.view.KeyEvent.KEYCODE_BUTTON_MODE)) m.copy(keys = listOf(home)) else m
+                })
+            }
+        }
+        version++
+    }
+    fun next() {
+        if (step + 1 >= buttons.size) { save(); note = "Saved all your buttons."; stop() } else step++
+    }
     fun start() {
-        step = 1
-        note = null
+        taught.clear(); note = null; step = 0
         activity.onKeyCapture = { e ->
-            if (e.action == android.view.KeyEvent.ACTION_UP) {
-                val sig = "${buttonName(e.keyCode)} (code ${e.keyCode}, scan ${e.scanCode})"
-                activity.lastButton.value = sig
-                if (step == 1) {
-                    pickedKey = e.keyCode; pickedScan = e.scanCode; step = 2
-                } else if (step == 2) {
-                    if (e.keyCode == pickedKey && e.scanCode == pickedScan) {
-                        note = "That's the same signal as A: $sig. Press the B button."
-                    } else {
-                        // Only keep the scan detail when it's needed to tell the two apart.
-                        val sameCode = e.keyCode == pickedKey
-                        activity.settings.selectKey = pickedKey
-                        activity.settings.selectScan = if (sameCode) pickedScan else 0
-                        activity.settings.backKey = e.keyCode
-                        activity.settings.backScan = if (sameCode) e.scanCode else 0
-                        selectKey = pickedKey
-                        backKey = e.keyCode
-                        note = "Saved."
-                        stop()
-                    }
+            if (e.action == android.view.KeyEvent.ACTION_UP && step >= 0) {
+                activity.lastButton.value = "${buttonName(e.keyCode)} (code ${e.keyCode}, scan ${e.scanCode})"
+                val same = taught.entries.firstOrNull { it.value == (e.keyCode to e.scanCode) }
+                if (same != null) {
+                    note = "That's the same signal as ${same.key.label}. Press ${buttons[step].label}, or tap Skip."
+                } else {
+                    taught[buttons[step]] = e.keyCode to e.scanCode
+                    note = null
+                    next()
                 }
             }
         }
     }
-    LaunchedEffect(step) { if (step != 0) { kotlinx.coroutines.delay(20000); stop() } }
+    LaunchedEffect(step) { if (step >= 0) { kotlinx.coroutines.delay(30000); if (step >= 0) { save(); stop() } } }
     DisposableEffect(Unit) { onDispose { stop() } }
 
-    Text("A and B buttons", color = Color.White, fontWeight = FontWeight.Bold)
+    Text("Teach your buttons", color = Color.White, fontWeight = FontWeight.Bold)
     Text(
-        when (step) {
-            1 -> "Press the button marked A on your Taco (select)…"
-            2 -> (note ?: "Now press the button marked B (back)…") +
-                "\nA was: ${buttonName(pickedKey)} (code $pickedKey, scan $pickedScan)"
-            else -> "A (select) = ${buttonName(selectKey)} (code $selectKey)   ·   " +
-                "B (back) = ${buttonName(backKey)} (code $backKey)\n" +
-                "Last button pressed: ${activity.lastButton.value ?: "none"}" +
-                (note?.let { "\n$it" } ?: "")
+        if (step >= 0) "Press the button marked ${buttons[step].label} on your Taco…  (${step + 1} of ${buttons.size})" +
+            (note?.let { "\n$it" } ?: "")
+        else {
+            version   // read so the list redraws after saving
+            buttons.joinToString("   ") { b ->
+                val (code, _) = st.signalFor(b)
+                "${b.label} = ${buttonName(code)}"
+            } + "\nLast button pressed: ${activity.lastButton.value ?: "none"}" + (note?.let { "\n$it" } ?: "")
         },
-        color = if (step != 0) Color(0xFF4CFF9A) else Color(0xFFAAAAAA),
+        color = if (step >= 0) Color(0xFF4CFF9A) else Color(0xFFAAAAAA),
         style = MaterialTheme.typography.bodySmall,
     )
+    Text("Taco Launcher's menus use these. Inside games, each emulator has its own button settings.",
+        color = Color(0xFF999999), style = MaterialTheme.typography.bodySmall)
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedButton(onClick = { if (step == 0) start() else stop() }) {
-            Text(if (step == 0) "Teach A and B" else "Cancel")
+        OutlinedButton(onClick = { if (step < 0) start() else { save(); stop() } }) {
+            Text(if (step < 0) "Teach buttons" else "Done")
         }
-        if (step == 0) TextButton(onClick = {
-            val st = activity.settings
-            val k = st.selectKey; val sc = st.selectScan
-            st.selectKey = st.backKey; st.selectScan = st.backScan
-            st.backKey = k; st.backScan = sc
-            selectKey = st.selectKey; backKey = st.backKey
-        }) { Text("Swap them") }
+        if (step >= 0) TextButton(onClick = { note = null; next() }) { Text("Skip ${buttons[step].label}") }
+        if (step < 0) TextButton(onClick = {
+            val a = st.signalFor(TacoButton.A); val b = st.signalFor(TacoButton.B)
+            st.setSignal(TacoButton.A, b.first, b.second); st.setSignal(TacoButton.B, a.first, a.second)
+            version++
+        }) { Text("Swap A and B") }
+    }
+}
+
+/**
+ * Batocera-style hotkeys, set up inside RetroArch: hold Select (the "hotkey" button) and
+ * press another button. RetroArch does these itself, so quitting saves properly.
+ */
+@Composable
+private fun RetroArchHotkeysSection(activity: MainActivity) {
+    var open by remember { mutableStateOf(false) }
+    Text("RetroArch hotkeys (like Batocera)", color = Color.White, fontWeight = FontWeight.Bold)
+    Text(
+        "Hold Select + Start = quit the game and come back here.  Select + B = RetroArch menu.  " +
+            "Select + Y / X = save / load state.  Select + Right = fast forward.  " +
+            "Taco Launcher keeps Select combos free for RetroArch; Home leaves a game but keeps it paused.",
+        color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall,
+    )
+    if (open) Text(
+        "Set up once in RetroArch (open it below, without a game):\n" +
+            "1. Settings → Input → Hotkeys → Hotkey Enable → press Select.\n" +
+            "2. Same page: Quit → press Start.  Menu Toggle → press B.\n" +
+            "3. Save State → press Y.  Load State → press X.  Fast-Forward (Toggle) → press Right.\n" +
+            "4. Optional: Settings → Input → Hotkeys → Confirm Quit → Off, so one press quits.\n" +
+            "5. Main Menu → Configuration File → Save Current Configuration.\n" +
+            "If B does the same as A in RetroArch, your Taco is sending the same signal for both: " +
+            "re-pair it in Android mode (hold Home + A), then try again.",
+        color = Color(0xFFDDDDDD), style = MaterialTheme.typography.bodySmall,
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(onClick = { open = !open }) { Text(if (open) "Hide steps" else "Show setup steps") }
+        val ra = remember { com.pockettaco.salsa.installedEmulators(activity).firstOrNull { "retroarch" in it.pkg || "retroarch" in it.name.lowercase() } }
+        if (ra != null) TextButton(onClick = { com.pockettaco.salsa.openAppFitted(activity, ra.pkg) }) { Text("Open RetroArch") }
     }
 }
 
 /** Which button adds a game to favorites in a game list (Y unless you change it). */
 @Composable
 private fun FavoriteButtonSection(activity: MainActivity) {
-    var key by remember { mutableIntStateOf(activity.settings.favoriteKey) }
-    var waiting by remember { mutableStateOf(false) }
-    var note by remember { mutableStateOf<String?>(null) }
-    fun stop() { waiting = false; activity.onKeyCapture = null }
-    fun start() {
-        waiting = true
-        note = null
-        activity.onKeyCapture = { e ->
-            if (e.action == android.view.KeyEvent.ACTION_UP) {
-                val st = activity.settings
-                if (st.isSelect(e) || st.isBack(e)) {
-                    note = "That's your A or B button. Press a different one (like Y, X, L or R)."
-                } else {
-                    st.favoriteKey = e.keyCode
-                    st.favoriteScan = 0
-                    key = e.keyCode
-                    note = "Saved."
-                    stop()
-                }
-            }
+    val options = listOf(TacoButton.Y, TacoButton.X, TacoButton.L, TacoButton.R, null)
+    var current by remember { mutableStateOf(activity.settings.favoriteButton) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text("Favorite button: ${current?.label ?: "Off"}", color = Color.White)
+            Text("Stars the game you're on. Holding A on a game (or Start) also works.",
+                color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall)
         }
-    }
-    LaunchedEffect(waiting) { if (waiting) { kotlinx.coroutines.delay(20000); stop() } }
-    DisposableEffect(Unit) { onDispose { stop() } }
-
-    Text("Favorite button", color = Color.White, fontWeight = FontWeight.Bold)
-    Text(
-        if (waiting) (note ?: "Press the button you want for favorites…")
-        else (if (key == 0) "Off. You can still hold A on a game (or press Start) to favorite it."
-            else "${buttonName(key)} (code $key) adds or removes the selected game from ★ Favorites. " +
-                "Holding A on a game (or pressing Start) also works.") + (note?.let { "\n$it" } ?: ""),
-        color = if (waiting) Color(0xFF4CFF9A) else Color(0xFFAAAAAA),
-        style = MaterialTheme.typography.bodySmall,
-    )
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedButton(onClick = { if (waiting) stop() else start() }) {
-            Text(if (waiting) "Cancel" else "Set favorite button")
-        }
-        if (!waiting) TextButton(onClick = {
-            val y = android.view.KeyEvent.KEYCODE_BUTTON_Y
-            val next = if (key == 0) y else 0
-            activity.settings.favoriteKey = next; activity.settings.favoriteScan = 0; key = next; note = null
-        }) { Text(if (key == 0) "Use Y" else "Turn off") }
+        OutlinedButton(onClick = {
+            val next = options[(options.indexOf(current) + 1) % options.size]
+            activity.settings.favoriteButton = next; current = next
+        }) { Text("Change") }
     }
 }
 

@@ -226,8 +226,8 @@ private fun SystemsView(
             if (lastPlayed != null) {
                 val sub = "${lastPlayed.title} · ${systemName(lastPlayed.system)}"
                 item("last") {
-                    GameCard("Last played", sub, lookFor(lastPlayed.system.id), tile = "▶",
-                        onFocused = { onFocused(null, "▶ Last played", sub) }, onClick = onLastPlayed)
+                    GameCard("Continue: ${lastPlayed.title}", systemName(lastPlayed.system), lookFor(lastPlayed.system.id), tile = "▶",
+                        onFocused = { onFocused(null, "▶ Continue", sub) }, onClick = onLastPlayed)
                 }
                 item("recent") {
                     GameCard("Recently played", "Your last $recentCount different games", RECENT_LOOK, tile = "🕘",
@@ -284,8 +284,9 @@ private fun SystemsView(
             val sub = "${lastPlayed.title} · ${systemName(lastPlayed.system)}"
             item("last") {
                 Bubble(SystemLook("▶", lookFor(lastPlayed.system.id).top, lookFor(lastPlayed.system.id).bottom),
-                    "Last played", size = size,
-                    onFocused = { onFocused(null, "▶ Last played", sub) }, onClick = onLastPlayed)
+                    "Continue", size = size,
+                    onFocused = { onFocused(null, "▶ Continue: ${lastPlayed.title}", systemName(lastPlayed.system)) },
+                    onClick = onLastPlayed)
             }
             item("recent") {
                 Bubble(RECENT_LOOK, "Recent", badge = "$recentCount", size = size,

@@ -145,7 +145,16 @@ object Custom {
     fun addRecent(game: Game) {
         val key = "${game.system.id}|${game.uri}"
         val list = (listOf(key) + recent.filter { it != key }).take(10)
-        p().edit().putString("recent", list.joinToString("\n")).apply(); changed()
+        p().edit().putString("recent", list.joinToString("\n"))
+            .putString("last_${game.system.id}", game.uri.toString()).apply(); changed()
+    }
+
+    /** The last game you played for one system (kept even after 10 newer games elsewhere). */
+    fun lastIn(games: List<Game>): Game? {
+        val id = games.firstOrNull()?.system?.id ?: return null
+        read()
+        val uri = p().getString("last_$id", null) ?: return null
+        return games.firstOrNull { it.uri.toString() == uri }
     }
 
     /** The recent games that are still in your library, newest first. */
@@ -160,8 +169,10 @@ object Custom {
     fun resetAll() {
         // Favorites and recently played aren't "look"; keep them.
         val keep = p().getStringSet("favorites", emptySet())!!.toSet()
-        val recentGames = p().getString("recent", "")
-        p().edit().clear().putStringSet("favorites", keep).putString("recent", recentGames).apply()
+        val played = p().all.filterKeys { it == "recent" || it.startsWith("last_") }
+        p().edit().clear().putStringSet("favorites", keep).apply {
+            played.forEach { (k, v) -> putString(k, v as? String) }
+        }.apply()
         File(dir, "icons").deleteRecursively()
         backgroundFile().delete()
         changed()

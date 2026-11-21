@@ -92,12 +92,11 @@ object FocusKick {
 }
 
 /** Button name as printed on the Taco, using the Select (A) and Back (B) buttons taught in Settings. */
-fun tacoButtonName(code: Int, settings: Settings): String = when (code) {
-    settings.selectKey -> "A"
-    settings.backKey -> "B"
-    KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_BUTTON_B -> buttonName(code) + "?"
-    else -> buttonName(code)
-}
+fun tacoButtonName(code: Int, settings: Settings): String =
+    TacoButton.entries.firstOrNull { settings.signalFor(it).first == code }?.label ?: when (code) {
+        KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_BUTTON_B -> buttonName(code) + "?"
+        else -> buttonName(code)
+    }
 
 fun buttonName(code: Int): String = when (code) {
     KeyEvent.KEYCODE_BUTTON_A -> "A"
