@@ -14,6 +14,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.LinearProgressIndicator
@@ -111,7 +113,7 @@ fun GameBrowser(
             }
             HintBar(
                 *if (screen == Screen.Home) arrayOf("A" to "Open", "≡" to "Start: menu", "◫" to "Select: view")
-                else arrayOf("A" to "Play", "B" to "Back")
+                else arrayOf("A" to "Play", "B" to "Back", "◫" to "Select: view")
             )
         }
     }
@@ -144,6 +146,11 @@ private fun GamesList(
     val choices = remember(emulators) { emulatorChoices(activity, system, emulators) }
     var current by remember(choices) { mutableStateOf(currentEmulator(activity, system, emulators)) }
     var askSetup by remember { mutableStateOf<Game?>(null) }
+    DisposableEffect(system.id) {
+        val select: () -> Boolean = { Custom.nextGameView(system.id); true }
+        activity.onSelectButton = select
+        onDispose { if (activity.onSelectButton === select) activity.onSelectButton = null }
+    }
 
     // While the prompt is up it replaces the list, so the D-pad can't wander behind it.
     if (askSetup == null) Column(Modifier.fillMaxSize()) {
@@ -153,9 +160,15 @@ private fun GamesList(
                 Text("${games.size} games · ${current?.name ?: "no emulator yet"}", color = TextDim, fontSize = 13.sp)
             }
         }
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 6.dp)) {
-            item("back") { GameCard("Back", "or press B", SETTINGS_LOOK, tile = "←", onClick = onBack) }
-            item("emu") {
+        val view = Custom.gameView(system.id)
+        val full: androidx.compose.foundation.lazy.grid.LazyGridItemSpanScope.() -> GridItemSpan = { GridItemSpan(maxLineSpan) }
+        LazyVerticalGrid(
+            GridCells.Fixed(if (view == GameView.GRID) 3 else 1),
+            Modifier.fillMaxSize().padding(horizontal = if (view == GameView.GRID) 10.dp else 0.dp),
+            contentPadding = PaddingValues(vertical = 6.dp),
+        ) {
+            item("back", span = full) { GameCard("Back", "or press B", SETTINGS_LOOK, tile = "←", onClick = onBack) }
+            item("emu", span = full) {
                 if (choices.isEmpty()) {
                     GameCard("Get an emulator", "RetroArch recommended: free, plays almost everything",
                         EMULATORS_LOOK, tile = "↓", onClick = onGetEmulators)
@@ -167,14 +180,18 @@ private fun GamesList(
                     current?.let { openAppFitted(activity, it.pkg) }
                 }
             }
-            if (choices.size > 1) item("switch") {
+            if (choices.size > 1) item("switch", span = full) {
                 GameCard("Switch emulator", "Now: ${current?.name}", EMULATORS_LOOK, tile = "⇄") {
                     val next = choices[(choices.indexOf(current) + 1) % choices.size]
                     current = next
                     activity.settings.setEmulatorFor(system.id, next.pkg)
                 }
             }
-            item("folder") {
+            item("view", span = full) {
+                GameCard("View: ${view.label}", "Press A or Select to switch (List, Grid, Compact)",
+                    SETTINGS_LOOK, tile = "◫") { Custom.nextGameView(system.id) }
+            }
+            item("folder", span = full) {
                 GameCard(
                     if (systemFolder == null) "Add a folder for ${system.name}" else "Folder: ${folderLabel(systemFolder)}",
                     if (systemFolder == null) "Use a different folder just for this system" else "Only this folder is used for ${systemName(system)}",
@@ -182,12 +199,17 @@ private fun GamesList(
                 ) { folderPicker.launch(null) }
             }
             items(games, key = { it.uri.toString() }) { game ->
-                GameCard(game.title, look = look,
-                    focusRequester = if (game == games.first()) first else null) {
+                val play = {
                     val emu = current
                     if (emu != null && isRetroArch(emu) && !activity.settings.retroArchPadReady) {
                         askSetup = game   // ask first; they can still play anyway
                     } else launchGame(activity, system, emu, choices, game)
+                }
+                val focus = if (game == games.first()) first else null
+                when (view) {
+                    GameView.LIST -> GameCard(game.title, look = look, focusRequester = focus, onClick = play)
+                    GameView.GRID -> GameTile(game.title, look, focus, play)
+                    GameView.COMPACT -> GameRow(game.title, look, focus, play)
                 }
             }
         }
