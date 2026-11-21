@@ -140,3 +140,4 @@ fun HintBar(vararg hints: Pair<String, String>) {
 
 val FAVORITES_LOOK = SystemLook("★", Color(0xFFFFD25A), Color(0xFFB8740B))
 val RANDOM_LOOK = SystemLook("🎲", Color(0xFFFF8AD8), Color(0xFF8A1F7A))
+val RECENT_LOOK = SystemLook("🕘", Color(0xFF8CFFB4), Color(0xFF1E7A4A))
