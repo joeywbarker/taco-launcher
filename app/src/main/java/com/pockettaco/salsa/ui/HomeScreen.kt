@@ -223,17 +223,18 @@ private fun SystemsView(
                 GameCard(addTitle, addSub, SystemLook("+", Color(0xFF4CFF9A), Color(0xFF138A4F)), tile = "+",
                     focusRequester = first, onFocused = { onFocused(null, addTitle, addSub) }, onClick = onPickFolder)
             }
-            if (lastPlayed != null) {
-                val sub = "${lastPlayed.title} · ${systemName(lastPlayed.system)}"
-                item("last") {
-                    GameCard("Continue: ${lastPlayed.title}", systemName(lastPlayed.system), lookFor(lastPlayed.system.id), tile = "▶",
-                        onFocused = { onFocused(null, "▶ Continue", sub) }, onClick = onLastPlayed)
-                }
-                item("recent") {
-                    GameCard("Recently played", "Your last $recentCount different games", RECENT_LOOK, tile = "🕘",
-                        onFocused = { onFocused(null, "🕘 Recently played", "Your last $recentCount different games") },
-                        onClick = onOpenRecent)
-                }
+            // Quick Start: always first, so it's always in the same spot.
+            if (systems.isNotEmpty()) item("last") {
+                val sub = lastPlayed?.let { "${it.title} · ${systemName(it.system)}" } ?: "Play any game once, then this jumps right back in"
+                GameCard(if (lastPlayed != null) "Quick Start: ${lastPlayed.title}" else "Quick Start",
+                    lastPlayed?.let { systemName(it.system) } ?: sub,
+                    lastPlayed?.let { lookFor(it.system.id) } ?: RECENT_LOOK, tile = "▶",
+                    onFocused = { onFocused(null, "▶ Quick Start", sub) }, onClick = onLastPlayed)
+            }
+            if (lastPlayed != null) item("recent") {
+                GameCard("Recently played", "Your last $recentCount different games", RECENT_LOOK, tile = "🕘",
+                    onFocused = { onFocused(null, "🕘 Recently played", "Your last $recentCount different games") },
+                    onClick = onOpenRecent)
             }
             itemsIndexed(systems, key = { _, s -> s.first.id }) { i, (system, games) ->
                 val name = systemName(system)
@@ -280,19 +281,18 @@ private fun SystemsView(
             Bubble(SystemLook("+", Color(0xFF4CFF9A), Color(0xFF138A4F)), "Add games", size = size,
                 focusRequester = first, onFocused = { onFocused(null, addTitle, addSub) }, onClick = onPickFolder)
         }
-        if (lastPlayed != null) {
-            val sub = "${lastPlayed.title} · ${systemName(lastPlayed.system)}"
-            item("last") {
-                Bubble(SystemLook("▶", lookFor(lastPlayed.system.id).top, lookFor(lastPlayed.system.id).bottom),
-                    "Continue", size = size,
-                    onFocused = { onFocused(null, "▶ Continue: ${lastPlayed.title}", systemName(lastPlayed.system)) },
-                    onClick = onLastPlayed)
-            }
-            item("recent") {
-                Bubble(RECENT_LOOK, "Recent", badge = "$recentCount", size = size,
-                    onFocused = { onFocused(null, "🕘 Recently played", "Your last $recentCount different games") },
-                    onClick = onOpenRecent)
-            }
+        // Quick Start: always the first icon.
+        if (systems.isNotEmpty()) item("last") {
+            val sub = lastPlayed?.let { systemName(it.system) } ?: "Play any game once, then this jumps right back in"
+            val look = lastPlayed?.let { lookFor(it.system.id) } ?: RECENT_LOOK
+            Bubble(SystemLook("▶", look.top, look.bottom), "Quick Start", size = size,
+                onFocused = { onFocused(null, "▶ Quick Start" + (lastPlayed?.let { ": ${it.title}" } ?: ""), sub) },
+                onClick = onLastPlayed)
+        }
+        if (lastPlayed != null) item("recent") {
+            Bubble(RECENT_LOOK, "Recent", badge = "$recentCount", size = size,
+                onFocused = { onFocused(null, "🕘 Recently played", "Your last $recentCount different games") },
+                onClick = onOpenRecent)
         }
         systems.forEachIndexed { i, (system, games) ->
             item(system.id) {
