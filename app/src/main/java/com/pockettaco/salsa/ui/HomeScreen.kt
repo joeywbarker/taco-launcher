@@ -53,6 +53,10 @@ fun HomeScreen(
     favoriteCount: Int,
     onOpenFavorites: () -> Unit,
     onRandom: () -> Unit,
+    lastPlayed: Game?,
+    onLastPlayed: () -> Unit,
+    recentCount: Int,
+    onOpenRecent: () -> Unit,
     onOpenApps: () -> Unit,
     onOpenSettings: () -> Unit,
     onPickFolder: () -> Unit,
@@ -118,6 +122,10 @@ fun HomeScreen(
                     favoriteCount = favoriteCount,
                     onOpenFavorites = onOpenFavorites,
                     onRandom = onRandom,
+                    lastPlayed = lastPlayed,
+                    onLastPlayed = onLastPlayed,
+                    recentCount = recentCount,
+                    onOpenRecent = onOpenRecent,
                     onOpenApps = onOpenApps,
                     onOpenSettings = onOpenSettings,
                     onPickFolder = onPickFolder,
@@ -194,6 +202,10 @@ private fun SystemsView(
     favoriteCount: Int,
     onOpenFavorites: () -> Unit,
     onRandom: () -> Unit,
+    lastPlayed: Game?,
+    onLastPlayed: () -> Unit,
+    recentCount: Int,
+    onOpenRecent: () -> Unit,
     onOpenApps: () -> Unit,
     onOpenSettings: () -> Unit,
     onPickFolder: () -> Unit,
@@ -210,6 +222,18 @@ private fun SystemsView(
             if (empty) item {
                 GameCard(addTitle, addSub, SystemLook("+", Color(0xFF4CFF9A), Color(0xFF138A4F)), tile = "+",
                     focusRequester = first, onFocused = { onFocused(null, addTitle, addSub) }, onClick = onPickFolder)
+            }
+            if (lastPlayed != null) {
+                val sub = "${lastPlayed.title} · ${systemName(lastPlayed.system)}"
+                item("last") {
+                    GameCard("Last played", sub, lookFor(lastPlayed.system.id), tile = "▶",
+                        onFocused = { onFocused(null, "▶ Last played", sub) }, onClick = onLastPlayed)
+                }
+                item("recent") {
+                    GameCard("Recently played", "Your last $recentCount different games", RECENT_LOOK, tile = "🕘",
+                        onFocused = { onFocused(null, "🕘 Recently played", "Your last $recentCount different games") },
+                        onClick = onOpenRecent)
+                }
             }
             itemsIndexed(systems, key = { _, s -> s.first.id }) { i, (system, games) ->
                 val name = systemName(system)
@@ -255,6 +279,19 @@ private fun SystemsView(
         if (empty) item {
             Bubble(SystemLook("+", Color(0xFF4CFF9A), Color(0xFF138A4F)), "Add games", size = size,
                 focusRequester = first, onFocused = { onFocused(null, addTitle, addSub) }, onClick = onPickFolder)
+        }
+        if (lastPlayed != null) {
+            val sub = "${lastPlayed.title} · ${systemName(lastPlayed.system)}"
+            item("last") {
+                Bubble(SystemLook("▶", lookFor(lastPlayed.system.id).top, lookFor(lastPlayed.system.id).bottom),
+                    "Last played", size = size,
+                    onFocused = { onFocused(null, "▶ Last played", sub) }, onClick = onLastPlayed)
+            }
+            item("recent") {
+                Bubble(RECENT_LOOK, "Recent", badge = "$recentCount", size = size,
+                    onFocused = { onFocused(null, "🕘 Recently played", "Your last $recentCount different games") },
+                    onClick = onOpenRecent)
+            }
         }
         systems.forEachIndexed { i, (system, games) ->
             item(system.id) {

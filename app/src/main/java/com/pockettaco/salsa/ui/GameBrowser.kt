@@ -41,6 +41,8 @@ private sealed interface Screen {
     data class Games(val system: GameSystem, val favorites: Boolean = false) : Screen
     /** Favorites from every system. */
     data object Favorites : Screen
+    /** The last 10 different games you played. */
+    data object Recent : Screen
     data object Apps : Screen
     data object GetEmulators : Screen
 }
@@ -91,6 +93,7 @@ fun GameBrowser(
     val shown = arrange(library.entries.map { it.key to it.value })
     val allGames = shown.flatMap { it.second }
     val allFavorites = Custom.favoritesIn(allGames)
+    val recent = Custom.recentIn(library)
 
     DisposableEffect(screen) {
         val handler: () -> Boolean = {
@@ -149,6 +152,10 @@ fun GameBrowser(
                         favoriteCount = allFavorites.size,
                         onOpenFavorites = { screen = Screen.Favorites },
                         onRandom = { playRandom(allGames) },
+                        lastPlayed = recent.firstOrNull(),
+                        onLastPlayed = { recent.firstOrNull()?.let(play) },
+                        recentCount = recent.size,
+                        onOpenRecent = { screen = Screen.Recent },
                         onOpenApps = { screen = if (emulators.isEmpty()) Screen.GetEmulators else Screen.Apps },
                         onOpenSettings = onOpenSettings,
                         onPickFolder = onPickFolder,
@@ -160,7 +167,13 @@ fun GameBrowser(
                         onRescan = onRescan, onGetEmulators = { screen = Screen.GetEmulators }) {
                         screen = if (s.favorites) Screen.Games(s.system) else Screen.Home
                     }
-                    Screen.Favorites -> AllFavoritesList(activity, allFavorites, onPlay = play, onRandom = playRandom) {
+                    Screen.Favorites -> AllGamesList(activity, "★ Favorites", "${allFavorites.size} games from every system",
+                        allFavorites, "Random favorite", null, onPlay = play, onRandom = playRandom) {
+                        screen = Screen.Home
+                    }
+                    Screen.Recent -> AllGamesList(activity, "🕘 Recently played", "Your last ${recent.size} different games",
+                        recent, "Random recent", "Nothing played yet. Games you start show up here, newest first.",
+                        onPlay = play, onRandom = playRandom) {
                         screen = Screen.Home
                     }
                     Screen.Apps -> EmulatorList(activity, emulators,
@@ -292,11 +305,15 @@ private fun GamesList(
     }
 }
 
-/** Favorites from every system, on the home screen. */
+/** Games from every system in one list: Favorites or Recently played, on the home screen. */
 @Composable
-private fun AllFavoritesList(
+private fun AllGamesList(
     activity: MainActivity,
+    title: String,
+    subtitle: String,
     favorites: List<Game>,
+    randomLabel: String,
+    emptyText: String?,
     onPlay: (Game) -> Unit,
     onRandom: (List<Game>) -> Unit,
     onBack: () -> Unit,
@@ -319,24 +336,26 @@ private fun AllFavoritesList(
     }
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
-            Text("★ Favorites", color = TextBright, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-            Text("${favorites.size} games from every system", color = TextDim, fontSize = 13.sp)
+            Text(title, color = TextBright, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+            Text(subtitle, color = TextDim, fontSize = 13.sp)
         }
         Row(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             ToolbarButton("←", "Back", SETTINGS_LOOK, toolbarFocus, onBack)
-            ToolbarButton("🎲", "Random favorite", RANDOM_LOOK) { onRandom(favorites) }
+            ToolbarButton("🎲", randomLabel, RANDOM_LOOK) { onRandom(favorites) }
         }
         if (favorites.isEmpty()) {
-            NoFavoritesYet(activity)
+            if (emptyText == null) NoFavoritesYet(activity)
+            else Text(emptyText, color = TextDim, fontSize = 14.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp))
             return@Column
         }
         LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(vertical = 6.dp)) {
             items(favorites, key = { it.uri.toString() }) { game ->
                 val look = lookFor(game.system.id)
-                GameCard(game.title, systemName(game.system), look, tile = look.short,
+                val star = if (emptyText != null && Custom.isFavorite(game)) "★ " else ""
+                GameCard(star + game.title, systemName(game.system), look, tile = look.short,
                     focusRequester = if (game == target) gameFocus else null,
                     image = Custom.icon(game.system.id),
                     onFocused = { focused = game }, onLongClick = { menuFor = game }) { onPlay(game) }
@@ -429,19 +448,29 @@ private fun isRetroArch(e: Emulator) = e.pkg.startsWith("com.retroarch") || "ret
 private fun launchGame(activity: MainActivity, system: GameSystem, emu: Emulator?, choices: List<Emulator>, game: Game) {
     if (emu == null) {
         runCatching { activity.startActivity(openWithAnyApp(game.uri)) }
+        Custom.addRecent(game)
         return
     }
-    // Try the chosen emulator, then any RetroArch, and only then ask Android.
-    val tries = listOf(emu) + choices.filter { it != emu && isRetroArch(it) }
+    // Use the emulator you picked. If it's RetroArch, another RetroArch build may step in;
+    // never quietly swap to a different emulator.
+    val tries = listOf(emu) + if (isRetroArch(emu)) choices.filter { it != emu && isRetroArch(it) } else emptyList()
     val worked = tries.firstOrNull { e ->
-        runCatching { startFitted(activity, launchIntent(activity, e, system, game.uri), system) }.isSuccess
+        val intent = launchIntent(activity, e, system, game.uri)
+        val accepts = intent.component != null ||
+            activity.packageManager.queryIntentActivities(intent, 0).isNotEmpty()
+        accepts && runCatching { startFitted(activity, intent, system) }.isSuccess
     }
-    if (worked == null) {
-        Toast.makeText(activity, "${emu.name} couldn't open that game. Pick another app.", Toast.LENGTH_LONG).show()
-        runCatching { activity.startActivity(openWithAnyApp(game.uri)) }
-    } else if (worked != emu) {
-        Toast.makeText(activity, "Opened with ${worked.name}", Toast.LENGTH_SHORT).show()
+    if (worked != null) {
+        Custom.addRecent(game)
+        if (worked != emu) Toast.makeText(activity, "Opened with ${worked.name}", Toast.LENGTH_SHORT).show()
+        return
     }
+    // Some emulators (Lemuroid is one) won't let other apps hand them a game.
+    Toast.makeText(activity,
+        "${emu.name} doesn't let other apps start a game, so it's opening for you to pick " +
+            "\"${game.title}\" there. To play straight from Taco Launcher, use ⇄ Switch emulator.",
+        Toast.LENGTH_LONG).show()
+    openAppFitted(activity, emu.pkg)
 }
 
 /**

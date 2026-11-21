@@ -138,12 +138,30 @@ object Custom {
         return now
     }
 
+    /** The last 10 different games you started, newest first, as "system|address". */
+    val recent: List<String>
+        get() { read(); return p().getString("recent", "")!!.split('\n').filter { it.isNotBlank() } }
+
+    fun addRecent(game: Game) {
+        val key = "${game.system.id}|${game.uri}"
+        val list = (listOf(key) + recent.filter { it != key }).take(10)
+        p().edit().putString("recent", list.joinToString("\n")).apply(); changed()
+    }
+
+    /** The recent games that are still in your library, newest first. */
+    fun recentIn(library: Library): List<Game> {
+        val byKey = library.values.flatten().associateBy { "${it.system.id}|${it.uri}" }
+        return recent.mapNotNull { byKey[it] }
+    }
+
     fun removeIcon(id: String) { iconFile(id).delete(); changed() }
 
     /** Clears the view, order, names, colours, pictures and background. */
     fun resetAll() {
-        val keep = p().getStringSet("favorites", emptySet())!!.toSet()   // favorites aren't "look"
-        p().edit().clear().putStringSet("favorites", keep).apply()
+        // Favorites and recently played aren't "look"; keep them.
+        val keep = p().getStringSet("favorites", emptySet())!!.toSet()
+        val recentGames = p().getString("recent", "")
+        p().edit().clear().putStringSet("favorites", keep).putString("recent", recentGames).apply()
         File(dir, "icons").deleteRecursively()
         backgroundFile().delete()
         changed()
