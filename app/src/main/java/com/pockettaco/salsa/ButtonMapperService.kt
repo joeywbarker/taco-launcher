@@ -36,7 +36,9 @@ class ButtonMapperService : AccessibilityService() {
     override fun onKeyEvent(event: KeyEvent): Boolean {
         if (ButtonMapperState.capturing) return false
         // In Taco Launcher's own menus, every button belongs to the menus (A select, B back...).
-        if (ButtonMapperState.launcherInFront) { held.clear(); swallowed.clear(); return false }
+        // Trust the app Android says is in front; the launcher's own flag can lag behind it.
+        val inLauncher = foreground?.let { it == packageName } ?: ButtonMapperState.launcherInFront
+        if (inLauncher) { held.clear(); swallowed.clear(); return false }
         val device = event.device
         val name = device?.name?.lowercase().orEmpty()
         // Some controllers report their buttons as a "keyboard", so also accept any real
@@ -116,7 +118,16 @@ class ButtonMapperService : AccessibilityService() {
     }
 
     override fun onServiceConnected() { ButtonMapperState.reload = true; held.clear(); swallowed.clear() }
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
+    /** The app whose window last came to the front (from Android's window events). */
+    private var foreground: String? = null
+
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        val pkg = event.packageName?.toString() ?: return
+        // Keyboards, the status bar and system popups don't count as "the app in front".
+        if (pkg == "com.android.systemui" || "inputmethod" in pkg || "honeyboard" in pkg) return
+        foreground = pkg
+    }
     override fun onInterrupt() {}
 }
 

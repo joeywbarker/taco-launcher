@@ -184,7 +184,7 @@ fun GameBrowser(
             HintBar(
                 *if (screen == Screen.Home) arrayOf("A" to "Open", "≡" to "Start: menu", "◫" to "Select: view")
                 else arrayOf("A" to "Play", "B" to "Back",
-                    buttonName(activity.settings.favoriteKey).take(2) to "Favorite", "≡" to "Start: menu")
+                    (activity.settings.favoriteButton?.label ?: "Y") to "Favorite", "≡" to "Start: menu")
             )
         }
     }
@@ -285,6 +285,11 @@ private fun GamesList(
             state = gridState,
             contentPadding = PaddingValues(vertical = 6.dp),
         ) {
+            // Jump back into this system's last game.
+            val last = if (favoritesOnly) null else Custom.lastIn(games)
+            if (last != null) item("continue", span = { GridItemSpan(maxLineSpan) }) {
+                GameRow("▶  Continue: ${last.title}", look, onLongClick = { menuFor = last }) { onPlay(last) }
+            }
             // This system's own favorites folder, at the top of its list.
             if (!favoritesOnly) item("favorites", span = { GridItemSpan(maxLineSpan) }) {
                 GameRow("★  Favorites (${favorites.size})", FAVORITES_LOOK, onClick = onOpenFavorites)
@@ -366,7 +371,7 @@ private fun AllGamesList(
 
 @Composable
 private fun NoFavoritesYet(activity: MainActivity) {
-    val button = buttonName(activity.settings.favoriteKey)
+    val button = activity.settings.favoriteButton?.label ?: "the favorite button"
     Text(
         "No favorites yet. On any game, press $button, or hold A (or press Start) and pick Add to favorites.",
         color = TextDim, fontSize = 14.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
@@ -501,8 +506,8 @@ private fun RetroArchSetupPrompt(
             Text(
                 "RetroArch doesn't know the Pocket Taco's buttons yet. In RetroArch: Settings → Input → " +
                     "Port 1 Controls → Set All Controls, then Save Controller Profile. You only do this once.\n" +
-                    "Menu in a game: Settings → Input → Hotkeys → Menu Toggle (Controller Combo) → Hold Start. " +
-                    "To keep settings: Main Menu → Configuration File → Save Current Configuration.",
+                    "For hotkeys like Batocera (Select + Start quits, Select + B opens the menu), see " +
+                    "Taco Launcher Settings → Controller & buttons → RetroArch hotkeys.",
                 color = TextDim, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
             )
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 6.dp)) {
