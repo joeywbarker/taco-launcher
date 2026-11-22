@@ -77,7 +77,14 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             val backFocus = remember { androidx.compose.ui.focus.FocusRequester() }
-            LaunchedEffect(FocusKick.count.intValue, page) { runCatching { backFocus.requestFocus() } }
+            // Opening Settings (or a page) slides the screen in; focus asked for mid-slide can be
+            // lost, which left the buttons doing nothing. Ask again once it has settled.
+            LaunchedEffect(FocusKick.count.intValue, page) {
+                androidx.compose.runtime.withFrameNanos { }
+                runCatching { backFocus.requestFocus() }
+                kotlinx.coroutines.delay(400)
+                runCatching { backFocus.requestFocus() }
+            }
             OutlinedButton(onClick = goBack,
                 modifier = androidx.compose.ui.Modifier.focusRequester(backFocus)) { Text("← Back") }
             Spacer(Modifier.width(12.dp))
