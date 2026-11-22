@@ -25,12 +25,18 @@ class ControllerWatcher(context: Context, private val settings: Settings) :
     private val _allDevices = MutableStateFlow<List<String>>(emptyList())
     val allDevices: StateFlow<List<String>> = _allDevices
 
+    /** Called when the Taco is attached while the launcher is on screen. */
+    var onAttached: (() -> Unit)? = null
+    private var listening = false
+
     fun start() {
         inputManager.registerInputDeviceListener(this, null)
+        listening = false   // what we find now may have happened while we weren't looking
         refresh()
+        listening = true
     }
 
-    fun stop() = inputManager.unregisterInputDeviceListener(this)
+    fun stop() { listening = false; inputManager.unregisterInputDeviceListener(this) }
 
     override fun onInputDeviceAdded(deviceId: Int) = refresh()
     override fun onInputDeviceRemoved(deviceId: Int) = refresh()
@@ -40,7 +46,9 @@ class ControllerWatcher(context: Context, private val settings: Settings) :
         val match = InputDevice.getDeviceIds().toList()
             .mapNotNull { InputDevice.getDevice(it) }
             .firstOrNull { isTaco(it) }
+        val was = _deviceName.value
         _deviceName.value = match?.name
+        if (listening && was == null && match != null) onAttached?.invoke()
         _allDevices.value = InputDevice.getDeviceIds().toList()
             .mapNotNull { InputDevice.getDevice(it) }
             .filter { !it.isVirtual }

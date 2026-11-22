@@ -29,8 +29,32 @@ import com.pockettaco.salsa.currentAppIcon
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/** True once the splash has played in this run of the app, so it only shows on a fresh start. */
-object SplashState { var shown = false }
+/**
+ * When the intro should play: on a fresh start, and each time the Taco is attached.
+ * Each new play bumps [request]; the screen shows the splash until it has played that one.
+ */
+object SplashState {
+    val request = androidx.compose.runtime.mutableIntStateOf(1)
+    /** When the Taco's Bluetooth last connected (set even while the launcher is in the background). */
+    @Volatile var attachedAt = 0L
+    /** The last request that finished playing (kept if the screen is rebuilt). */
+    var played = 0
+
+    fun play() {
+        attachedAt = 0L
+        // Already waiting to play (or playing): don't start it over.
+        if (request.intValue == played) request.intValue++
+    }
+
+    /** The launcher just came to the front: play the intro if the Taco was attached a moment ago. */
+    fun playIfJustAttached() {
+        val at = attachedAt
+        if (at != 0L && android.os.SystemClock.elapsedRealtime() - at < 8000) {
+            attachedAt = 0L
+            play()
+        }
+    }
+}
 
 /**
  * A short intro when Taco Launcher starts: the icon pops in, the name fades in under it,

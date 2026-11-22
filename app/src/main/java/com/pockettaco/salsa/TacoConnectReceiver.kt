@@ -23,7 +23,6 @@ class TacoConnectReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != BluetoothDevice.ACTION_ACL_CONNECTED) return
         val settings = Settings(context)
-        if (!settings.openOnConnect) return
 
         val device: BluetoothDevice = if (Build.VERSION.SDK_INT >= 33) {
             intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
@@ -36,6 +35,9 @@ class TacoConnectReceiver : BroadcastReceiver() {
         val isTaco = "pocket" in name || "gamesir" in name
         val isGamepad = device.bluetoothClass?.majorDeviceClass == BluetoothClass.Device.Major.PERIPHERAL
         if (!isTaco && !(settings.anyGamepadCounts && isGamepad)) return
+        // Play the intro when the launcher comes up for this attach.
+        com.pockettaco.salsa.ui.SplashState.attachedAt = android.os.SystemClock.elapsedRealtime()
+        if (!settings.openOnConnect) return
 
         context.startActivity(
             Intent(context, MainActivity::class.java)
