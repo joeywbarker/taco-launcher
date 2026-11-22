@@ -5,7 +5,11 @@ import android.net.Uri
 import android.provider.DocumentsContract
 import java.io.File
 
-data class Game(val title: String, val uri: Uri, val system: GameSystem)
+/** [title] is the file name without its extension; [file] is the whole file name. */
+data class Game(val title: String, val uri: Uri, val system: GameSystem, val file: String = title) {
+    /** The name to show, following the "Game names" choices in Settings. */
+    val label: String get() = GameNames.label(file, title)
+}
 
 typealias Library = Map<GameSystem, List<Game>>
 
@@ -89,7 +93,7 @@ private fun scanList(context: Context, folder: Uri, onlySystem: GameSystem?, onP
                     val sys = if (onlySystem != null) {
                         if (ext in onlySystem.extensions || ext in ARCHIVES) onlySystem else continue
                     } else byExt[ext] ?: fromArchive ?: continue
-                    found += Game(cleanTitle(base), DocumentsContract.buildDocumentUriUsingTree(folder, id), sys)
+                    found += Game(base, DocumentsContract.buildDocumentUriUsingTree(folder, id), sys, name)
                     if (found.size % 25 == 0) onProgress(found.size)
                 }
             }
@@ -102,7 +106,7 @@ private fun scanList(context: Context, folder: Uri, onlySystem: GameSystem?, onP
 }
 
 private fun organise(games: List<Game>): Library = games.groupBy { it.system }
-    .mapValues { (_, list) -> list.sortedBy { it.title.lowercase() } }
+    .mapValues { (_, list) -> list.sortedBy { GameNames.sortKey(it.title) } }
     .toSortedMap(compareBy { SYSTEMS.indexOf(it) })
 
 /** True if Android still lets us read the folder the user picked before. */
@@ -115,7 +119,7 @@ private fun cacheFile(context: Context) = File(context.filesDir, "library.tsv")
 
 fun saveLibrary(context: Context, library: Library) = runCatching {
     cacheFile(context).bufferedWriter().use { w ->
-        library.values.flatten().forEach { w.write("${it.system.id}\t${it.uri}\t${it.title}\n") }
+        library.values.flatten().forEach { w.write("${it.system.id}\t${it.uri}\t${it.title}\t${it.file}\n") }
     }
 }
 
@@ -125,10 +129,10 @@ fun loadLibrary(context: Context): Library {
     val systems = SYSTEMS.associateBy { it.id }
     val games = runCatching {
         file.readLines().mapNotNull { line ->
-            val parts = line.split('\t', limit = 3)
+            val parts = line.split('\t', limit = 4)
             if (parts.size < 3) return@mapNotNull null
             val sys = systems[parts[0]] ?: return@mapNotNull null
-            Game(parts[2], Uri.parse(parts[1]), sys)
+            Game(parts[2], Uri.parse(parts[1]), sys, parts.getOrElse(3) { parts[2] })
         }
     }.getOrDefault(emptyList())
     return organise(games)
@@ -167,5 +171,3 @@ private fun systemFromTag(name: String): GameSystem? {
     return systemFromText(tag)
 }
 
-private fun cleanTitle(name: String): String =
-    name.replace(Regex("""\s*#\s*[A-Za-z0-9 ]+$"""), "").trim()

@@ -32,6 +32,7 @@ import com.pockettaco.salsa.TacoButton
 import com.pockettaco.salsa.loadMappings
 import com.pockettaco.salsa.saveMappings
 import com.pockettaco.salsa.FocusKick
+import com.pockettaco.salsa.GameNames
 import com.pockettaco.salsa.MainActivity
 import com.pockettaco.salsa.currentAppIcon
 import com.pockettaco.salsa.setAppIcon
@@ -69,7 +70,7 @@ fun SettingsScreen(
     val pages = listOf(
         Triple("controller", "Controller & buttons", "A and B, button mapping, auto-open, detection"),
         Triple("screen", "Screen & game window", "Space the Taco covers, game window size and spot"),
-        Triple("games", "Games & systems", "Games folders, rescan, which app each system uses"),
+        Triple("games", "Games & systems", "Game names, folders, rescan, which app each system uses"),
         Triple("look", "Look", "Home view, background, app icon"),
         Triple("about", "About", "Version and credits"),
     )
@@ -149,6 +150,7 @@ fun SettingsScreen(
             }
             }
             "games" -> {
+            GameNamesSection(activity)
             Text("Games", color = Color.White, fontWeight = FontWeight.Bold)
             Text("Main folder: ${com.pockettaco.salsa.folderLabel(activity.settings.romFolder)}",
                 color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall)
@@ -480,4 +482,28 @@ private fun SystemsSection(activity: MainActivity, onRescan: () -> Unit) {
             }
         }
     }
+}
+
+/** How game names look: tidy title by default, with switches to add details back. */
+@Composable
+private fun GameNamesSection(activity: MainActivity) {
+    val st = activity.settings
+    Text("Game names", color = Color.White, fontWeight = FontWeight.Bold)
+    val example = "Tetris (NINTENDO) 1989 USA V1.1 (Proto).gb"
+    Text("Example: $example  →  ${GameNames.label(example, example.substringBeforeLast('.'))}",
+        color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall)
+    @Composable
+    fun option(key: String, label: String, get: () -> Boolean, set: (Boolean) -> Unit, enabled: Boolean = true) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(label, color = if (enabled) Color.White else Color(0xFF666666), modifier = Modifier.weight(1f))
+            Switch(get(), { set(it); st.setNameFlag(key, it) }, enabled = enabled)
+        }
+    }
+    option("nameFull", "Show the entire file name", { GameNames.showFullName }, { GameNames.showFullName = it })
+    val parts = !GameNames.showFullName
+    option("nameRegion", "Show country / region (US, EU, JP…)", { GameNames.showRegion }, { GameNames.showRegion = it }, parts)
+    option("nameYear", "Show year", { GameNames.showYear }, { GameNames.showYear = it }, parts)
+    option("namePublisher", "Show developer / publisher", { GameNames.showPublisher }, { GameNames.showPublisher = it }, parts)
+    option("nameTags", "Show extra tags (Prototype, Beta, version / rev numbers)", { GameNames.showTags }, { GameNames.showTags = it }, parts)
+    option("nameExtension", "Show file extension (.gba, .zip…)", { GameNames.showExtension }, { GameNames.showExtension = it }, parts)
 }

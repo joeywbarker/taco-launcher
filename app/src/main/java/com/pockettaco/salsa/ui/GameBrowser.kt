@@ -86,7 +86,7 @@ fun GameBrowser(
         if (list.isEmpty()) Toast.makeText(activity, "No games here yet", Toast.LENGTH_SHORT).show()
         else {
             val game = list.random()
-            Toast.makeText(activity, "🎲 ${game.title}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(activity, "🎲 ${game.label}", Toast.LENGTH_SHORT).show()
             play(game)
         }
     }
@@ -309,7 +309,7 @@ private fun GamesList(
             // Jump back into this system's last game.
             val last = if (inFolder) null else Custom.lastIn(games)
             if (last != null) item("continue", span = { GridItemSpan(maxLineSpan) }) {
-                GameRow("▶  Continue: ${last.title}", look, onLongClick = { menuFor = last }) { onPlay(last) }
+                GameRow("▶  Continue: ${last.label}", look, onLongClick = { menuFor = last }) { onPlay(last) }
             }
             // This system's own favorites folder, at the top of its list.
             if (!inFolder) item("recent", span = { GridItemSpan(maxLineSpan) }) {
@@ -320,7 +320,7 @@ private fun GamesList(
             }
             items(list, key = { it.uri.toString() }) { game ->
                 val focus = if (game == target) gameFocus else null
-                val title = if (!favoritesOnly && game in favorites) "★ ${game.title}" else game.title
+                val title = if (!favoritesOnly && game in favorites) "★ ${game.label}" else game.label
                 val onFocused = { focused = game }
                 val onHold = { menuFor = game }
                 when (view) {
@@ -384,7 +384,7 @@ private fun AllGamesList(
             items(favorites, key = { it.uri.toString() }) { game ->
                 val look = lookFor(game.system.id)
                 val star = if (emptyText != null && Custom.isFavorite(game)) "★ " else ""
-                GameCard(star + game.title, systemName(game.system), look, tile = look.short,
+                GameCard(star + game.label, systemName(game.system), look, tile = look.short,
                     focusRequester = if (game == target) gameFocus else null,
                     image = Custom.icon(game.system.id),
                     onFocused = { focused = game }, onLongClick = { menuFor = game }) { onPlay(game) }
@@ -455,7 +455,7 @@ private fun GameMenu(activity: MainActivity, game: Game, onPlay: () -> Unit, onC
     val look = lookFor(game.system.id)
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
-            Text(game.title, color = TextBright, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 2)
+            Text(game.label, color = TextBright, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 2)
             Text("${systemName(game.system)} · B to close", color = TextDim, fontSize = 13.sp)
         }
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 6.dp)) {
@@ -497,7 +497,7 @@ private fun launchGame(activity: MainActivity, system: GameSystem, emu: Emulator
     // Some emulators (Lemuroid is one) won't let other apps hand them a game.
     Toast.makeText(activity,
         "${emu.name} doesn't let other apps start a game, so it's opening for you to pick " +
-            "\"${game.title}\" there. To play straight from Taco Launcher, use ⇄ Switch emulator.",
+            "\"${game.label}\" there. To play straight from Taco Launcher, use ⇄ Switch emulator.",
         Toast.LENGTH_LONG).show()
     openAppFitted(activity, emu.pkg)
 }

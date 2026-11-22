@@ -112,6 +112,10 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("showSplash", true)
         set(v) = prefs.edit().putBoolean("showSplash", v).apply()
 
+    /** Game name choices (whole file name, region, year...), all off by default. */
+    fun nameFlag(key: String) = prefs.getBoolean(key, false)
+    fun setNameFlag(key: String, on: Boolean) = prefs.edit().putBoolean(key, on).apply()
+
     /** The person said the Taco is set up in RetroArch, so stop asking before games. */
     var retroArchPadReady: Boolean
         get() = prefs.getBoolean("retroArchPadReady", false)

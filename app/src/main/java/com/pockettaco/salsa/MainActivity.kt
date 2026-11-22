@@ -43,6 +43,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         settings = Settings(this)
         Custom.init(this)
+        GameNames.load(settings)
         watcher = ControllerWatcher(this, settings)
         watcher.onAttached = { com.pockettaco.salsa.ui.SplashState.play() }
         // Coming back to the launcher, Android briefly shows a saved picture of the last
