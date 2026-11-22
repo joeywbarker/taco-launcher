@@ -264,10 +264,14 @@ private fun AboutSection(activity: MainActivity) {
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }
     }) { Text("github.com/joeywbarker") }
-    var splash by remember { mutableStateOf(activity.settings.showSplash) }
+    var skipSplash by remember { mutableStateOf(!activity.settings.showSplash) }
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text("Intro animation when Taco Launcher starts", color = Color.White, modifier = Modifier.weight(1f))
-        Switch(splash, { splash = it; activity.settings.showSplash = it })
+        Column(Modifier.weight(1f)) {
+            Text("Skip splash screen on startup", color = Color.White)
+            Text("Normally the intro plays each time the Taco is attached.",
+                color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall)
+        }
+        Switch(skipSplash, { skipSplash = it; activity.settings.showSplash = !it })
     }
 }
 
