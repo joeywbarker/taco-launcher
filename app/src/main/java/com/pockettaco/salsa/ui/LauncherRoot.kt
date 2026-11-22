@@ -36,9 +36,14 @@ fun LauncherRoot(activity: MainActivity) {
     var rescanKey by remember { mutableIntStateOf(0) }
     var showSettings by remember { mutableStateOf(false) }
     // A short intro on a fresh start (not every time you come back from a game).
-    var splashDone by remember { mutableStateOf(SplashState.shown || !activity.settings.showSplash) }
+    // The menus load underneath while the splash plays, so there's no wait after it.
+    var splashGone by remember { mutableStateOf(SplashState.shown || !activity.settings.showSplash) }
+    var revealed by remember { mutableStateOf(splashGone) }
+    // Let the splash draw its first frames, then build the menus behind it.
+    var mounted by remember { mutableStateOf(splashGone) }
+    LaunchedEffect(Unit) { if (!mounted) { kotlinx.coroutines.delay(150); mounted = true } }
     val enter by androidx.compose.animation.core.animateFloatAsState(
-        if (splashDone) 1f else 0f, androidx.compose.animation.core.tween(500), label = "enter")
+        if (revealed) 1f else 0f, androidx.compose.animation.core.tween(450), label = "enter")
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
@@ -70,14 +75,9 @@ fun LauncherRoot(activity: MainActivity) {
 
     MaterialTheme(colorScheme = darkColorScheme()) {
         Surface(Modifier.fillMaxSize(), color = Color(0xFF101014)) {
-            if (!splashDone) {
-                TacoLayout(covered = if (tacoOn) covered else 0f, tacoName = tacoName) {
-                    Splash { SplashState.shown = true; splashDone = true }
-                }
-                return@Surface
-            }
-            // After the splash, the menus zoom gently into place.
-            AnimatedContent(
+          Box(Modifier.fillMaxSize()) {
+            // As the splash fades, the menus zoom gently into place.
+            if (mounted) AnimatedContent(
                 modifier = Modifier.graphicsLayer {
                     alpha = enter; scaleX = 0.92f + 0.08f * enter; scaleY = 0.92f + 0.08f * enter
                 },targetState = tacoOn to showSettings, label = "mode") { (taco, settingsOpen) ->
@@ -105,6 +105,15 @@ fun LauncherRoot(activity: MainActivity) {
                     else -> NormalLayout(activity, onOpenSettings = { showSettings = true })
                 }
             }
+            if (!splashGone) {
+                TacoLayout(covered = if (tacoOn) covered else 0f, tacoName = tacoName) {
+                    Splash(
+                        onReveal = { revealed = true },
+                        onDone = { SplashState.shown = true; revealed = true; splashGone = true },
+                    )
+                }
+            }
+          }
         }
     }
 }
