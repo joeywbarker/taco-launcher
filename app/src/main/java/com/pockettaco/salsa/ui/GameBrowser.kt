@@ -90,10 +90,12 @@ fun GameBrowser(
             play(game)
         }
     }
-    val shown = arrange(library.entries.map { it.key to it.value })
-    val allGames = shown.flatMap { it.second }
-    val allFavorites = Custom.favoritesIn(allGames)
-    val recent = Custom.recentIn(library)
+    // Worked out once per change, not on every redraw (thousands of games make this slow).
+    val customVersion = Custom.version.intValue
+    val shown = remember(library, customVersion) { arrange(library.entries.map { it.key to it.value }) }
+    val allGames = remember(shown) { shown.flatMap { it.second } }
+    val allFavorites = remember(allGames, customVersion) { Custom.favoritesIn(allGames) }
+    val recent = remember(library, customVersion) { Custom.recentIn(library) }
 
     DisposableEffect(screen) {
         val handler: () -> Boolean = {

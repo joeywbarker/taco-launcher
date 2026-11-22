@@ -38,7 +38,7 @@ object SplashState { var shown = false }
  * Tap to skip.
  */
 @Composable
-fun Splash(onDone: () -> Unit) {
+fun Splash(onReveal: () -> Unit, onDone: () -> Unit) {
     val context = LocalContext.current
     val icon = remember { currentAppIcon(context).preview }
     val iconAlpha = remember { Animatable(0f) }
@@ -48,6 +48,7 @@ fun Splash(onDone: () -> Unit) {
     val creditAlpha = remember { Animatable(0f) }
     val all = remember { Animatable(1f) }
     val done by rememberUpdatedState(onDone)
+    val reveal by rememberUpdatedState(onReveal)
 
     LaunchedEffect(Unit) {
         launch { iconAlpha.animateTo(1f, tween(450)) }
@@ -57,8 +58,9 @@ fun Splash(onDone: () -> Unit) {
         launch { nameShift.animateTo(0f, tween(500, easing = FastOutSlowInEasing)) }
         delay(350)
         creditAlpha.animateTo(1f, tween(400))
-        delay(800)
-        all.animateTo(0f, tween(400))
+        delay(700)
+        reveal()   // the menus start zooming in while this fades out
+        all.animateTo(0f, tween(450))
         done()
     }
 
