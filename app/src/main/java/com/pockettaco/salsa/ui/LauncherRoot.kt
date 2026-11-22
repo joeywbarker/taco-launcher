@@ -35,25 +35,23 @@ fun LauncherRoot(activity: MainActivity) {
     var scanCount by remember { mutableIntStateOf(0) }
     var rescanKey by remember { mutableIntStateOf(0) }
     var showSettings by remember { mutableStateOf(false) }
-    // A short intro on a fresh start and whenever the Taco is attached (not when you come back from a game).
-    // The menus load underneath while the splash plays, so there's no wait after it.
-    var splashGone by remember { mutableStateOf(SplashState.shown || !activity.settings.showSplash) }
-    var revealed by remember { mutableStateOf(splashGone) }
+    // The intro plays on a fresh start and each time the Taco is attached (not when you come
+    // back from a game). It's decided before drawing, so the menus never flash first.
+    // The menus load underneath while it plays, so there's no wait after it.
+    val splashWanted = SplashState.request.intValue
+    var splashDone by remember {
+        mutableIntStateOf(if (activity.settings.showSplash) SplashState.played else splashWanted)
+    }
+    var revealedFor by remember { mutableIntStateOf(splashDone) }
+    if (splashDone != splashWanted && (!activity.settings.showSplash || activity.gameWindowOpen.value)) {
+        // Switched off, or a game is open: skip this one.
+        splashDone = splashWanted; revealedFor = splashWanted; SplashState.played = splashWanted
+    }
+    val splashGone = splashDone == splashWanted
+    val revealed = revealedFor == splashWanted
     // Let the splash draw its first frames, then build the menus behind it.
     var mounted by remember { mutableStateOf(splashGone) }
     LaunchedEffect(Unit) { if (!mounted) { kotlinx.coroutines.delay(150); mounted = true } }
-    // Play the intro again every time the Taco is attached (unless it's switched off),
-    // but not while a game is open.
-    var lastTaco by remember { mutableStateOf(tacoName) }
-    LaunchedEffect(tacoName) {
-        val wasOff = lastTaco == null
-        lastTaco = tacoName
-        if (wasOff && tacoName != null && splashGone && activity.settings.showSplash &&
-            !activity.gameWindowOpen.value) {
-            revealed = false
-            splashGone = false
-        }
-    }
     val enter by androidx.compose.animation.core.animateFloatAsState(
         if (revealed) 1f else 0f, androidx.compose.animation.core.tween(450), label = "enter")
 
@@ -119,10 +117,15 @@ fun LauncherRoot(activity: MainActivity) {
             }
             if (!splashGone) {
                 TacoLayout(covered = if (tacoOn) covered else 0f, tacoName = tacoName) {
-                    Splash(
-                        onReveal = { revealed = true },
-                        onDone = { SplashState.shown = true; revealed = true; splashGone = true },
-                    )
+                    key(splashWanted) {
+                        Splash(
+                            onReveal = { revealedFor = splashWanted },
+                            onDone = {
+                                revealedFor = splashWanted; splashDone = splashWanted
+                                SplashState.played = splashWanted
+                            },
+                        )
+                    }
                 }
             }
           }

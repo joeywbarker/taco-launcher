@@ -44,6 +44,10 @@ class MainActivity : ComponentActivity() {
         settings = Settings(this)
         Custom.init(this)
         watcher = ControllerWatcher(this, settings)
+        watcher.onAttached = { com.pockettaco.salsa.ui.SplashState.play() }
+        // Coming back to the launcher, Android briefly shows a saved picture of the last
+        // screen. Turn that off so attaching the Taco goes straight to the intro, not the menus.
+        if (android.os.Build.VERSION.SDK_INT >= 33) setRecentsScreenshotEnabled(false)
         setContent { LauncherRoot(this) }
         // Newer Android can send a Back button straight to the "back" system instead of to
         // dispatchKeyEvent. Catch it there too, so teaching B and going back always work.
@@ -71,11 +75,19 @@ class MainActivity : ComponentActivity() {
         if (hasFocus) FocusKick.kick()
     }
 
-    override fun onStart() { super.onStart(); watcher.start() }
+    override fun onStart() {
+        super.onStart()
+        // Decide on the intro before the first frame, so the menus never flash first.
+        com.pockettaco.salsa.ui.SplashState.playIfJustAttached()
+        watcher.start()
+    }
     override fun onStop() { watcher.stop(); super.onStop() }
 
     /** Pressing Home while already home: do nothing special, just stay. */
-    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent) }
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        com.pockettaco.salsa.ui.SplashState.playIfJustAttached()
+    }
 
     /**
      * Controller buttons -> launcher actions.
