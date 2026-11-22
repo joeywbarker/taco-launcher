@@ -225,8 +225,8 @@ private fun SystemsView(
             }
             // Quick Start: always first, so it's always in the same spot.
             if (systems.isNotEmpty()) item("last") {
-                val sub = lastPlayed?.let { "${it.title} · ${systemName(it.system)}" } ?: "Play any game once, then this jumps right back in"
-                GameCard(if (lastPlayed != null) "Quick Start: ${lastPlayed.title}" else "Quick Start",
+                val sub = lastPlayed?.let { "${it.label} · ${systemName(it.system)}" } ?: "Play any game once, then this jumps right back in"
+                GameCard(if (lastPlayed != null) "Quick Start: ${lastPlayed.label}" else "Quick Start",
                     lastPlayed?.let { systemName(it.system) } ?: sub,
                     lastPlayed?.let { lookFor(it.system.id) } ?: RECENT_LOOK, tile = "▶",
                     onFocused = { onFocused(null, "▶ Quick Start", sub) }, onClick = onLastPlayed)
@@ -286,7 +286,7 @@ private fun SystemsView(
             val sub = lastPlayed?.let { systemName(it.system) } ?: "Play any game once, then this jumps right back in"
             val look = lastPlayed?.let { lookFor(it.system.id) } ?: RECENT_LOOK
             Bubble(SystemLook("▶", look.top, look.bottom), "Quick Start", size = size,
-                onFocused = { onFocused(null, "▶ Quick Start" + (lastPlayed?.let { ": ${it.title}" } ?: ""), sub) },
+                onFocused = { onFocused(null, "▶ Quick Start" + (lastPlayed?.let { ": ${it.label}" } ?: ""), sub) },
                 onClick = onLastPlayed)
         }
         if (lastPlayed != null) item("recent") {
