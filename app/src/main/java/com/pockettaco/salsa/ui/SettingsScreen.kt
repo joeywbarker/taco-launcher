@@ -504,6 +504,6 @@ private fun GameNamesSection(activity: MainActivity) {
     option("nameRegion", "Show country / region (US, EU, JP…)", { GameNames.showRegion }, { GameNames.showRegion = it }, parts)
     option("nameYear", "Show year", { GameNames.showYear }, { GameNames.showYear = it }, parts)
     option("namePublisher", "Show developer / publisher", { GameNames.showPublisher }, { GameNames.showPublisher = it }, parts)
-    option("nameTags", "Show version and tags (Rev 1, Proto, Beta…)", { GameNames.showTags }, { GameNames.showTags = it }, parts)
+    option("nameTags", "Show extra tags (Prototype, Beta, version / rev numbers)", { GameNames.showTags }, { GameNames.showTags = it }, parts)
     option("nameExtension", "Show file extension (.gba, .zip…)", { GameNames.showExtension }, { GameNames.showExtension = it }, parts)
 }
