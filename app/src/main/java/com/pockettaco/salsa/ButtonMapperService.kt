@@ -36,8 +36,11 @@ class ButtonMapperService : AccessibilityService() {
     override fun onKeyEvent(event: KeyEvent): Boolean {
         if (ButtonMapperState.capturing) return false
         // In Taco Launcher's own menus, every button belongs to the menus (A select, B back...).
-        // Trust the app Android says is in front; the launcher's own flag can lag behind it.
-        val inLauncher = foreground?.let { it == packageName } ?: ButtonMapperState.launcherInFront
+        // Only stay out of the way when both signals agree the launcher has the buttons: the
+        // launcher's window has focus AND it was the last app to come to the front. Either one
+        // alone can be out of date for a while (a game in a pop-up window doesn't always tell
+        // Android it came to the front), which made hotkeys ignore presses until it caught up.
+        val inLauncher = ButtonMapperState.launcherInFront && (foreground == null || foreground == packageName)
         if (inLauncher) { held.clear(); swallowed.clear(); return false }
         val device = event.device
         val name = device?.name?.lowercase().orEmpty()
@@ -131,7 +134,7 @@ class ButtonMapperService : AccessibilityService() {
 
     override fun onServiceConnected() { ButtonMapperState.reload = true; held.clear(); swallowed.clear() }
     /** The app whose window last came to the front (from Android's window events). */
-    private var foreground: String? = null
+    @Volatile private var foreground: String? = null
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
