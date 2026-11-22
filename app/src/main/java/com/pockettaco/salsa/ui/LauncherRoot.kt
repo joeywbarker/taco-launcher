@@ -11,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettaco.salsa.*
@@ -34,6 +35,10 @@ fun LauncherRoot(activity: MainActivity) {
     var scanCount by remember { mutableIntStateOf(0) }
     var rescanKey by remember { mutableIntStateOf(0) }
     var showSettings by remember { mutableStateOf(false) }
+    // A short intro on a fresh start (not every time you come back from a game).
+    var splashDone by remember { mutableStateOf(SplashState.shown || !activity.settings.showSplash) }
+    val enter by androidx.compose.animation.core.animateFloatAsState(
+        if (splashDone) 1f else 0f, androidx.compose.animation.core.tween(500), label = "enter")
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
@@ -65,7 +70,17 @@ fun LauncherRoot(activity: MainActivity) {
 
     MaterialTheme(colorScheme = darkColorScheme()) {
         Surface(Modifier.fillMaxSize(), color = Color(0xFF101014)) {
-            AnimatedContent(targetState = tacoOn to showSettings, label = "mode") { (taco, settingsOpen) ->
+            if (!splashDone) {
+                TacoLayout(covered = if (tacoOn) covered else 0f, tacoName = tacoName) {
+                    Splash { SplashState.shown = true; splashDone = true }
+                }
+                return@Surface
+            }
+            // After the splash, the menus zoom gently into place.
+            AnimatedContent(
+                modifier = Modifier.graphicsLayer {
+                    alpha = enter; scaleX = 0.92f + 0.08f * enter; scaleY = 0.92f + 0.08f * enter
+                },targetState = tacoOn to showSettings, label = "mode") { (taco, settingsOpen) ->
                 when {
                     settingsOpen -> TacoLayout(covered = if (taco) covered else 0f, tacoName = tacoName) {
                         SettingsScreen(

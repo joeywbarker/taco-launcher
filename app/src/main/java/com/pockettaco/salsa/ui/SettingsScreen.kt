@@ -264,6 +264,11 @@ private fun AboutSection(activity: MainActivity) {
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }
     }) { Text("github.com/joeywbarker") }
+    var splash by remember { mutableStateOf(activity.settings.showSplash) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("Intro animation when Taco Launcher starts", color = Color.White, modifier = Modifier.weight(1f))
+        Switch(splash, { splash = it; activity.settings.showSplash = it })
+    }
 }
 
 /**

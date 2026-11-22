@@ -107,6 +107,11 @@ class Settings(context: Context) {
     fun isSelect(e: android.view.KeyEvent) = e.keyCode == selectKey && (selectScan == 0 || e.scanCode == selectScan)
     fun isBack(e: android.view.KeyEvent) = e.keyCode == backKey && (backScan == 0 || e.scanCode == backScan)
 
+    /** Play the short intro when Taco Launcher starts. */
+    var showSplash: Boolean
+        get() = prefs.getBoolean("showSplash", true)
+        set(v) = prefs.edit().putBoolean("showSplash", v).apply()
+
     /** The person said the Taco is set up in RetroArch, so stop asking before games. */
     var retroArchPadReady: Boolean
         get() = prefs.getBoolean("retroArchPadReady", false)
