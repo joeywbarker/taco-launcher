@@ -492,18 +492,48 @@ private fun GameNamesSection(activity: MainActivity) {
     val example = "Tetris (NINTENDO) 1989 USA V1.1 (Proto).gb"
     Text("Example: $example  →  ${GameNames.label(example, example.substringBeforeLast('.'))}",
         color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall)
+    // Six switches, linked: "entire file name" means all five details are on. Turning it on
+    // turns them all on; turning any detail off turns it off (and all five on turns it on).
+    val details = listOf(
+        "nameRegion" to "Show country / region (US, EU, JP…)",
+        "nameYear" to "Show year",
+        "namePublisher" to "Show developer / publisher",
+        "nameExtension" to "Show file extension (.gba, .zip…)",
+        "nameTags" to "Show extra tags (Prototype, Beta, version / rev numbers)",
+    )
+    fun get(key: String): Boolean = when (key) {
+        "nameFull" -> GameNames.showFullName
+        "nameRegion" -> GameNames.showRegion
+        "nameYear" -> GameNames.showYear
+        "namePublisher" -> GameNames.showPublisher
+        "nameExtension" -> GameNames.showExtension
+        else -> GameNames.showTags
+    }
+    fun put(key: String, on: Boolean) {
+        when (key) {
+            "nameFull" -> GameNames.showFullName = on
+            "nameRegion" -> GameNames.showRegion = on
+            "nameYear" -> GameNames.showYear = on
+            "namePublisher" -> GameNames.showPublisher = on
+            "nameExtension" -> GameNames.showExtension = on
+            else -> GameNames.showTags = on
+        }
+        st.setNameFlag(key, on)
+    }
+    fun toggle(key: String, on: Boolean) {
+        put(key, on)
+        if (key == "nameFull") {
+            if (on) details.forEach { put(it.first, true) }
+        } else if (!on) put("nameFull", false)
+        else if (details.all { get(it.first) }) put("nameFull", true)
+    }
     @Composable
-    fun option(key: String, label: String, get: () -> Boolean, set: (Boolean) -> Unit, enabled: Boolean = true) {
+    fun option(key: String, label: String) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(label, color = if (enabled) Color.White else Color(0xFF666666), modifier = Modifier.weight(1f))
-            Switch(get(), { set(it); st.setNameFlag(key, it) }, enabled = enabled)
+            Text(label, color = Color.White, modifier = Modifier.weight(1f))
+            Switch(get(key), { toggle(key, it) })
         }
     }
-    option("nameFull", "Show the entire file name", { GameNames.showFullName }, { GameNames.showFullName = it })
-    val parts = !GameNames.showFullName
-    option("nameRegion", "Show country / region (US, EU, JP…)", { GameNames.showRegion }, { GameNames.showRegion = it }, parts)
-    option("nameYear", "Show year", { GameNames.showYear }, { GameNames.showYear = it }, parts)
-    option("namePublisher", "Show developer / publisher", { GameNames.showPublisher }, { GameNames.showPublisher = it }, parts)
-    option("nameTags", "Show extra tags (Prototype, Beta, version / rev numbers)", { GameNames.showTags }, { GameNames.showTags = it }, parts)
-    option("nameExtension", "Show file extension (.gba, .zip…)", { GameNames.showExtension }, { GameNames.showExtension = it }, parts)
+    option("nameFull", "Show the entire file name")
+    details.forEach { (key, label) -> option(key, label) }
 }
