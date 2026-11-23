@@ -74,6 +74,19 @@ object Custom {
         get() { read(); return runCatching { HomeView.valueOf(p().getString("view", "BIG")!!) }.getOrDefault(HomeView.BIG) }
         set(v) { p().edit().putString("view", v.name).apply(); changed() }
 
+    /** How many icons across and down the home screen grid shows (per view); icons resize to fit. */
+    fun gridColumns(v: HomeView): Int { read(); return p().getInt("cols_${v.name}", if (v == HomeView.SMALL) 5 else 3) }
+    fun gridRows(v: HomeView): Int { read(); return p().getInt("rows_${v.name}", 3) }
+    fun setGridColumns(v: HomeView, n: Int) { p().edit().putInt("cols_${v.name}", n.coerceIn(GRID_COLS)).apply(); changed() }
+    fun setGridRows(v: HomeView, n: Int) { p().edit().putInt("rows_${v.name}", n.coerceIn(GRID_ROWS)).apply(); changed() }
+    /** When on, Select no longer switches the view (home and game lists). */
+    var viewLocked: Boolean
+        get() { read(); return p().getBoolean("viewLocked", false) }
+        set(v) { p().edit().putBoolean("viewLocked", v).apply(); changed() }
+
+    val GRID_COLS = 2..8
+    val GRID_ROWS = 1..6
+
     fun nextView() { homeView = HomeView.entries[(homeView.ordinal + 1) % HomeView.entries.size] }
 
     fun gameView(id: String): GameView {

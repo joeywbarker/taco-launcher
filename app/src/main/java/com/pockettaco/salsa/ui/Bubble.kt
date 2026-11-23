@@ -45,6 +45,7 @@ fun Bubble(
     focusRequester: FocusRequester? = null,
     image: ImageBitmap? = null,
     size: Dp = 76.dp,
+    labelWidth: Dp? = null,
     highlight: Boolean = false,
     onFocused: () -> Unit = {},
     onLongClick: (() -> Unit)? = null,
@@ -80,7 +81,8 @@ fun Bubble(
                         modifier = Modifier.fillMaxSize())
                 } else {
                     Text(look.short, color = Color.White, fontWeight = FontWeight.Black,
-                        fontSize = (if (look.short.length > 3) 15 else 19).let { if (small) it - 5 else it }.sp)
+                        // Grows and shrinks with the icon (19 at the normal 76 size).
+                        fontSize = (size.value * (if (look.short.length > 3) 0.2f else 0.25f)).coerceIn(9f, 40f).sp)
                 }
                 // Glossy highlight across the top half.
                 Box(Modifier.fillMaxSize().background(
@@ -97,7 +99,7 @@ fun Bubble(
         Text(label, color = if (focused) TextBright else TextDim, fontSize = if (small) 10.sp else 12.sp,
             fontWeight = if (focused) FontWeight.Bold else FontWeight.Medium,
             maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
-            modifier = Modifier.width(if (small) 68.dp else 100.dp))
+            modifier = Modifier.width(labelWidth ?: if (small) 68.dp else 100.dp))
     }
 }
 

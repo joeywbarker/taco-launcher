@@ -87,7 +87,7 @@ fun HomeScreen(
     // Start = menu for the selected system, Select = next view.
     DisposableEffect(Unit) {
         val start: () -> Boolean = { if (panel == null) panel = Panel.Menu(focusedId?.takeIf { it in visibleIds }); true }
-        val select: () -> Boolean = { if (panel == null) Custom.nextView(); true }
+        val select: () -> Boolean = { if (panel == null && !Custom.viewLocked) Custom.nextView(); true }
         activity.onStartButton = start
         activity.onSelectButton = select
         onDispose {
@@ -270,34 +270,41 @@ private fun SystemsView(
         return
     }
 
-    val small = view == HomeView.SMALL
+    // Columns and rows come from Settings; the icons grow or shrink so that many fit.
+    val cols = Custom.gridColumns(view)
+    val rows = Custom.gridRows(view)
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
+    val cellW = maxWidth / cols
+    val cellH = maxHeight / rows
+    // Each icon has ~50dp of label and padding under/around it.
+    val size = minOf(cellW - 14.dp, cellH - 50.dp).coerceIn(28.dp, 170.dp)
+    val labelW = (cellW - 4.dp).coerceAtLeast(40.dp)
     LazyVerticalGrid(
-        GridCells.Fixed(if (small) 5 else 3),
-        Modifier.fillMaxSize().padding(horizontal = 8.dp),
+        GridCells.Fixed(cols),
+        Modifier.fillMaxSize(),
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
-        val size = if (small) 52.dp else 76.dp
         if (empty) item {
-            Bubble(SystemLook("+", Color(0xFF4CFF9A), Color(0xFF138A4F)), "Add games", size = size,
+            Bubble(SystemLook("+", Color(0xFF4CFF9A), Color(0xFF138A4F)), "Add games", size = size, labelWidth = labelW,
                 focusRequester = first, onFocused = { onFocused(null, addTitle, addSub) }, onClick = onPickFolder)
         }
         // Quick Start: always the first icon.
         if (systems.isNotEmpty()) item("last") {
             val sub = lastPlayed?.let { systemName(it.system) } ?: "Play any game once, then this jumps right back in"
             val look = lastPlayed?.let { lookFor(it.system.id) } ?: RECENT_LOOK
-            Bubble(SystemLook("▶", look.top, look.bottom), "Quick Start", size = size,
+            Bubble(SystemLook("▶", look.top, look.bottom), "Quick Start", size = size, labelWidth = labelW,
                 onFocused = { onFocused(null, "▶ Quick Start" + (lastPlayed?.let { ": ${it.label}" } ?: ""), sub) },
                 onClick = onLastPlayed)
         }
         if (lastPlayed != null) item("recent") {
-            Bubble(RECENT_LOOK, "Recent", badge = "$recentCount", size = size,
+            Bubble(RECENT_LOOK, "Recent", badge = "$recentCount", size = size, labelWidth = labelW,
                 onFocused = { onFocused(null, "🕘 Recently played", "Your last $recentCount different games") },
                 onClick = onOpenRecent)
         }
         systems.forEachIndexed { i, (system, games) ->
             item(system.id) {
                 val name = systemName(system)
-                Bubble(lookFor(system.id), name, badge = "${games.size}", size = size,
+                Bubble(lookFor(system.id), name, badge = "${games.size}", size = size, labelWidth = labelW,
                     focusRequester = if (i == focusIndex) first else null,
                     image = Custom.icon(system.id),
                     onFocused = { onFocused(system.id, name, "${games.size} games") },
@@ -307,25 +314,26 @@ private fun SystemsView(
         }
         if (systems.isNotEmpty()) {
             item("favorites") {
-                Bubble(FAVORITES_LOOK, "Favorites", badge = "$favoriteCount", size = size,
+                Bubble(FAVORITES_LOOK, "Favorites", badge = "$favoriteCount", size = size, labelWidth = labelW,
                     onFocused = { onFocused(null, "★ Favorites", "$favoriteCount games from every system") },
                     onClick = onOpenFavorites)
             }
             item("random") {
-                Bubble(RANDOM_LOOK, "Random", size = size,
+                Bubble(RANDOM_LOOK, "Random", size = size, labelWidth = labelW,
                     onFocused = { onFocused(null, "🎲 Random game", "Picks any game from any system") },
                     onClick = onRandom)
             }
         }
         item("emus") {
-            Bubble(EMULATORS_LOOK, "Emulators", badge = "$emulatorCount", size = size,
+            Bubble(EMULATORS_LOOK, "Emulators", badge = "$emulatorCount", size = size, labelWidth = labelW,
                 onFocused = { onFocused(null, "Emulators", "$emulatorCount installed") }, onClick = onOpenApps)
         }
         item("settings") {
-            Bubble(SETTINGS_LOOK, "Settings", size = size,
+            Bubble(SETTINGS_LOOK, "Settings", size = size, labelWidth = labelW,
                 onFocused = { onFocused(null, "Settings", "Screen size, games folder, controller, look") },
                 onClick = onOpenSettings)
         }
+    }
     }
 }
 
@@ -345,7 +353,7 @@ private fun SystemMenu(system: GameSystem?, gameCount: Int, hasPicture: Boolean,
             add(Triple("hide", "Hide from home", "Games stay on your phone. Unhide in Settings."))
             add(Triple("delete", "Delete system and games…", "$gameCount games. Asks twice."))
         }
-        add(Triple("view", "Switch view", "Now: ${Custom.homeView.label} (or press Select)"))
+        add(Triple("view", "Switch view", "Now: ${Custom.homeView.label}" + if (Custom.viewLocked) " (locked, Select won't change it)" else " (or press Select)"))
         add(Triple("az", "Sort A to Z", null))
         add(Triple("count", "Sort by number of games", null))
         add(Triple("reset", "Usual order", null))

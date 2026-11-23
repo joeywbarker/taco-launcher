@@ -223,6 +223,31 @@ private fun HomeLookSection(activity: MainActivity) {
             else OutlinedButton(onClick = { custom.homeView = v }) { Text(v.label) }
         }
     }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text("Lock the view", color = Color.White)
+            Text("Select won't switch views on the home screen or in game lists. You can still change them here or from a menu.",
+                color = Color(0xFF999999), style = MaterialTheme.typography.bodySmall)
+        }
+        Switch(custom.viewLocked, { custom.viewLocked = it })
+    }
+    val view = custom.homeView
+    if (view != com.pockettaco.salsa.HomeView.LIST) {
+        Text("Icon grid for ${view.label.lowercase()} (icons get bigger or smaller to fit)",
+            color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall)
+        @Composable
+        fun stepper(label: String, value: Int, range: IntRange, set: (Int) -> Unit) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(label, color = Color.White, modifier = Modifier.width(90.dp))
+                OutlinedButton(onClick = { set(value - 1) }, enabled = value > range.first) { Text("−") }
+                Text("$value", color = Color.White, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.width(28.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                OutlinedButton(onClick = { set(value + 1) }, enabled = value < range.last) { Text("+") }
+            }
+        }
+        stepper("Columns", custom.gridColumns(view), custom.GRID_COLS) { custom.setGridColumns(view, it) }
+        stepper("Rows", custom.gridRows(view), custom.GRID_ROWS) { custom.setGridRows(view, it) }
+    }
     Text("Background", color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall)
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         com.pockettaco.salsa.BACKDROPS.forEachIndexed { i, b ->

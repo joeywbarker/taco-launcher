@@ -428,7 +428,7 @@ private fun GameButtons(
             true
         }
         val start: () -> Boolean = { if (!open) current()?.let { menu(it) }; true }
-        val sel: () -> Boolean = { if (!open) select?.invoke(); true }
+        val sel: () -> Boolean = { if (!open && !Custom.viewLocked) select?.invoke(); true }
         activity.onFavoriteButton = fav
         activity.onStartButton = start
         activity.onSelectButton = sel
