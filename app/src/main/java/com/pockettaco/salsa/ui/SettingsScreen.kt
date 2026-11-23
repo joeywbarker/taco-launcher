@@ -217,7 +217,7 @@ private fun HomeLookSection(activity: MainActivity) {
     Text("Tip: on the home screen, Select switches the view and Start (or holding a system) opens its menu.",
         color = Color(0xFF999999), style = MaterialTheme.typography.bodySmall)
     Text("View", color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall)
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         com.pockettaco.salsa.HomeView.entries.forEach { v ->
             if (custom.homeView == v) Button(onClick = { custom.homeView = v }) { Text(v.label) }
             else OutlinedButton(onClick = { custom.homeView = v }) { Text(v.label) }
@@ -232,7 +232,7 @@ private fun HomeLookSection(activity: MainActivity) {
         Switch(custom.viewLocked, { custom.viewLocked = it })
     }
     val view = custom.homeView
-    if (view != com.pockettaco.salsa.HomeView.LIST) {
+    if (view == com.pockettaco.salsa.HomeView.BIG || view == com.pockettaco.salsa.HomeView.SMALL) {
         Text("Icon grid for ${view.label.lowercase()} (icons get bigger or smaller to fit)",
             color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall)
         @Composable

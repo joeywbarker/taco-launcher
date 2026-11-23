@@ -18,7 +18,7 @@ import kotlin.math.max
 import kotlin.math.min
 
 /** How the home screen shows systems. Select on the controller steps through these. */
-enum class HomeView(val label: String) { BIG("Big icons"), SMALL("Small icons"), LIST("List") }
+enum class HomeView(val label: String) { CAROUSEL("Carousel"), BIG("Big icons"), SMALL("Small icons"), LIST("List") }
 
 /** How a system's game list looks. Select on the controller steps through these. */
 enum class GameView(val label: String) { LIST("List"), GRID("Grid"), COMPACT("Compact") }
@@ -71,7 +71,14 @@ object Custom {
     private fun read() = version.intValue  // registers a read so the screen updates
 
     var homeView: HomeView
-        get() { read(); return runCatching { HomeView.valueOf(p().getString("view", "BIG")!!) }.getOrDefault(HomeView.BIG) }
+        get() {
+            read()
+            // The carousel became the default (Nov 2026): switch everyone to it once.
+            if (!p().getBoolean("carouselDefault", false)) {
+                p().edit().putBoolean("carouselDefault", true).putString("view", HomeView.CAROUSEL.name).apply()
+            }
+            return runCatching { HomeView.valueOf(p().getString("view", "CAROUSEL")!!) }.getOrDefault(HomeView.CAROUSEL)
+        }
         set(v) { p().edit().putString("view", v.name).apply(); changed() }
 
     /** How many icons across and down the home screen grid shows (per view); icons resize to fit. */
@@ -263,18 +270,33 @@ fun savePicture(context: Context, uri: Uri, out: File, maxSide: Int, square: Boo
             }
         }
     }.getOrNull() ?: return "Couldn't open that picture."
-    val result = if (square) {
+    // A picture with see-through parts (a cut-out PNG) is kept whole and its transparency
+    // kept, so it shows as just the object. Ordinary photos are cropped to a square as before.
+    val seeThrough = bitmap.hasAlpha() && hasTransparentPixels(bitmap)
+    val result = if (square && !seeThrough) {
         val s = min(bitmap.width, bitmap.height)
         Bitmap.createBitmap(bitmap, (bitmap.width - s) / 2, (bitmap.height - s) / 2, s, s)
     } else bitmap
     return runCatching {
         out.parentFile?.mkdirs()
         FileOutputStream(out).use {
-            if (square) result.compress(Bitmap.CompressFormat.PNG, 100, it)
+            if (square || seeThrough) result.compress(Bitmap.CompressFormat.PNG, 100, it)
             else result.compress(Bitmap.CompressFormat.JPEG, 90, it)
         }
         null
     }.getOrElse { "Couldn't save that picture." }
+}
+
+/** True if any pixel is partly see-through (checks a grid of points, fast on big pictures). */
+private fun hasTransparentPixels(b: Bitmap): Boolean {
+    val stepX = max(1, b.width / 64); val stepY = max(1, b.height / 64)
+    var y = 0
+    while (y < b.height) {
+        var x = 0
+        while (x < b.width) { if ((b.getPixel(x, y) ushr 24) < 250) return true; x += stepX }
+        y += stepY
+    }
+    return false
 }
 
 /** Deletes game files. Returns (deleted, failed). */
