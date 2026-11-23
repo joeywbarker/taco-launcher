@@ -4,6 +4,25 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.animation.togetherWith
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
@@ -80,12 +99,13 @@ fun HomeScreen(
     val scope = rememberCoroutineScope()
 
     var pictureFor by remember { mutableStateOf<String?>(null) }
-    val picturePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    // Opens the file browser, so a picture can come from any folder (PNG see-through parts are kept).
+    val picturePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         val id = pictureFor ?: return@rememberLauncherForActivityResult
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
             val error = withContext(Dispatchers.IO) {
-                savePicture(activity, uri, Custom.iconFile(id), maxSide = 256, square = true)
+                savePicture(activity, uri, Custom.iconFile(id), maxSide = 512, square = true)
             }
             if (error != null) Toast.makeText(activity, error, Toast.LENGTH_LONG).show()
             Custom.changed()
@@ -149,7 +169,7 @@ fun HomeScreen(
                     when (action) {
                         "move" -> if (id != null) panel = Panel.Move(id)
                         "rename" -> if (id != null) panel = Panel.Rename(id)
-                        "picture" -> if (id != null) { pictureFor = id; picturePicker.launch("image/*") }
+                        "picture" -> if (id != null) { pictureFor = id; picturePicker.launch(arrayOf("image/*")) }
                         "nopicture" -> if (id != null) Custom.removeIcon(id)
                         "color" -> if (id != null) panel = Panel.Colors(id)
                         "hide" -> if (id != null) Custom.hidden = Custom.hidden + id
@@ -270,45 +290,22 @@ private fun SystemsView(
         return
     }
 
+    if (view == HomeView.CAROUSEL && !empty) {
+        Column(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
+            ShortcutStrip(systems.isNotEmpty(), lastPlayed, recentCount, favoriteCount, emulatorCount, onFocused,
+                onLastPlayed, onOpenRecent, onOpenFavorites, onRandom, onOpenApps, onOpenSettings)
+            if (systems.isNotEmpty()) Carousel(systems, focusIndex, first, onFocused, onOpenSystem, onMenu)
+        }
+        return
+    }
+
     // Columns and rows come from Settings; the icons grow or shrink so that many fit.
     val cols = Custom.gridColumns(view)
     val rows = Custom.gridRows(view)
     Column(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
     // Shortcuts get their own strip of small icons along the top; the systems fill the grid below.
-    run {
-        val s = 40.dp
-        val w = 62.dp
-        Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-        ) {
-            if (systems.isNotEmpty()) {
-                val sub = lastPlayed?.let { systemName(it.system) } ?: "Play any game once, then this jumps right back in"
-                val look = lastPlayed?.let { lookFor(it.system.id) } ?: RECENT_LOOK
-                Bubble(SystemLook("▶", look.top, look.bottom), "Quick Start", size = s, labelWidth = w,
-                    onFocused = { onFocused(null, "▶ Quick Start" + (lastPlayed?.let { ": ${it.label}" } ?: ""), sub) },
-                    onClick = onLastPlayed)
-            }
-            if (lastPlayed != null) Bubble(RECENT_LOOK, "Recent", badge = "$recentCount", size = s, labelWidth = w,
-                onFocused = { onFocused(null, "🕘 Recently played", "Your last $recentCount different games") },
-                onClick = onOpenRecent)
-            if (systems.isNotEmpty()) {
-                Bubble(FAVORITES_LOOK, "Favorites", badge = "$favoriteCount", size = s, labelWidth = w,
-                    onFocused = { onFocused(null, "★ Favorites", "$favoriteCount games from every system") },
-                    onClick = onOpenFavorites)
-                Bubble(RANDOM_LOOK, "Random", size = s, labelWidth = w,
-                    onFocused = { onFocused(null, "🎲 Random game", "Picks any game from any system") },
-                    onClick = onRandom)
-            }
-            Bubble(EMULATORS_LOOK, "Emulators", badge = "$emulatorCount", size = s, labelWidth = w,
-                onFocused = { onFocused(null, "Emulators", "$emulatorCount installed") }, onClick = onOpenApps)
-            Bubble(SETTINGS_LOOK, "Settings", size = s, labelWidth = w,
-                onFocused = { onFocused(null, "Settings", "Screen size, games folder, controller, look") },
-                onClick = onOpenSettings)
-        }
-        // A thin line between the two areas.
-        Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp).height(1.dp).background(Color.White.copy(alpha = 0.15f)))
-    }
+    ShortcutStrip(systems.isNotEmpty(), lastPlayed, recentCount, favoriteCount, emulatorCount, onFocused,
+        onLastPlayed, onOpenRecent, onOpenFavorites, onRandom, onOpenApps, onOpenSettings)
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
     val cellW = maxWidth / cols
     val cellH = maxHeight / rows
@@ -404,6 +401,48 @@ private fun SystemsView(
     }
 }
 
+/** Quick Start, Recent, Favorites, Random, Emulators and Settings as small icons on one line. */
+@Composable
+private fun ShortcutStrip(
+    hasSystems: Boolean, lastPlayed: Game?, recentCount: Int, favoriteCount: Int, emulatorCount: Int,
+    onFocused: (id: String?, title: String, subtitle: String) -> Unit,
+    onLastPlayed: () -> Unit, onOpenRecent: () -> Unit, onOpenFavorites: () -> Unit, onRandom: () -> Unit,
+    onOpenApps: () -> Unit, onOpenSettings: () -> Unit,
+) {
+        val s = 40.dp
+        val w = 62.dp
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+        ) {
+            if (hasSystems) {
+                val sub = lastPlayed?.let { systemName(it.system) } ?: "Play any game once, then this jumps right back in"
+                val look = lastPlayed?.let { lookFor(it.system.id) } ?: RECENT_LOOK
+                Bubble(SystemLook("▶", look.top, look.bottom), "Quick Start", size = s, labelWidth = w,
+                    onFocused = { onFocused(null, "▶ Quick Start" + (lastPlayed?.let { ": ${it.label}" } ?: ""), sub) },
+                    onClick = onLastPlayed)
+            }
+            if (lastPlayed != null) Bubble(RECENT_LOOK, "Recent", badge = "$recentCount", size = s, labelWidth = w,
+                onFocused = { onFocused(null, "🕘 Recently played", "Your last $recentCount different games") },
+                onClick = onOpenRecent)
+            if (hasSystems) {
+                Bubble(FAVORITES_LOOK, "Favorites", badge = "$favoriteCount", size = s, labelWidth = w,
+                    onFocused = { onFocused(null, "★ Favorites", "$favoriteCount games from every system") },
+                    onClick = onOpenFavorites)
+                Bubble(RANDOM_LOOK, "Random", size = s, labelWidth = w,
+                    onFocused = { onFocused(null, "🎲 Random game", "Picks any game from any system") },
+                    onClick = onRandom)
+            }
+            Bubble(EMULATORS_LOOK, "Emulators", badge = "$emulatorCount", size = s, labelWidth = w,
+                onFocused = { onFocused(null, "Emulators", "$emulatorCount installed") }, onClick = onOpenApps)
+            Bubble(SETTINGS_LOOK, "Settings", size = s, labelWidth = w,
+                onFocused = { onFocused(null, "Settings", "Screen size, games folder, controller, look") },
+                onClick = onOpenSettings)
+        }
+        // A thin line between the two areas.
+        Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp).height(1.dp).background(Color.White.copy(alpha = 0.15f)))
+}
+
 /** The list of choices for a system (or the whole home screen). */
 @Composable
 private fun SystemMenu(system: GameSystem?, gameCount: Int, hasPicture: Boolean, onChoose: (String) -> Unit) {
@@ -414,7 +453,7 @@ private fun SystemMenu(system: GameSystem?, gameCount: Int, hasPicture: Boolean,
         if (system != null) {
             add(Triple("move", "Move", "Change where it sits"))
             add(Triple("rename", "Rename", "Now: ${systemName(system)}"))
-            add(Triple("picture", "Change picture", "Use any image; it's resized for you"))
+            add(Triple("picture", "Change picture", "Pick any image file; see-through PNGs stay see-through"))
             if (hasPicture) add(Triple("nopicture", "Remove picture", "Back to the text icon"))
             add(Triple("color", "Change color", null))
             add(Triple("hide", "Hide from home", "Games stay on your phone. Unhide in Settings."))
@@ -524,3 +563,120 @@ private fun PanelList(title: String, subtitle: String?, content: androidx.compos
 }
 
 private val DANGER_LOOK = SystemLook("!", Color(0xFFFF6B6B), Color(0xFF8A1020))
+
+/**
+ * One big system at a time. Left/right (D-pad or swipe) moves to the next system and wraps
+ * around at the ends. The dots above are a map: one per system in its colour, the current one
+ * highlighted. A (or tap) opens it; Start (or hold) opens its menu.
+ */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+private fun ColumnScope.Carousel(
+    systems: List<Pair<GameSystem, List<Game>>>,
+    startIndex: Int,
+    focus: FocusRequester,
+    onFocused: (id: String?, title: String, subtitle: String) -> Unit,
+    onOpenSystem: (GameSystem) -> Unit,
+    onMenu: (String?) -> Unit,
+) {
+    val n = systems.size
+    var index by remember { mutableIntStateOf(startIndex.coerceIn(0, n - 1)) }
+    var direction by remember { mutableIntStateOf(1) }
+    if (index >= n) index = 0
+    fun go(step: Int) { direction = step; index = ((index + step) % n + n) % n }
+    val (system, games) = systems[index]
+    val name = systemName(system)
+    LaunchedEffect(system.id, games.size) { onFocused(system.id, name, "${games.size} games") }
+
+    // The map: one dot per system, the current one bigger with a white ring.
+    val dot = if (n > 14) 8.dp else 12.dp
+    Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically) {
+        systems.forEachIndexed { i, (s, _) ->
+            val look = lookFor(s.id)
+            val on = i == index
+            Box(Modifier.padding(horizontal = 3.dp).size(if (on) dot + 8.dp else dot)
+                .background(Brush.linearGradient(listOf(look.top, look.bottom)), CircleShape)
+                .then(if (on) Modifier.border(2.dp, Color.White, CircleShape) else Modifier)
+                .clickable { direction = if (i > index) 1 else -1; index = i })
+        }
+    }
+
+    var dragged by remember { mutableFloatStateOf(0f) }
+    var focused by remember { mutableStateOf(false) }
+    androidx.compose.foundation.layout.BoxWithConstraints(
+        Modifier.fillMaxWidth().weight(1f)
+            .focusRequester(focus)
+            .onFocusChanged { focused = it.isFocused }
+            .onPreviewKeyEvent { e ->
+                if (e.type != androidx.compose.ui.input.key.KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                when (e.key) {
+                    androidx.compose.ui.input.key.Key.DirectionLeft -> { go(-1); true }
+                    androidx.compose.ui.input.key.Key.DirectionRight -> { go(1); true }
+                    else -> false
+                }
+            }
+            .pointerInput(n) {
+                detectHorizontalDragGestures(
+                    onDragEnd = { if (dragged > 60f) go(-1) else if (dragged < -60f) go(1); dragged = 0f },
+                    onDragCancel = { dragged = 0f },
+                ) { change, amount -> change.consume(); dragged += amount }
+            }
+            .combinedClickable(remember { MutableInteractionSource() }, indication = null,
+                onLongClick = { onMenu(system.id) }, onClick = { onOpenSystem(system) }),
+        contentAlignment = Alignment.Center,
+    ) {
+        val iconSize = minOf(maxWidth * 0.72f, maxHeight - 90.dp).coerceAtLeast(80.dp)
+        androidx.compose.animation.AnimatedContent(
+            targetState = index,
+            transitionSpec = {
+                val d = direction
+                (androidx.compose.animation.slideInHorizontally { it * d / 2 } + androidx.compose.animation.fadeIn()) togetherWith
+                    (androidx.compose.animation.slideOutHorizontally { -it * d / 2 } + androidx.compose.animation.fadeOut())
+            },
+            label = "carousel",
+        ) { i ->
+            val (s, g) = systems[i.coerceIn(0, n - 1)]
+            val look = lookFor(s.id)
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(Modifier.size(iconSize)) {
+                    BigSystemIcon(look, Custom.icon(s.id), iconSize, focused)
+                    // The count sits in the top-right corner, outside the circle, so it never covers it.
+                    Box(
+                        Modifier.align(Alignment.TopEnd).offset(x = 8.dp, y = (-4).dp)
+                            .background(Color(0xFF0B1030), RoundedCornerShape(50))
+                            .border(2.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(50))
+                            .padding(horizontal = 12.dp, vertical = 2.dp)
+                    ) { Text("${g.size}", color = TextBright, fontSize = 22.sp, fontWeight = FontWeight.Black) }
+                }
+                Spacer(Modifier.height(10.dp))
+                Text(systemName(s), color = TextBright, fontSize = 30.sp, fontWeight = FontWeight.Black,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+}
+
+/** The big round icon; a see-through picture is shown as-is, without the circle behind it. */
+@Composable
+private fun BigSystemIcon(look: SystemLook, image: ImageBitmap?, size: Dp, focused: Boolean) {
+    val ring = if (focused) Color.White else Color.White.copy(alpha = 0.5f)
+    if (image != null && image.hasAlpha) {
+        Image(image, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
+        return
+    }
+    Box(
+        Modifier.fillMaxSize().shadow(20.dp, CircleShape, ambientColor = look.top, spotColor = look.top)
+            .clip(CircleShape)
+            .background(Brush.linearGradient(listOf(look.top, look.bottom)))
+            .border(if (focused) 6.dp else 4.dp, ring, CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (image != null) Image(image, contentDescription = null, contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize())
+        else Text(look.short, color = Color.White, fontWeight = FontWeight.Black,
+            fontSize = (size.value * (if (look.short.length > 3) 0.2f else 0.27f)).sp)
+        Box(Modifier.fillMaxSize().background(
+            Brush.verticalGradient(0f to Color.White.copy(alpha = 0.3f), 0.5f to Color.Transparent)))
+    }
+}

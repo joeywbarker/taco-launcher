@@ -77,7 +77,8 @@ fun Bubble(
                 contentAlignment = Alignment.Center,
             ) {
                 if (image != null) {
-                    Image(image, contentDescription = label, contentScale = ContentScale.Crop,
+                    Image(image, contentDescription = label,
+                        contentScale = if (image.hasAlpha) ContentScale.Fit else ContentScale.Crop,
                         modifier = Modifier.fillMaxSize())
                 } else {
                     Text(look.short, color = Color.White, fontWeight = FontWeight.Black,
