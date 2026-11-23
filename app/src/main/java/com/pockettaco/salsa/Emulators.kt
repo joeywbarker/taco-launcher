@@ -7,8 +7,15 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.DocumentsContract
 
-/** A game system and the file endings its games use. */
-data class GameSystem(val id: String, val name: String, val extensions: Set<String>)
+/**
+ * A game system. [extensions] are file endings that belong only to it, so a game with one of
+ * them is recognised anywhere. [inFolder] are extra endings it also uses (shared ones like .bin
+ * or .iso), which only count inside that system's own folder.
+ */
+data class GameSystem(
+    val id: String, val name: String, val extensions: Set<String>,
+    val inFolder: Set<String> = emptySet(),
+)
 
 /** In the order they appear on screen: classic 2D systems first. */
 val SYSTEMS = listOf(
@@ -17,15 +24,41 @@ val SYSTEMS = listOf(
     GameSystem("gb", "Game Boy", setOf("gb")),
     GameSystem("nes", "NES", setOf("nes")),
     GameSystem("snes", "SNES", setOf("sfc", "smc")),
-    GameSystem("genesis", "Genesis / Mega Drive", setOf("md", "gen", "smd")),
+    GameSystem("genesis", "Genesis / Mega Drive", setOf("md", "gen", "smd"), setOf("bin")),
     GameSystem("sms", "Master System", setOf("sms")),
     GameSystem("gg", "Game Gear", setOf("gg")),
     GameSystem("pce", "TurboGrafx-16 / PC Engine", setOf("pce")),
     GameSystem("ngp", "Neo Geo Pocket", setOf("ngp", "ngc")),
-    GameSystem("nds", "Nintendo DS", setOf("nds")),
+    GameSystem("nds", "Nintendo DS", setOf("nds"), setOf("dsi")),
     GameSystem("n64", "Nintendo 64", setOf("n64", "z64", "v64")),
-    GameSystem("psx", "PlayStation", setOf("cue", "chd", "pbp")),
+    GameSystem("psx", "PlayStation", setOf("cue", "chd", "pbp"), setOf("m3u", "iso", "img", "ccd")),
     GameSystem("psp", "PSP", setOf("iso", "cso")),
+    GameSystem("dreamcast", "Dreamcast", setOf("cdi", "gdi")),
+    GameSystem("saturn", "Sega Saturn", emptySet(), setOf("cue", "chd", "iso", "ccd", "mds", "m3u")),
+    GameSystem("segacd", "Sega CD / Mega CD", emptySet(), setOf("cue", "chd", "iso", "m3u")),
+    GameSystem("sega32x", "Sega 32X", setOf("32x"), setOf("bin")),
+    GameSystem("sg1000", "SG-1000", setOf("sg"), setOf("bin")),
+    GameSystem("ps2", "PlayStation 2", emptySet(), setOf("iso", "chd", "cso", "gz", "bin")),
+    GameSystem("gc", "GameCube", setOf("gcm", "gcz"), setOf("iso", "rvz", "ciso")),
+    GameSystem("wii", "Wii", setOf("wbfs"), setOf("iso", "rvz", "wad", "wia")),
+    GameSystem("3ds", "Nintendo 3DS", setOf("3ds", "cia", "cci", "cxi")),
+    GameSystem("fds", "Famicom Disk System", setOf("fds")),
+    GameSystem("virtualboy", "Virtual Boy", setOf("vb", "vboy")),
+    GameSystem("pokemini", "Pokémon Mini", setOf("min")),
+    GameSystem("pcecd", "PC Engine CD / TurboGrafx-CD", emptySet(), setOf("cue", "chd", "ccd", "m3u")),
+    GameSystem("ws", "WonderSwan", setOf("ws")),
+    GameSystem("wsc", "WonderSwan Color", setOf("wsc")),
+    GameSystem("neogeo", "Neo Geo", emptySet()),
+    GameSystem("arcade", "Arcade", emptySet()),
+    GameSystem("atari2600", "Atari 2600", setOf("a26"), setOf("bin")),
+    GameSystem("atari5200", "Atari 5200", setOf("a52"), setOf("bin")),
+    GameSystem("atari7800", "Atari 7800", setOf("a78"), setOf("bin")),
+    GameSystem("lynx", "Atari Lynx", setOf("lnx")),
+    GameSystem("jaguar", "Atari Jaguar", setOf("j64", "jag")),
+    GameSystem("colecovision", "ColecoVision", setOf("col"), setOf("rom", "bin")),
+    GameSystem("intellivision", "Intellivision", setOf("int"), setOf("rom", "bin")),
+    GameSystem("msx", "MSX", setOf("mx1", "mx2"), setOf("rom", "dsk")),
+    GameSystem("c64", "Commodore 64", setOf("d64", "t64", "prg", "crt")),
 )
 
 /** Emulator apps we know about. Add more here; the list is just a lookup table. */
@@ -56,6 +89,14 @@ val KNOWN_EMULATORS = listOf(
     Emulator("org.ppsspp.ppsspp", "PPSSPP", setOf("psp")),
     Emulator("org.ppsspp.ppssppgold", "PPSSPP Gold", setOf("psp")),
     Emulator("com.github.stenzek.duckstation", "DuckStation", setOf("psx")),
+    Emulator("com.flycast.emulator", "Flycast", setOf("dreamcast", "arcade")),
+    Emulator("io.recompiled.redream", "Redream", setOf("dreamcast")),
+    Emulator("org.dolphinemu.dolphinemu", "Dolphin", setOf("gc", "wii")),
+    Emulator("xyz.aethersx2.android", "AetherSX2 / NetherSX2", setOf("ps2")),
+    Emulator("org.citra.emu", "Citra", setOf("3ds")),
+    Emulator("io.github.lime3ds.android", "Lime3DS", setOf("3ds")),
+    Emulator("org.azahar_emu.azahar", "Azahar", setOf("3ds")),
+    Emulator("org.devmiyax.yabasanshioro2", "Yaba Sanshiro 2", setOf("saturn")),
 )
 
 fun installedEmulators(context: Context): List<Emulator> {
@@ -73,7 +114,8 @@ fun installedEmulators(context: Context): List<Emulator> {
 private val ALL = SYSTEMS.map { it.id }.toSet()
 private val NAME_HINTS = linkedMapOf(
     "retroarch" to ALL,
-    "lemuroid" to ALL - "psp",
+    "lemuroid" to setOf("gb", "gbc", "gba", "nes", "snes", "genesis", "sms", "gg", "pce", "ngp",
+        "n64", "nds", "psx", "fds", "virtualboy", "ws", "wsc", "lynx", "atari2600", "atari7800", "segacd", "sega32x"),
     "my boy" to setOf("gba"),
     "my oldboy" to setOf("gb", "gbc"),
     "pizza boy gba" to setOf("gba"),
@@ -90,6 +132,15 @@ private val NAME_HINTS = linkedMapOf(
     "duckstation" to setOf("psx"),
     "m64plus" to setOf("n64"),
     "mupen" to setOf("n64"),
+    "flycast" to setOf("dreamcast", "arcade"),
+    "redream" to setOf("dreamcast"),
+    "dolphin" to setOf("gc", "wii"),
+    "aethersx2" to setOf("ps2"),
+    "nethersx2" to setOf("ps2"),
+    "citra" to setOf("3ds"),
+    "lime3ds" to setOf("3ds"),
+    "azahar" to setOf("3ds"),
+    "yaba" to setOf("saturn"),
 )
 
 /**
@@ -216,6 +267,14 @@ private val RETROARCH_CORES = mapOf(
     "snes" to "snes9x", "n64" to "mupen64plus_next", "nds" to "melonds",
     "genesis" to "genesis_plus_gx", "sms" to "genesis_plus_gx", "gg" to "genesis_plus_gx",
     "pce" to "mednafen_pce_fast", "ngp" to "mednafen_ngp", "psx" to "swanstation", "psp" to "ppsspp",
+    "dreamcast" to "flycast", "saturn" to "yabasanshiro", "segacd" to "genesis_plus_gx",
+    "sega32x" to "picodrive", "sg1000" to "genesis_plus_gx", "gc" to "dolphin", "wii" to "dolphin",
+    "3ds" to "citra", "fds" to "fceumm", "virtualboy" to "mednafen_vb", "pokemini" to "pokemini",
+    "pcecd" to "mednafen_pce_fast", "ws" to "mednafen_wswan", "wsc" to "mednafen_wswan",
+    "neogeo" to "fbneo", "arcade" to "fbneo", "atari2600" to "stella2014", "atari5200" to "a5200",
+    "atari7800" to "prosystem", "lynx" to "handy", "jaguar" to "virtualjaguar",
+    "colecovision" to "gearcoleco", "intellivision" to "freeintv", "msx" to "bluemsx", "c64" to "vice_x64",
+    "ps2" to "pcsx2",
 )
 
 /** Turns a picker Uri like ".../primary:ROMs/gba/x.gba" into "/storage/emulated/0/ROMs/gba/x.gba". */

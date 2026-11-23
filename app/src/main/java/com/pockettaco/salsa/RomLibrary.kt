@@ -90,9 +90,12 @@ private fun scanList(context: Context, folder: Uri, onlySystem: GameSystem?, onP
                     // .zip/.7z could be any console: use a tag in the name ("# NDS")
                     // or the folder it sits in ("nds", "Nintendo DS").
                     val fromArchive = if (ext in ARCHIVES) (systemFromTag(base) ?: folderSystem) else null
+                    // Inside a folder named for a system (gamegear, dreamcast, "Sega - Saturn"...),
+                    // that system wins for any of its file types, including shared ones like .iso.
                     val sys = if (onlySystem != null) {
-                        if (ext in onlySystem.extensions || ext in ARCHIVES) onlySystem else continue
-                    } else byExt[ext] ?: fromArchive ?: continue
+                        if (fits(onlySystem, ext)) onlySystem else continue
+                    } else folderSystem?.takeIf { fits(it, ext) && systemFromTag(base) == null }
+                        ?: byExt[ext] ?: fromArchive ?: continue
                     found += Game(base, DocumentsContract.buildDocumentUriUsingTree(folder, id), sys, name)
                     if (found.size % 25 == 0) onProgress(found.size)
                 }
@@ -140,27 +143,63 @@ fun loadLibrary(context: Context): Library {
 
 private val ARCHIVES = setOf("zip", "7z")
 
-/** Folder names people commonly use for each system. */
+/** True if a file with ending [ext] can be a game for [s] when it sits in that system's folder. */
+private fun fits(s: GameSystem, ext: String) = ext in s.extensions || ext in s.inFolder || ext in ARCHIVES
+
+/** Folder names people commonly use for each system (compared without spaces or punctuation). */
 private val FOLDER_NAMES = mapOf(
-    "gb" to listOf("gb", "gameboy", "game boy"),
-    "gbc" to listOf("gbc", "gameboy color", "game boy color"),
-    "gba" to listOf("gba", "gameboy advance", "game boy advance"),
-    "nes" to listOf("nes", "famicom"),
-    "snes" to listOf("snes", "super nintendo", "super famicom", "sfc"),
-    "n64" to listOf("n64", "nintendo 64"),
-    "sms" to listOf("sms", "master system", "mastersystem"),
-    "gg" to listOf("gg", "game gear", "gamegear"),
-    "pce" to listOf("pce", "pc engine", "pcengine", "tg16", "turbografx", "turbografx-16", "turbografx16"),
-    "ngp" to listOf("ngp", "ngpc", "neo geo pocket", "neogeo pocket"),
-    "nds" to listOf("nds", "ds", "nintendo ds"),
-    "genesis" to listOf("genesis", "megadrive", "mega drive", "md"),
-    "psx" to listOf("psx", "ps1", "playstation"),
-    "psp" to listOf("psp"),
+    "gb" to listOf("gb", "gameboy"),
+    "gbc" to listOf("gbc", "gameboycolor"),
+    "gba" to listOf("gba", "gameboyadvance"),
+    "nes" to listOf("nes", "famicom", "nintendoentertainmentsystem"),
+    "snes" to listOf("snes", "supernintendo", "superfamicom", "sfc", "supernintendoentertainmentsystem", "snesna"),
+    "n64" to listOf("n64", "nintendo64"),
+    "sms" to listOf("sms", "mastersystem", "segamastersystem"),
+    "gg" to listOf("gg", "gamegear", "segagamegear"),
+    "pce" to listOf("pce", "pcengine", "tg16", "turbografx", "turbografx16", "supergrafx"),
+    "ngp" to listOf("ngp", "ngpc", "neogeopocket", "neogeopocketcolor"),
+    "nds" to listOf("nds", "ds", "nintendods"),
+    "genesis" to listOf("genesis", "megadrive", "md", "segagenesis", "segamegadrive"),
+    "psx" to listOf("psx", "ps1", "playstation", "playstation1", "sonyplaystation"),
+    "psp" to listOf("psp", "playstationportable"),
+    "dreamcast" to listOf("dreamcast", "dc", "segadreamcast"),
+    "saturn" to listOf("saturn", "segasaturn"),
+    "segacd" to listOf("segacd", "megacd", "segamegacd"),
+    "sega32x" to listOf("sega32x", "32x", "megadrive32x", "genesis32x"),
+    "sg1000" to listOf("sg1000", "segasg1000"),
+    "ps2" to listOf("ps2", "playstation2", "sonyplaystation2"),
+    "gc" to listOf("gc", "gamecube", "nintendogamecube"),
+    "wii" to listOf("wii", "nintendowii"),
+    "3ds" to listOf("3ds", "n3ds", "nintendo3ds"),
+    "fds" to listOf("fds", "famicomdisksystem"),
+    "virtualboy" to listOf("virtualboy", "vb"),
+    "pokemini" to listOf("pokemini", "pokemonmini"),
+    "pcecd" to listOf("pcecd", "pcenginecd", "tgcd", "turbografxcd", "turbografx16cd"),
+    "ws" to listOf("ws", "wonderswan"),
+    "wsc" to listOf("wsc", "wonderswancolor"),
+    "neogeo" to listOf("neogeo", "neogeoaes", "neogeomvs"),
+    "arcade" to listOf("arcade", "mame", "fbneo", "fba", "finalburnneo", "cps1", "cps2", "cps3", "mame2003", "mame2003plus"),
+    "atari2600" to listOf("atari2600", "2600", "a2600"),
+    "atari5200" to listOf("atari5200", "5200"),
+    "atari7800" to listOf("atari7800", "7800"),
+    "lynx" to listOf("lynx", "atarilynx"),
+    "jaguar" to listOf("jaguar", "atarijaguar"),
+    "colecovision" to listOf("colecovision", "coleco"),
+    "intellivision" to listOf("intellivision", "intv"),
+    "msx" to listOf("msx", "msx1", "msx2"),
+    "c64" to listOf("c64", "commodore64"),
 )
 
+/** "Sega - Game Gear", "game_gear", "GameGear" all become "segagamegear"/"gamegear". */
+private fun normalise(text: String) = text.lowercase().filter { it.isLetterOrDigit() }
+
+private val MAKERS = listOf("nintendo", "sega", "sony", "nec", "snk", "atari", "bandai", "microsoft", "commodore")
+
 private fun systemFromText(text: String): GameSystem? {
-    val t = text.lowercase().trim()
-    val id = FOLDER_NAMES.entries.firstOrNull { (_, names) -> t in names }?.key
+    val t = normalise(text)
+    if (t.isEmpty()) return null
+    val bare = MAKERS.firstOrNull { t.startsWith(it) && t.length > it.length }?.let { t.removePrefix(it) }
+    val id = FOLDER_NAMES.entries.firstOrNull { (_, names) -> t in names || (bare != null && bare in names) }?.key
     return SYSTEMS.firstOrNull { it.id == id }
 }
 
