@@ -104,7 +104,7 @@ fun LauncherRoot(activity: MainActivity) {
                     taco && activity.gameWindowOpen.value -> Box(Modifier.fillMaxSize().background(Color.Black)) {
                         // Behind the game window: plain black for now. A spot for something fun later.
                     }
-                    taco -> TacoLayout(covered = covered, tacoName = tacoName) {
+                    taco -> TacoLayout(covered = covered, tacoName = tacoName, edgeToEdge = true) {
                         GameBrowser(
                             activity, library, scanState,
                             onPickFolder = { picker.launch(null) },
@@ -139,25 +139,20 @@ fun LauncherRoot(activity: MainActivity) {
  * OLED screen and nothing important is ever hidden under the controller.
  */
 @Composable
-fun TacoLayout(covered: Float, tacoName: String? = null, content: @Composable () -> Unit) {
+fun TacoLayout(
+    covered: Float, tacoName: String? = null,
+    /** Draw right up to the top edge, around the camera (the content handles the camera itself). */
+    edgeToEdge: Boolean = false,
+    content: @Composable () -> Unit,
+) {
     Column(Modifier.fillMaxSize()) {
         Box(
             Modifier.fillMaxWidth().weight(1f - covered)
-                .windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.displayCutout))
+                .then(if (edgeToEdge) Modifier
+                else Modifier.windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.displayCutout)))
         ) { content() }
-        if (covered > 0f) {
-            Box(
-                Modifier.fillMaxWidth().weight(covered).background(Color.Black),
-                contentAlignment = Alignment.TopCenter,
-            ) {
-                Text(
-                    if (tacoName != null) "Pocket Taco connected" else "Pocket Taco not connected",
-                    color = Color(0xFF333333),
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(8.dp),
-                )
-            }
-        }
+        // The part under the Taco: plain black (nothing there can be seen anyway).
+        if (covered > 0f) Box(Modifier.fillMaxWidth().weight(covered).background(Color.Black))
     }
 }
 

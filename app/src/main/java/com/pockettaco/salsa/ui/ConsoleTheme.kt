@@ -132,28 +132,65 @@ fun StatusBar(context: Context, tacoName: String?, modifier: Modifier = Modifier
         context.getSystemService(BatteryManager::class.java)
             ?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
     }
-    Row(modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically) {
+    // This line sits in the phone's own top strip (where its clock used to be). If the camera
+    // hole is in the middle of that strip, the title splits around it: "🌮 TACO" | "LAUNCHER".
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val view = androidx.compose.ui.platform.LocalView.current
+    val cutTop = WindowInsets.displayCutout.getTop(density)
+    val hole = remember(cutTop, view.width) {
+        view.rootWindowInsets?.displayCutout?.boundingRectTop?.takeIf { !it.isEmpty }
+    }
+    val barH = with(density) { maxOf(cutTop.toDp(), 28.dp) }
+    val status = if (tacoName != null) "Controller ready" else "No controller"
+    @Composable fun dot(font: Float = 12f) {
         Box(Modifier.size(8.dp).background(
             if (tacoName != null) Color(0xFF4CFF9A) else Color(0xFF59607A), CircleShape))
-        Spacer(Modifier.width(8.dp))
-        Text(if (tacoName != null) "Controller ready" else "No controller",
-            color = TextDim, fontSize = 12.sp)
-        Spacer(Modifier.weight(1f))
-        Text("🌮 TACO LAUNCHER", color = Color(0xFFFFD25A), fontSize = 12.sp,
-            fontWeight = FontWeight.Black, letterSpacing = 2.sp, maxLines = 1)
-        Spacer(Modifier.weight(1f))
-        if (battery >= 0) Text("$battery%", color = TextDim, fontSize = 12.sp)
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(status, color = TextDim, fontSize = with(density) { font.dp.toSp() }, maxLines = 1, softWrap = false)
+    }
+    val clock = @Composable {
+        if (battery >= 0) Text("$battery%", color = TextDim, fontSize = 12.sp, maxLines = 1, softWrap = false)
+        Spacer(Modifier.width(10.dp))
         Text(SimpleDateFormat("h:mm", Locale.getDefault()).format(now),
-            color = TextBright, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            color = TextBright, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
+    }
+    @Composable fun title(t: String) = Text(t, color = Color(0xFFFFD25A), fontSize = 12.sp,
+        fontWeight = FontWeight.Black, letterSpacing = 1.5.sp, maxLines = 1, softWrap = false)
+    val w = view.width.toFloat()
+    val centred = hole != null && w > 0 && hole.centerX() in (w * 0.3f).toInt()..(w * 0.7f).toInt()
+    if (centred && hole != null) {
+        val leftW = with(density) { (hole.left - 6.dp.toPx()).coerceAtLeast(0f).toDp() }
+        val gapW = with(density) { (hole.width() + 12.dp.toPx()).toDp() }
+        Row(modifier.fillMaxWidth().height(barH), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.width(leftW).padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                // Shrinks a little if the phone's left half is narrow, so nothing is cut off.
+                dot(minOf(12f, (leftW - 12.dp - 14.dp - 64.dp - 8.dp).value / (status.length * 0.53f)).coerceAtLeast(8f))
+                Spacer(Modifier.weight(1f))
+                title("🌮 TACO")
+            }
+            Spacer(Modifier.width(gapW))
+            Row(Modifier.weight(1f).padding(end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                title("LAUNCHER")
+                Spacer(Modifier.weight(1f))
+                clock()
+            }
+        }
+    } else {
+        Row(modifier.fillMaxWidth().height(barH).padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            dot()
+            Spacer(Modifier.weight(1f))
+            title("🌮 TACO LAUNCHER")
+            Spacer(Modifier.weight(1f))
+            clock()
+        }
     }
 }
 
 /** Button hints along the bottom of the play area. */
 @Composable
 fun HintBar(vararg hints: Pair<String, String>) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
+    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
         hints.forEach { (button, label) ->
             Box(Modifier.size(20.dp).background(Color.White.copy(alpha = 0.15f), CircleShape),
