@@ -88,15 +88,17 @@ fun Bubble(
                 Box(Modifier.fillMaxSize().background(
                     Brush.verticalGradient(0f to Color.White.copy(alpha = 0.35f), 0.5f to Color.Transparent)))
             }
-            // The count hangs off the top corner so it doesn't cover the icon.
-            if (badge != null) Box(
-                Modifier.align(Alignment.TopEnd).offset(x = 12.dp, y = (-6).dp)
-                    .background(Color(0xFF0B1030), RoundedCornerShape(10.dp))
-                    .border(1.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
-                    .padding(horizontal = 6.dp, vertical = 1.dp)
-            ) { Text(badge, color = TextBright, fontSize = 10.sp, fontWeight = FontWeight.Bold) }
         }
-        Spacer(Modifier.height(6.dp))
+        // The game count sits in the gap under the icon, so it never covers the icon.
+        if (badge != null) {
+            Spacer(Modifier.height(3.dp))
+            Box(
+                Modifier.background(Color(0xFF0B1030).copy(alpha = 0.8f), RoundedCornerShape(8.dp))
+                    .border(1.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 6.dp)
+            ) { Text(badge, color = TextBright, fontSize = 10.sp, fontWeight = FontWeight.Bold, lineHeight = 13.sp) }
+            Spacer(Modifier.height(2.dp))
+        } else Spacer(Modifier.height(6.dp))
         Text(label, color = if (focused) TextBright else TextDim, fontSize = if (small) 10.sp else 12.sp,
             fontWeight = if (focused) FontWeight.Bold else FontWeight.Medium,
             maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
