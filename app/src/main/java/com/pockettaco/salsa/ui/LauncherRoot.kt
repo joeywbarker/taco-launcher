@@ -142,7 +142,8 @@ fun LauncherRoot(activity: MainActivity) {
 fun TacoLayout(covered: Float, tacoName: String? = null, content: @Composable () -> Unit) {
     Column(Modifier.fillMaxSize()) {
         Box(
-            Modifier.fillMaxWidth().weight(1f - covered).statusBarsPadding()
+            Modifier.fillMaxWidth().weight(1f - covered)
+                .windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.displayCutout))
         ) { content() }
         if (covered > 0f) {
             Box(

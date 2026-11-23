@@ -114,6 +114,9 @@ fun StatusBar(context: Context, tacoName: String?, modifier: Modifier = Modifier
         Text(if (tacoName != null) "Controller ready" else "No controller",
             color = TextDim, fontSize = 12.sp)
         Spacer(Modifier.weight(1f))
+        Text("🌮 TACO LAUNCHER", color = Color(0xFFFFD25A), fontSize = 12.sp,
+            fontWeight = FontWeight.Black, letterSpacing = 2.sp, maxLines = 1)
+        Spacer(Modifier.weight(1f))
         if (battery >= 0) Text("$battery%", color = TextDim, fontSize = 12.sp)
         Spacer(Modifier.width(12.dp))
         Text(SimpleDateFormat("h:mm", Locale.getDefault()).format(now),
