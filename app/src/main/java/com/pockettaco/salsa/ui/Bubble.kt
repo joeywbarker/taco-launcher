@@ -1,5 +1,7 @@
 package com.pockettaco.salsa.ui
 
+import androidx.compose.ui.layout.layout
+
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
@@ -46,6 +48,10 @@ fun Bubble(
     image: ImageBitmap? = null,
     size: Dp = 76.dp,
     labelWidth: Dp? = null,
+    labelSize: Float? = null,
+    vPad: Dp = 10.dp,
+    /** Leave room above for a count pill even without one, so icons in a row line up. */
+    reserveBadgeRoom: Boolean = false,
     highlight: Boolean = false,
     onFocused: () -> Unit = {},
     onLongClick: (() -> Unit)? = null,
@@ -53,9 +59,13 @@ fun Bubble(
 ) {
     var focused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (focused) 1.14f else 1f, spring(dampingRatio = 0.55f), label = "s")
+    // The count sits off the icon's top-right edge; leave room above for it.
+    val badgeFont = badgeFontFor(size)
+    val raise = if (badge != null || reserveBadgeRoom) badgeRaise(size) else 0.dp
+    val density = androidx.compose.ui.platform.LocalDensity.current
     Column(
         Modifier
-            .padding(vertical = 10.dp)
+            .padding(top = vPad + raise, bottom = vPad)
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocused() }
             .combinedClickable(remember { MutableInteractionSource() }, indication = null,
@@ -89,21 +99,60 @@ fun Bubble(
                 Box(Modifier.fillMaxSize().background(
                     Brush.verticalGradient(0f to Color.White.copy(alpha = 0.35f), 0.5f to Color.Transparent)))
             }
+            if (badge != null) CountBadge(badge, badgeFont, Modifier.align(Alignment.TopStart).cornerOf(size, 4.dp))
         }
-        // The game count sits in the gap under the icon, so it never covers the icon.
-        if (badge != null) {
-            Spacer(Modifier.height(3.dp))
-            Box(
-                Modifier.background(Color(0xFF0B1030).copy(alpha = 0.8f), RoundedCornerShape(8.dp))
-                    .border(1.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(8.dp))
-                    .padding(horizontal = 6.dp)
-            ) { Text(badge, color = TextBright, fontSize = 10.sp, fontWeight = FontWeight.Bold, lineHeight = 13.sp) }
-            Spacer(Modifier.height(2.dp))
-        } else Spacer(Modifier.height(6.dp))
-        Text(label, color = if (focused) TextBright else TextDim, fontSize = if (small) 10.sp else 12.sp,
+        Spacer(Modifier.height(6.dp))
+        val w = labelWidth ?: if (small) 68.dp else 100.dp
+        Text(label, color = if (focused) TextBright else TextDim,
+            // Shrinks so the whole name fits its space instead of being cut off.
+            // Sizes are in dp (not the phone's text-size setting) so the layout math always holds.
+            fontSize = with(density) { fitFont(label, w, labelSize ?: if (small) 10f else 12f).dp.toSp() },
             fontWeight = if (focused) FontWeight.Bold else FontWeight.Medium,
-            maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
-            modifier = Modifier.width(labelWidth ?: if (small) 68.dp else 100.dp))
+            maxLines = 1, overflow = TextOverflow.Clip, textAlign = TextAlign.Center, softWrap = false,
+            modifier = Modifier.width(w))
+    }
+}
+
+/** A font size (dp) that lets [text] fit in [width] on one line, never bigger than [max]. */
+fun fitFont(text: String, width: Dp, max: Float, min: Float = 5f): Float =
+    minOf(max, width.value / (text.length.coerceAtLeast(1) * 0.66f)).coerceAtLeast(min)
+
+// Sizes used both to draw a bubble and to work out how big bubbles can be so they all fit.
+fun badgeFontFor(size: Dp): Float = (size.value * 0.16f).coerceIn(9f, 14f)
+fun badgeHeight(font: Float): Dp = (font * 1.3f + 4f).dp
+fun badgeWidth(text: String, font: Float): Dp = (text.length * font * 0.64f + font * 1.1f + 4f).dp
+/** How far the count pill rises above the icon's box. */
+fun badgeRaise(size: Dp): Dp = (badgeHeight(badgeFontFor(size)) - size * 0.146f - 4.dp).coerceAtLeast(0.dp)
+/** How far the pill sticks out past the icon's box on the right. */
+fun badgeOverhang(size: Dp, text: String): Dp =
+    (badgeWidth(text, badgeFontFor(size)) - size * 0.146f - 4.dp).coerceAtLeast(0.dp)
+/** The full height of a [Bubble]. */
+fun bubbleHeight(size: Dp, labelSize: Float, vPad: Dp, badge: Boolean): Dp =
+    vPad * 2 + (if (badge) badgeRaise(size) else 0.dp) + size + 8.dp + 6.dp + (labelSize * 1.45f).dp
+
+/** The game count pill. */
+@Composable
+fun CountBadge(text: String, font: Float, modifier: Modifier = Modifier) {
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val fs = with(density) { font.dp.toSp() }
+    val lh = with(density) { (font * 1.3f).dp.toSp() }
+    Box(
+        modifier.background(Color(0xFF0B1030), RoundedCornerShape(50))
+            .border(1.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(50))
+            .padding(horizontal = (font * 0.55f).dp, vertical = 1.dp)
+    ) { Text(text, color = TextBright, fontSize = fs, fontWeight = FontWeight.Bold, lineHeight = lh, softWrap = false, maxLines = 1) }
+}
+
+/**
+ * Places a badge just outside a circle of [circle] size (starting [inset] from the parent's
+ * top-left): its bottom-left corner touches the circle's top-right edge, so it never covers it.
+ */
+fun Modifier.cornerOf(circle: Dp, inset: Dp = 0.dp) = layout { measurable, constraints ->
+    val p = measurable.measure(constraints.copy(minWidth = 0, minHeight = 0))
+    layout(p.width, p.height) {
+        val x = (inset + circle * 0.854f).roundToPx()
+        val y = (inset + circle * 0.146f).roundToPx() - p.height
+        p.place(x, y)
     }
 }
 
