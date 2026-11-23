@@ -96,6 +96,8 @@ object ButtonMapperState {
      * game is open the hotkeys always work, even if Android is slow to say the game came to the front.
      */
     @Volatile var gameOpen = false
+    /** The app the last game was started in. */
+    @Volatile var gamePkg: String? = null
 }
 
 /** Asks the open menu screen to put focus back on its first (or last used) item. */

@@ -64,6 +64,12 @@ class ButtonMapperService : AccessibilityService() {
                 if (event.repeatCount > 0) return k in swallowed || k in singles
                 held += k
                 val combo = combos.firstOrNull { k in it.keys && held.containsAll(it.keys) }
+                if (combo != null && combo.action == MapAction.EMULATOR_MENU && retroArchInFront()) {
+                    // RetroArch has its own menu combo (you set it to Select + Start there).
+                    // Let both buttons reach it untouched; pressing Back on top of that would
+                    // open and close the menu again, or do nothing.
+                    return false
+                }
                 if (combo != null) {
                     // Keep the key that completed the combo from the game. The other button
                     // already reached the game when it went down, so let its release reach the
@@ -85,7 +91,16 @@ class ButtonMapperService : AccessibilityService() {
         return false
     }
 
+    private fun retroArchInFront(): Boolean {
+        val pkg = (if (ButtonMapperState.gameOpen) ButtonMapperState.gamePkg else null) ?: foreground ?: return false
+        return pkg.startsWith("com.retroarch")
+    }
+
     private fun perform(action: MapAction) {
+        // A short note so you can see the hotkey was caught.
+        runCatching {
+            android.widget.Toast.makeText(this, "🌮 ${action.label}", android.widget.Toast.LENGTH_SHORT).show()
+        }
         when (action) {
             MapAction.EXIT_GAME -> {
                 // Home first tucks the game's pop-up window away; then bring Taco Launcher up
