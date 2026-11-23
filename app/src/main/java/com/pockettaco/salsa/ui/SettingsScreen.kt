@@ -589,7 +589,12 @@ private fun GridPreview(cols: Int, rows: Int, covered: Float) {
         val scale = size.width / screenW          // pixels per real dp
         val topH = size.height * (1f - covered)
         // Same sizing as the home screen: header ~150dp, 8dp side padding, ~50dp label room.
-        val header = 150f
+        val header = 150f + 76f   // logo + title, then the shortcut strip
+        // The strip of six small shortcut icons above the grid.
+        for (k in 0 until 6) {
+            drawCircle(Color(0x99FFFFFF), radius = 20f * scale,
+                center = androidx.compose.ui.geometry.Offset((8f + (screenW - 16f) / 6 * (k + 0.5f)) * scale, (150f + 30f) * scale))
+        }
         val gridW = screenW - 16f
         val gridH = (screenH * (1f - covered) - header).coerceAtLeast(60f)
         val cellW = gridW / cols

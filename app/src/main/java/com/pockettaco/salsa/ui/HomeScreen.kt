@@ -4,6 +4,8 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -279,7 +281,43 @@ private fun SystemsView(
     // Columns and rows come from Settings; the icons grow or shrink so that many fit.
     val cols = Custom.gridColumns(view)
     val rows = Custom.gridRows(view)
-    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
+    Column(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
+    // Shortcuts get their own strip of small icons along the top; the systems fill the grid below.
+    run {
+        val s = 40.dp
+        val w = 62.dp
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+        ) {
+            if (systems.isNotEmpty()) {
+                val sub = lastPlayed?.let { systemName(it.system) } ?: "Play any game once, then this jumps right back in"
+                val look = lastPlayed?.let { lookFor(it.system.id) } ?: RECENT_LOOK
+                Bubble(SystemLook("▶", look.top, look.bottom), "Quick Start", size = s, labelWidth = w,
+                    onFocused = { onFocused(null, "▶ Quick Start" + (lastPlayed?.let { ": ${it.label}" } ?: ""), sub) },
+                    onClick = onLastPlayed)
+            }
+            if (lastPlayed != null) Bubble(RECENT_LOOK, "Recent", badge = "$recentCount", size = s, labelWidth = w,
+                onFocused = { onFocused(null, "🕘 Recently played", "Your last $recentCount different games") },
+                onClick = onOpenRecent)
+            if (systems.isNotEmpty()) {
+                Bubble(FAVORITES_LOOK, "Favorites", badge = "$favoriteCount", size = s, labelWidth = w,
+                    onFocused = { onFocused(null, "★ Favorites", "$favoriteCount games from every system") },
+                    onClick = onOpenFavorites)
+                Bubble(RANDOM_LOOK, "Random", size = s, labelWidth = w,
+                    onFocused = { onFocused(null, "🎲 Random game", "Picks any game from any system") },
+                    onClick = onRandom)
+            }
+            Bubble(EMULATORS_LOOK, "Emulators", badge = "$emulatorCount", size = s, labelWidth = w,
+                onFocused = { onFocused(null, "Emulators", "$emulatorCount installed") }, onClick = onOpenApps)
+            Bubble(SETTINGS_LOOK, "Settings", size = s, labelWidth = w,
+                onFocused = { onFocused(null, "Settings", "Screen size, games folder, controller, look") },
+                onClick = onOpenSettings)
+        }
+        // A thin line between the two areas.
+        Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp).height(1.dp).background(Color.White.copy(alpha = 0.15f)))
+    }
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
     val cellW = maxWidth / cols
     val cellH = maxHeight / rows
     // Each icon has ~50dp of label and padding under/around it.
@@ -356,19 +394,6 @@ private fun SystemsView(
             Bubble(SystemLook("+", Color(0xFF4CFF9A), Color(0xFF138A4F)), "Add games", size = size, labelWidth = labelW,
                 focusRequester = first, onFocused = { onFocused(null, addTitle, addSub) }, onClick = onPickFolder)
         }
-        // Quick Start: always the first icon.
-        if (systems.isNotEmpty()) item("last") {
-            val sub = lastPlayed?.let { systemName(it.system) } ?: "Play any game once, then this jumps right back in"
-            val look = lastPlayed?.let { lookFor(it.system.id) } ?: RECENT_LOOK
-            Bubble(SystemLook("▶", look.top, look.bottom), "Quick Start", size = size, labelWidth = labelW,
-                onFocused = { onFocused(null, "▶ Quick Start" + (lastPlayed?.let { ": ${it.label}" } ?: ""), sub) },
-                onClick = onLastPlayed)
-        }
-        if (lastPlayed != null) item("recent") {
-            Bubble(RECENT_LOOK, "Recent", badge = "$recentCount", size = size, labelWidth = labelW,
-                onFocused = { onFocused(null, "🕘 Recently played", "Your last $recentCount different games") },
-                onClick = onOpenRecent)
-        }
         systems.forEachIndexed { i, (system, games) ->
             item(system.id) {
                 val name = systemName(system)
@@ -382,27 +407,7 @@ private fun SystemsView(
                 }
             }
         }
-        if (systems.isNotEmpty()) {
-            item("favorites") {
-                Bubble(FAVORITES_LOOK, "Favorites", badge = "$favoriteCount", size = size, labelWidth = labelW,
-                    onFocused = { onFocused(null, "★ Favorites", "$favoriteCount games from every system") },
-                    onClick = onOpenFavorites)
-            }
-            item("random") {
-                Bubble(RANDOM_LOOK, "Random", size = size, labelWidth = labelW,
-                    onFocused = { onFocused(null, "🎲 Random game", "Picks any game from any system") },
-                    onClick = onRandom)
-            }
-        }
-        item("emus") {
-            Bubble(EMULATORS_LOOK, "Emulators", badge = "$emulatorCount", size = size, labelWidth = labelW,
-                onFocused = { onFocused(null, "Emulators", "$emulatorCount installed") }, onClick = onOpenApps)
-        }
-        item("settings") {
-            Bubble(SETTINGS_LOOK, "Settings", size = size, labelWidth = labelW,
-                onFocused = { onFocused(null, "Settings", "Screen size, games folder, controller, look") },
-                onClick = onOpenSettings)
-        }
+    }
     }
     }
 }
