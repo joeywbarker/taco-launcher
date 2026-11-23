@@ -129,12 +129,14 @@ object Custom {
     fun iconFile(id: String) = File(dir, "icons/$id.png")
     fun backgroundFile() = File(dir, "background.jpg")
 
-    fun icon(id: String): ImageBitmap? { read(); return image(iconFile(id)) }
+    fun icon(id: String): ImageBitmap? { read(); return image(iconFile(id), trim = true) }
     fun backgroundImage(): ImageBitmap? { read(); return image(backgroundFile()) }
 
-    private fun image(file: File): ImageBitmap? = images.getOrPut(file.path) {
+    private fun image(file: File, trim: Boolean = false): ImageBitmap? = images.getOrPut(file.path) {
         if (!file.exists()) null
-        else runCatching { BitmapFactory.decodeFile(file.path)?.asImageBitmap() }.getOrNull()
+        else runCatching {
+            BitmapFactory.decodeFile(file.path)?.let { if (trim) trimSeeThroughEdges(it) else it }?.asImageBitmap()
+        }.getOrNull()
     }
 
     /** Favorite games, saved as "system|file" so each system keeps its own. */
@@ -285,6 +287,33 @@ fun savePicture(context: Context, uri: Uri, out: File, maxSide: Int, square: Boo
         }
         null
     }.getOrElse { "Couldn't save that picture." }
+}
+
+/**
+ * Cuts off empty see-through margins around a cut-out picture, so the object itself can be
+ * shown as big as possible. Pictures without see-through edges come back unchanged.
+ */
+fun trimSeeThroughEdges(b: Bitmap): Bitmap {
+    if (!b.hasAlpha()) return b
+    val w = b.width; val h = b.height
+    val px = IntArray(w * h)
+    b.getPixels(px, 0, w, 0, 0, w, h)
+    var left = w; var right = -1; var top = h; var bottom = -1
+    for (y in 0 until h) {
+        val row = y * w
+        for (x in 0 until w) {
+            if ((px[row + x] ushr 24) > 16) {
+                if (x < left) left = x
+                if (x > right) right = x
+                if (y < top) top = y
+                bottom = y
+            }
+        }
+    }
+    if (right < 0) return b
+    val cw = right - left + 1; val ch = bottom - top + 1
+    if (cw >= w - 2 && ch >= h - 2) return b
+    return Bitmap.createBitmap(b, left, top, cw, ch)
 }
 
 /** True if any pixel is partly see-through (checks a grid of points, fast on big pictures). */

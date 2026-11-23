@@ -106,7 +106,7 @@ fun HomeScreen(
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
             val error = withContext(Dispatchers.IO) {
-                savePicture(activity, uri, Custom.iconFile(id), maxSide = 512, square = true)
+                savePicture(activity, uri, Custom.iconFile(id), maxSide = 1024, square = true)
             }
             if (error != null) Toast.makeText(activity, error, Toast.LENGTH_LONG).show()
             Custom.changed()
@@ -136,9 +136,20 @@ fun HomeScreen(
         // The Taco Launcher name now sits in the status line above (between controller and clock).
         when (val p = panel) {
             null -> {
-                Column(Modifier.padding(horizontal = 20.dp, vertical = 2.dp)) {
-                    Text(title, color = TextBright, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                    Text(subtitle, color = TextDim, fontSize = 13.sp)
+                // Name and details on one line, to save room (the Taco covers a lot of screen).
+                androidx.compose.foundation.layout.BoxWithConstraints(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                    val density = androidx.compose.ui.platform.LocalDensity.current
+                    val tf = fitFont(title, maxWidth * 0.55f, 20f, 12f)
+                    val titleW = (title.length * tf * 0.62f).dp
+                    val sf = fitFont(subtitle, (maxWidth - titleW - 12.dp).coerceAtLeast(20.dp), 13f, 7f)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(title, color = TextBright, fontSize = with(density) { tf.dp.toSp() },
+                            fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+                        Spacer(Modifier.width(10.dp))
+                        Text(subtitle, color = TextDim, fontSize = with(density) { sf.dp.toSp() },
+                            maxLines = 1, softWrap = false)
+                    }
                 }
                 SystemsView(
                     view, systems, emulatorCount, scan, focusedId,
@@ -650,7 +661,7 @@ private fun ColumnScope.Carousel(
     val gap = minOf(6.dp, per * 0.35f)
     val dot = minOf(12.dp, per - gap).coerceAtLeast(2.dp)
     val grow = minOf(8.dp, dot)
-    Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.Center,
+    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically) {
         systems.forEachIndexed { i, (s, _) ->
             val look = lookFor(s.id)
@@ -687,10 +698,15 @@ private fun ColumnScope.Carousel(
                 onLongClick = { onMenu(system.id) }, onClick = { onOpenSystem(system) }),
         contentAlignment = Alignment.Center,
     ) {
-        // Room is left above for the count pill and below for the name, so nothing is cut off.
-        val iconSize = minOf(maxWidth * 0.66f, maxHeight - 120.dp).coerceAtLeast(40.dp)
-        val pillFont = (iconSize.value * 0.1f).coerceIn(12f, 22f)
-        val nameW = maxWidth - 16.dp
+        // The picture gets every bit of room left: the full width, and the full height apart
+        // from a slim line on top for the count and the name underneath. It's scaled evenly
+        // (never stretched).
+        val pillFont = (maxHeight.value * 0.05f).coerceIn(13f, 20f)
+        val pillH = badgeHeight(pillFont) + 2.dp
+        val nameMax = 28f
+        val nameH = (nameMax * 1.2f).dp + 4.dp
+        val boxW = maxWidth - 8.dp
+        val boxH = (maxHeight - pillH - nameH).coerceAtLeast(40.dp)
         androidx.compose.animation.AnimatedContent(
             targetState = index,
             // A smooth glide: eased slide plus a gentle fade and shrink. No clipping box and no
@@ -712,19 +728,29 @@ private fun ColumnScope.Carousel(
         ) { i ->
             val (s, g) = systems[i.coerceIn(0, n - 1)]
             val look = lookFor(s.id)
+            val img = Custom.icon(s.id)
+            val cutout = img != null && img.hasAlpha && img.width > 0 && img.height > 0
+            val (iw, ih) = if (cutout && img != null) {
+                val aspect = img.width.toFloat() / img.height
+                if (boxW / boxH > aspect) (boxH * aspect) to boxH else boxW to (boxW / aspect)
+            } else minOf(boxW, boxH).let { it to it }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(Modifier.size(iconSize)) {
-                    BigSystemIcon(look, Custom.icon(s.id), iconSize, focused)
-                    // The count sits just off the circle's top-right edge, so it never covers it.
-                    CountBadge("${g.size}", pillFont, Modifier.align(Alignment.TopStart).cornerOf(iconSize))
+                // The count sits in its own slim line just above the picture's top-right
+                // corner, so it never covers it.
+                Box(Modifier.size(iw, ih + pillH)) {
+                    Box(Modifier.align(Alignment.BottomCenter).size(iw, ih)) {
+                        BigSystemIcon(look, img, minOf(iw, ih), focused)
+                    }
+                    CountBadge("${g.size}", pillFont, Modifier.align(Alignment.TopEnd))
                 }
-                Spacer(Modifier.height(10.dp))
                 val name = systemName(s)
                 val density = androidx.compose.ui.platform.LocalDensity.current
+                val nf = fitFont(name, boxW, nameMax, 10f)
                 // The name shrinks to fit the width instead of being cut off.
                 Text(name, color = TextBright, fontWeight = FontWeight.Black,
-                    fontSize = with(density) { fitFont(name, nameW, 30f, 10f).dp.toSp() },
-                    maxLines = 1, softWrap = false, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    fontSize = with(density) { nf.dp.toSp() }, lineHeight = with(density) { (nf * 1.2f).dp.toSp() },
+                    maxLines = 1, softWrap = false, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier.padding(top = 4.dp))
             }
         }
     }
