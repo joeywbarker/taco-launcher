@@ -75,7 +75,7 @@ fun GameBrowser(
     // Play a game with its system's emulator; ask about RetroArch setup first if needed.
     var askSetup by remember { mutableStateOf<Game?>(null) }
     val play: (Game) -> Unit = { game ->
-        val emu = currentEmulator(activity, game.system, emulators)
+        val emu = emulatorForGame(activity, game, emulators)
         if (emu != null && isRetroArch(emu) && !activity.settings.retroArchPadReady) {
             askSetup = game
         } else {
@@ -123,7 +123,7 @@ fun GameBrowser(
             }
             val setupFor = askSetup
             if (setupFor != null) Box(Modifier.weight(1f)) {
-                val emu = currentEmulator(activity, setupFor.system, emulators)
+                val emu = emulatorForGame(activity, setupFor, emulators)
                 val choices = emulatorChoices(activity, setupFor.system, emulators)
                 RetroArchSetupPrompt(
                     activity,
@@ -453,6 +453,41 @@ private fun GameMenu(activity: MainActivity, game: Game, onPlay: () -> Unit, onC
     }
     val fav = Custom.isFavorite(game)
     val look = lookFor(game.system.id)
+    var picking by remember { mutableStateOf(false) }
+    var version by remember { mutableIntStateOf(0) }
+    val installed = remember { installedEmulators(activity) }
+    val own = remember(version) { activity.settings.emulatorForGame(game) }
+    val systemEmu = remember(version) { currentEmulator(activity, game.system, installed) }
+    val gameEmu = remember(version) { emulatorForGame(activity, game, installed) }
+    if (picking) {
+        // Which app opens just this game.
+        val choices = emulatorChoices(activity, game.system, installed)
+        val pickFocus = remember { FocusRequester() }
+        LaunchedEffect(Unit) { withFrameNanos { }; runCatching { pickFocus.requestFocus() } }
+        Column(Modifier.fillMaxSize()) {
+            Column(Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
+                Text("Emulator for this game", color = TextBright, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                Text(game.label, color = TextDim, fontSize = 13.sp, maxLines = 1)
+            }
+            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 6.dp)) {
+                item("system") {
+                    GameCard("Same as ${systemName(game.system)}" + if (own == null) "  ✓" else "",
+                        systemEmu?.name ?: "No emulator installed", SETTINGS_LOOK, tile = "↺", focusRequester = pickFocus) {
+                        activity.settings.setEmulatorForGame(game, null); version++; picking = false
+                    }
+                }
+                items(choices, key = { it.pkg }) { emu ->
+                    GameCard(emu.name + if (own == emu.pkg) "  ✓" else "", null, EMULATORS_LOOK, tile = "▶") {
+                        activity.settings.setEmulatorForGame(game, emu.pkg); version++; picking = false
+                    }
+                }
+                item("back") { GameCard("Back", null, SETTINGS_LOOK, tile = "←") { picking = false } }
+            }
+        }
+        return
+    }
+    // Coming back from the emulator list: put focus back on the menu.
+    LaunchedEffect(Unit) { withFrameNanos { }; runCatching { first.requestFocus() } }
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
             Text(game.label, color = TextBright, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 2)
@@ -466,6 +501,11 @@ private fun GameMenu(activity: MainActivity, game: Game, onPlay: () -> Unit, onC
                     FAVORITES_LOOK, tile = if (fav) "☆" else "★") {
                     Custom.toggleFavorite(game); onClose()
                 }
+            }
+            item("emu") {
+                GameCard("Emulator for this game", (gameEmu?.name ?: "None installed") +
+                    if (own == null) " (same as ${systemName(game.system)})" else " (just this game)",
+                    EMULATORS_LOOK, tile = "⇄") { picking = true }
             }
             item("cancel") { GameCard("Cancel", null, SETTINGS_LOOK, tile = "✕", onClick = onClose) }
         }

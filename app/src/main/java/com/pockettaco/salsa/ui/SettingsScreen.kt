@@ -564,6 +564,8 @@ private fun GameNamesSection(activity: MainActivity) {
             Switch(get(key), { toggle(key, it) })
         }
     }
+    Text("These are for every system. To give one system its own, press Start on it on the home screen → Game names.",
+        color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall)
     option("nameFull", "Show the entire file name")
     details.forEach { (key, label) -> option(key, label) }
 }
