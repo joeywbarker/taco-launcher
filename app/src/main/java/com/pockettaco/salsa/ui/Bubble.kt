@@ -88,8 +88,9 @@ fun Bubble(
                 Box(Modifier.fillMaxSize().background(
                     Brush.verticalGradient(0f to Color.White.copy(alpha = 0.35f), 0.5f to Color.Transparent)))
             }
+            // The count hangs off the top corner so it doesn't cover the icon.
             if (badge != null) Box(
-                Modifier.align(Alignment.TopEnd)
+                Modifier.align(Alignment.TopEnd).offset(x = 12.dp, y = (-6).dp)
                     .background(Color(0xFF0B1030), RoundedCornerShape(10.dp))
                     .border(1.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
                     .padding(horizontal = 6.dp, vertical = 1.dp)
