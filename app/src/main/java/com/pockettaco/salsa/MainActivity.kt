@@ -19,7 +19,7 @@ class MainActivity : ComponentActivity() {
     /** You came back to the launcher (Home button, or tapped it): show the menus again. */
     override fun onTopResumedActivityChanged(isTopResumedActivity: Boolean) {
         super.onTopResumedActivityChanged(isTopResumedActivity)
-        if (isTopResumedActivity) gameWindowOpen.value = false
+        if (isTopResumedActivity) { gameWindowOpen.value = false; ButtonMapperState.gameOpen = false }
     }
 
     /** Name of the last controller button pressed, shown in Settings to help set things up. */

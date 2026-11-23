@@ -91,6 +91,11 @@ object ButtonMapperState {
     @Volatile var lastKey: String? = null
     /** True while Taco Launcher's own menus have the screen; the service then stays out of the way. */
     @Volatile var launcherInFront = false
+    /**
+     * True from the moment we start a game until the launcher is really back on top. While a
+     * game is open the hotkeys always work, even if Android is slow to say the game came to the front.
+     */
+    @Volatile var gameOpen = false
 }
 
 /** Asks the open menu screen to put focus back on its first (or last used) item. */
