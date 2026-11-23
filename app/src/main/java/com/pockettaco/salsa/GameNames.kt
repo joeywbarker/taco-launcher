@@ -32,6 +32,12 @@ object GameNames {
     var showExtension by androidx.compose.runtime.mutableStateOf(false)
     var showTags by androidx.compose.runtime.mutableStateOf(false)
 
+    /** The five details; "nameFull" (entire file name) means all of them are on. */
+    val DETAILS = listOf("nameRegion", "nameYear", "namePublisher", "nameExtension", "nameTags")
+
+    /** Systems with their own name settings (switches that are on); others follow the main ones. */
+    val systemFlags = androidx.compose.runtime.mutableStateMapOf<String, Set<String>>()
+
     fun load(settings: Settings) {
         showFullName = settings.nameFlag("nameFull")
         showRegion = settings.nameFlag("nameRegion")
@@ -39,22 +45,50 @@ object GameNames {
         showPublisher = settings.nameFlag("namePublisher")
         showExtension = settings.nameFlag("nameExtension")
         showTags = settings.nameFlag("nameTags")
+        systemFlags.clear()
+        SYSTEMS.forEach { sys -> settings.systemNameFlags(sys.id)?.let { systemFlags[sys.id] = it } }
     }
 
-    /** The name to show for a game, following the Settings choices. */
-    fun label(fileName: String, baseName: String): String {
-        if (showFullName) return fileName
+    /** The main switches (from Settings) as a set of the ones that are on. */
+    fun mainFlags(): Set<String> = buildSet {
+        if (showFullName) add("nameFull")
+        if (showRegion) add("nameRegion")
+        if (showYear) add("nameYear")
+        if (showPublisher) add("namePublisher")
+        if (showExtension) add("nameExtension")
+        if (showTags) add("nameTags")
+    }
+
+    fun flagsFor(system: String?): Set<String> = system?.let { systemFlags[it] } ?: mainFlags()
+
+    /**
+     * Flips one switch, keeping them linked: "entire file name" on turns every detail on;
+     * any detail off turns it off; all details on turns it on.
+     */
+    fun toggled(flags: Set<String>, key: String, on: Boolean): Set<String> {
+        val out = flags.toMutableSet()
+        if (on) out += key else out -= key
+        if (key == "nameFull") { if (on) out += DETAILS }
+        else if (!on) out -= "nameFull"
+        else if (DETAILS.all { it in out }) out += "nameFull"
+        return out
+    }
+
+    /** The name to show for a game, following the Settings choices (or its system's own). */
+    fun label(fileName: String, baseName: String, system: String? = null): String {
+        val f = flagsFor(system)
+        if ("nameFull" in f) return fileName
         val p = parse(baseName)
         val sb = StringBuilder(p.title)
         if (p.disc != null) sb.append(" (").append(p.disc).append(')')
-        if (showRegion && p.regions.isNotEmpty()) sb.append(" (").append(p.regions.joinToString("/")).append(')')
-        if (showYear && p.year != null) sb.append(" (").append(p.year).append(')')
-        if (showPublisher && p.publisher != null) sb.append(" (").append(p.publisher).append(')')
-        if (showTags) {
+        if ("nameRegion" in f && p.regions.isNotEmpty()) sb.append(" (").append(p.regions.joinToString("/")).append(')')
+        if ("nameYear" in f && p.year != null) sb.append(" (").append(p.year).append(')')
+        if ("namePublisher" in f && p.publisher != null) sb.append(" (").append(p.publisher).append(')')
+        if ("nameTags" in f) {
             val extra = listOfNotNull(p.version) + p.tags
             if (extra.isNotEmpty()) sb.append(" [").append(extra.joinToString(", ")).append(']')
         }
-        if (showExtension && '.' in fileName) sb.append('.').append(fileName.substringAfterLast('.'))
+        if ("nameExtension" in f && '.' in fileName) sb.append('.').append(fileName.substringAfterLast('.'))
         return sb.toString()
     }
 

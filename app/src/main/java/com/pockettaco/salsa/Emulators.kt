@@ -97,6 +97,8 @@ val KNOWN_EMULATORS = listOf(
     Emulator("io.github.lime3ds.android", "Lime3DS", setOf("3ds")),
     Emulator("org.azahar_emu.azahar", "Azahar", setOf("3ds")),
     Emulator("org.devmiyax.yabasanshioro2", "Yaba Sanshiro 2", setOf("saturn")),
+    Emulator("com.seleuco.mame4d2024", "MAME4droid 2024", setOf("arcade", "neogeo")),
+    Emulator("com.seleuco.mame4droid", "MAME4droid", setOf("arcade", "neogeo")),
 )
 
 fun installedEmulators(context: Context): List<Emulator> {
@@ -141,6 +143,7 @@ private val NAME_HINTS = linkedMapOf(
     "lime3ds" to setOf("3ds"),
     "azahar" to setOf("3ds"),
     "yaba" to setOf("saturn"),
+    "mame" to setOf("arcade", "neogeo"),
 )
 
 /**
@@ -148,24 +151,78 @@ private val NAME_HINTS = linkedMapOf(
  * app you chose for it in Settings (any installed app is allowed).
  */
 fun emulatorChoices(context: Context, system: GameSystem, installed: List<Emulator>): List<Emulator> {
-    val list = installed.filter { system.id in it.systems }.toMutableList()
+    // Best first. Arcade: RetroArch, then MAME; Flycast only plays a few special arcade
+    // boards (Naomi), so it goes last instead of grabbing ordinary arcade games.
+    val list = installed.filter { system.id in it.systems }
+        .sortedBy { preference(it, system.id) }.toMutableList()
     val chosen = context.getSharedPreferences("taco", Context.MODE_PRIVATE).getString("emu_${system.id}", null)
     if (chosen != null && list.none { it.pkg == chosen }) {
-        val label = runCatching {
-            val pm = context.packageManager
-            pm.getApplicationInfo(chosen, 0).loadLabel(pm).toString()
-        }.getOrNull()
-        if (label != null) list.add(0, Emulator(chosen, label, setOf(system.id)))
+        appLabel(context, chosen)?.let { list.add(0, Emulator(chosen, it, setOf(system.id))) }
     }
     return list
 }
 
-/** The emulator a system uses right now: the one picked in Settings, else the first that fits. */
+private fun isRetroArchApp(e: Emulator) = e.pkg.startsWith("com.retroarch") || "retroarch" in e.name.lowercase()
+
+private fun preference(e: Emulator, system: String): Int {
+    val name = e.name.lowercase()
+    return when {
+        system == "arcade" || system == "neogeo" -> when {
+            isRetroArchApp(e) -> 0
+            "mame" in name -> 1
+            "flycast" in name -> 3
+            else -> 2
+        }
+        else -> 1
+    }
+}
+
+private fun appLabel(context: Context, pkg: String): String? = runCatching {
+    val pm = context.packageManager
+    pm.getApplicationInfo(pkg, 0).loadLabel(pm).toString()
+}.getOrNull()
+
+/** The emulator a system uses right now: the one picked in Settings, else the best that fits. */
 fun currentEmulator(context: Context, system: GameSystem, installed: List<Emulator>): Emulator? {
     val choices = emulatorChoices(context, system, installed)
     val chosen = context.getSharedPreferences("taco", Context.MODE_PRIVATE).getString("emu_${system.id}", null)
     return choices.firstOrNull { it.pkg == chosen } ?: choices.firstOrNull()
 }
+
+/** The emulator for one game: its own pick if it has one (and it's still installed), else its system's. */
+fun emulatorForGame(context: Context, game: Game, installed: List<Emulator>): Emulator? {
+    val own = context.getSharedPreferences("taco", Context.MODE_PRIVATE)
+        .getString("emu_game_${game.system.id}|${game.file}", null)
+    if (own != null) {
+        installed.firstOrNull { it.pkg == own }?.let { return it }
+        appLabel(context, own)?.let { return Emulator(own, it, setOf(game.system.id)) }
+    }
+    return currentEmulator(context, game.system, installed)
+}
+
+/** RetroArch cores you can pick between for a system (id to name). The first is the usual one. */
+val CORE_OPTIONS: Map<String, List<Pair<String, String>>> = mapOf(
+    "arcade" to listOf("fbneo" to "FinalBurn Neo", "mame2003_plus" to "MAME 2003-Plus", "mame2010" to "MAME 2010",
+        "mame" to "MAME (current)", "mame2003" to "MAME 2003", "fbalpha2012" to "FB Alpha 2012"),
+    "neogeo" to listOf("fbneo" to "FinalBurn Neo", "mame2003_plus" to "MAME 2003-Plus", "geolith" to "Geolith"),
+    "nes" to listOf("fceumm" to "FCEUmm", "nestopia" to "Nestopia", "mesen" to "Mesen", "quicknes" to "QuickNES"),
+    "snes" to listOf("snes9x" to "Snes9x", "bsnes" to "bsnes", "snes9x2010" to "Snes9x 2010"),
+    "gba" to listOf("mgba" to "mGBA", "vbam" to "VBA-M", "gpsp" to "gpSP"),
+    "gb" to listOf("mgba" to "mGBA", "gambatte" to "Gambatte", "sameboy" to "SameBoy", "gearboy" to "Gearboy"),
+    "gbc" to listOf("mgba" to "mGBA", "gambatte" to "Gambatte", "sameboy" to "SameBoy", "gearboy" to "Gearboy"),
+    "genesis" to listOf("genesis_plus_gx" to "Genesis Plus GX", "picodrive" to "PicoDrive"),
+    "sms" to listOf("genesis_plus_gx" to "Genesis Plus GX", "picodrive" to "PicoDrive", "gearsystem" to "Gearsystem"),
+    "gg" to listOf("genesis_plus_gx" to "Genesis Plus GX", "picodrive" to "PicoDrive", "gearsystem" to "Gearsystem"),
+    "psx" to listOf("swanstation" to "SwanStation", "pcsx_rearmed" to "PCSX ReARMed", "mednafen_psx" to "Beetle PSX"),
+    "n64" to listOf("mupen64plus_next" to "Mupen64Plus-Next", "parallel_n64" to "ParaLLEl N64"),
+    "nds" to listOf("melonds" to "melonDS", "melondsds" to "melonDS DS", "desmume" to "DeSmuME"),
+    "pce" to listOf("mednafen_pce_fast" to "Beetle PCE Fast", "mednafen_pce" to "Beetle PCE"),
+)
+
+/** The RetroArch core a system uses: the one picked in its menu, else the usual one. */
+fun coreFor(context: Context, system: String): String =
+    context.getSharedPreferences("taco", Context.MODE_PRIVATE).getString("core_$system", null)
+        ?: RETROARCH_CORES[system] ?: "mgba"
 
 /** Emulators to suggest on a phone that has none. RetroArch first: it plays almost everything. */
 data class Suggestion(val pkg: String, val name: String, val why: String)
@@ -218,7 +275,7 @@ private fun isInstalled(context: Context, pkg: String) = try {
 fun launchIntent(context: Context, emu: Emulator, system: GameSystem, game: Uri): Intent {
     val retroActivity = retroArchActivity(context, emu)
     if (retroActivity != null) {
-        val core = RETROARCH_CORES[system.id] ?: "mgba"
+        val core = coreFor(context, system.id)
         return Intent(Intent.ACTION_MAIN).apply {
             component = retroActivity
             putExtra("ROM", toFilePath(game))

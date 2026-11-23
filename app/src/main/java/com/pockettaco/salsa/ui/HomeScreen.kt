@@ -62,6 +62,9 @@ private sealed interface Panel {
     data class Rename(val id: String) : Panel
     data class Colors(val id: String) : Panel
     data class Delete(val id: String, val step: Int) : Panel
+    data class Emulator(val id: String) : Panel
+    data class Core(val id: String) : Panel
+    data class Names(val id: String) : Panel
 }
 
 /**
@@ -172,6 +175,7 @@ fun HomeScreen(
                 )
             }
             is Panel.Menu -> SystemMenu(
+                activity,
                 p.id?.let { id -> SYSTEMS.firstOrNull { it.id == id } },
                 gameCount = p.id?.let { id -> systems.firstOrNull { it.first.id == id }?.second?.size } ?: 0,
                 hasPicture = p.id?.let { Custom.iconFile(it).exists() } == true,
@@ -184,6 +188,9 @@ fun HomeScreen(
                         "picture" -> if (id != null) { pictureFor = id; picturePicker.launch(arrayOf("image/*")) }
                         "nopicture" -> if (id != null) Custom.removeIcon(id)
                         "color" -> if (id != null) panel = Panel.Colors(id)
+                        "emulator" -> if (id != null) panel = Panel.Emulator(id)
+                        "core" -> if (id != null) panel = Panel.Core(id)
+                        "names" -> if (id != null) panel = Panel.Names(id)
                         "hide" -> if (id != null) Custom.hidden = Custom.hidden + id
                         "delete" -> if (id != null) panel = Panel.Delete(id, 1)
                         "view" -> Custom.nextView()
@@ -197,6 +204,9 @@ fun HomeScreen(
             is Panel.Move -> MovePanel(p.id, systems) { panel = null }
             is Panel.Rename -> RenamePanel(p.id) { panel = null }
             is Panel.Colors -> ColorPanel(p.id) { panel = null }
+            is Panel.Emulator -> EmulatorPanel(activity, p.id) { panel = null }
+            is Panel.Core -> CorePanel(activity, p.id) { panel = null }
+            is Panel.Names -> NamesPanel(activity, p.id) { panel = null }
             is Panel.Delete -> {
                 val system = SYSTEMS.first { it.id == p.id }
                 val games = library[system].orEmpty()
@@ -511,12 +521,21 @@ private fun ShortcutStrip(
 
 /** The list of choices for a system (or the whole home screen). */
 @Composable
-private fun SystemMenu(system: GameSystem?, gameCount: Int, hasPicture: Boolean, onChoose: (String) -> Unit) {
+private fun SystemMenu(activity: MainActivity, system: GameSystem?, gameCount: Int, hasPicture: Boolean, onChoose: (String) -> Unit) {
     val first = remember { FocusRequester() }
     LaunchedEffect(FocusKick.count.intValue) { runCatching { first.requestFocus() } }
     val look = system?.let { lookFor(it.id) } ?: SETTINGS_LOOK
+    val installed = remember { installedEmulators(activity) }
     val options = buildList {
         if (system != null) {
+            val emu = currentEmulator(activity, system, installed)
+            add(Triple("emulator", "Emulator", (emu?.name ?: "None installed") +
+                if (activity.settings.emulatorFor(system.id) == null && emu != null) " (automatic)" else ""))
+            if (emu != null && isRetroArchEmu(emu) && CORE_OPTIONS.containsKey(system.id)) {
+                val core = coreFor(activity, system.id)
+                add(Triple("core", "RetroArch core", CORE_OPTIONS[system.id]?.firstOrNull { it.first == core }?.second ?: core))
+            }
+            add(Triple("names", "Game names", if (GameNames.systemFlags.containsKey(system.id)) "Its own settings" else "Same as Settings"))
             add(Triple("move", "Move", "Change where it sits"))
             add(Triple("rename", "Rename", "Now: ${systemName(system)}"))
             add(Triple("picture", "Change picture", "Pick any image file; see-through PNGs stay see-through"))
@@ -556,6 +575,99 @@ private fun MovePanel(id: String, systems: List<Pair<GameSystem, List<Game>>>, o
                 lookFor(system.id), tile = lookFor(system.id).short, image = Custom.icon(system.id),
                 highlight = system.id == id) { if (system.id != id) placeSystem(id, system.id, ids) }
         }
+    }
+}
+
+private fun isRetroArchEmu(e: com.pockettaco.salsa.Emulator) =
+    e.pkg.startsWith("com.retroarch") || "retroarch" in e.name.lowercase()
+
+/** Which app opens this system's games. */
+@Composable
+private fun EmulatorPanel(activity: MainActivity, id: String, onDone: () -> Unit) {
+    val first = remember { FocusRequester() }
+    LaunchedEffect(Unit) { withFrameNanos { }; runCatching { first.requestFocus() } }
+    val system = SYSTEMS.first { it.id == id }
+    val installed = remember { installedEmulators(activity) }
+    val choices = remember { emulatorChoices(activity, system, installed) }
+    val chosen = activity.settings.emulatorFor(id)
+    val auto = choices.firstOrNull { e -> installed.any { it.pkg == e.pkg && id in it.systems } }
+    PanelList("Emulator for ${systemName(system)}", "Which app opens these games") {
+        item("auto") {
+            GameCard("Automatic" + if (chosen == null) "  ✓" else "",
+                auto?.let { "Best installed: ${it.name}" } ?: "No emulator for this system installed",
+                SETTINGS_LOOK, tile = "★", focusRequester = first) {
+                activity.settings.setEmulatorFor(id, null); onDone()
+            }
+        }
+        items(choices, key = { it.pkg }) { emu ->
+            GameCard(emu.name + if (emu.pkg == chosen) "  ✓" else "", null, EMULATORS_LOOK, tile = "▶") {
+                activity.settings.setEmulatorFor(id, emu.pkg); onDone()
+            }
+        }
+        if (choices.isEmpty()) item("none") {
+            GameCard("No emulator found", "Get one from Emulators on the home screen", SETTINGS_LOOK, tile = "!") { onDone() }
+        }
+        item("back") { GameCard("Back", null, SETTINGS_LOOK, tile = "←", onClick = onDone) }
+    }
+}
+
+/** Which RetroArch core plays this system (arcade games often need a different one). */
+@Composable
+private fun CorePanel(activity: MainActivity, id: String, onDone: () -> Unit) {
+    val first = remember { FocusRequester() }
+    LaunchedEffect(Unit) { withFrameNanos { }; runCatching { first.requestFocus() } }
+    val system = SYSTEMS.first { it.id == id }
+    val options = CORE_OPTIONS[id].orEmpty()
+    val current = coreFor(activity, id)
+    PanelList("RetroArch core for ${systemName(system)}",
+        "The core must be downloaded in RetroArch: Main Menu → Online Updater → Core Downloader") {
+        options.forEachIndexed { i, (core, name) ->
+            item(core) {
+                GameCard(name + if (core == current) "  ✓" else "", if (i == 0) "Usual choice" else null,
+                    EMULATORS_LOOK, tile = "▶", focusRequester = if (i == 0) first else null) {
+                    activity.settings.setCoreFor(id, if (i == 0) null else core); onDone()
+                }
+            }
+        }
+        item("back") { GameCard("Back", null, SETTINGS_LOOK, tile = "←", onClick = onDone) }
+    }
+}
+
+/** This system's own game-name switches, or "same as Settings". */
+@Composable
+private fun NamesPanel(activity: MainActivity, id: String, onDone: () -> Unit) {
+    val first = remember { FocusRequester() }
+    LaunchedEffect(Unit) { withFrameNanos { }; runCatching { first.requestFocus() } }
+    val system = SYSTEMS.first { it.id == id }
+    val own = GameNames.systemFlags[id]
+    val flags = own ?: GameNames.mainFlags()
+    fun save(f: Set<String>?) {
+        if (f == null) GameNames.systemFlags.remove(id) else GameNames.systemFlags[id] = f
+        activity.settings.setSystemNameFlags(id, f)
+    }
+    val options = listOf(
+        "nameFull" to "Show the entire file name",
+        "nameRegion" to "Show country / region",
+        "nameYear" to "Show year",
+        "namePublisher" to "Show developer / publisher",
+        "nameExtension" to "Show file extension",
+        "nameTags" to "Show extra tags (Prototype, Beta, version)",
+    )
+    PanelList("Game names for ${systemName(system)}", "Press A to switch. B when done.") {
+        item("follow") {
+            GameCard("Same as Settings" + if (own == null) "  ✓" else "",
+                if (own == null) "Following the main Game names switches. Change any switch below to give this system its own."
+                else "Press to go back to the main switches",
+                SETTINGS_LOOK, tile = "↺", focusRequester = first) { save(null) }
+        }
+        options.forEach { (key, label) ->
+            item(key) {
+                val on = key in flags
+                GameCard(label, if (on) "On" else "Off", if (on) lookFor(id) else SETTINGS_LOOK,
+                    tile = if (on) "✓" else "○") { save(GameNames.toggled(flags, key, !on)) }
+            }
+        }
+        item("done") { GameCard("Done", null, SETTINGS_LOOK, tile = "✓", onClick = onDone) }
     }
 }
 

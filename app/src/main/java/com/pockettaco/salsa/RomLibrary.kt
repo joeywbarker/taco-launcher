@@ -8,7 +8,7 @@ import java.io.File
 /** [title] is the file name without its extension; [file] is the whole file name. */
 data class Game(val title: String, val uri: Uri, val system: GameSystem, val file: String = title) {
     /** The name to show, following the "Game names" choices in Settings. */
-    val label: String get() = GameNames.label(file, title)
+    val label: String get() = GameNames.label(file, title, system.id)
 }
 
 typealias Library = Map<GameSystem, List<Game>>

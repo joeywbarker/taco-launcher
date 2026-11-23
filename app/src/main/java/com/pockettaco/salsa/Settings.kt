@@ -116,6 +116,24 @@ class Settings(context: Context) {
     fun nameFlag(key: String) = prefs.getBoolean(key, false)
     fun setNameFlag(key: String, on: Boolean) = prefs.edit().putBoolean(key, on).apply()
 
+    /** A system's own game-name switches (the ones turned on), or null to follow the main ones. */
+    fun systemNameFlags(system: String): Set<String>? =
+        if (prefs.getBoolean("names_own_$system", false)) prefs.getStringSet("names_$system", null)?.toSet() ?: emptySet()
+        else null
+    fun setSystemNameFlags(system: String, flags: Set<String>?) {
+        if (flags == null) prefs.edit().remove("names_own_$system").remove("names_$system").apply()
+        else prefs.edit().putBoolean("names_own_$system", true).putStringSet("names_$system", flags.toSet()).apply()
+    }
+
+    /** The emulator picked for one game (overrides its system's), or null. */
+    fun emulatorForGame(game: Game): String? = prefs.getString("emu_game_${game.system.id}|${game.file}", null)
+    fun setEmulatorForGame(game: Game, pkg: String?) =
+        prefs.edit().putString("emu_game_${game.system.id}|${game.file}", pkg).apply()
+
+    /** The RetroArch core picked for a system, or null for the usual one. */
+    fun coreFor(system: String): String? = prefs.getString("core_$system", null)
+    fun setCoreFor(system: String, core: String?) = prefs.edit().putString("core_$system", core).apply()
+
     /** The person said the Taco is set up in RetroArch, so stop asking before games. */
     var retroArchPadReady: Boolean
         get() = prefs.getBoolean("retroArchPadReady", false)
