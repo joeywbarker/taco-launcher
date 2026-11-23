@@ -112,7 +112,7 @@ fun HomeScreen(
     }
 
     Column(Modifier.fillMaxSize()) {
-        Brand()
+        // The Taco Launcher name now sits in the status line above (between controller and clock).
         when (val p = panel) {
             null -> {
                 Column(Modifier.padding(horizontal = 20.dp, vertical = 2.dp)) {
@@ -187,14 +187,6 @@ fun HomeScreen(
             }
         }
     }
-}
-
-/** "TACO LAUNCHER" across the top of the home screen. */
-@Composable
-private fun Brand() {
-    Text("🌮  TACO LAUNCHER",
-        color = Color(0xFFFFD25A), fontSize = 13.sp, fontWeight = FontWeight.Black, letterSpacing = 3.sp,
-        modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp))
 }
 
 @Composable

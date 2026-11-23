@@ -49,6 +49,7 @@ class MainActivity : ComponentActivity() {
         // Coming back to the launcher, Android briefly shows a saved picture of the last
         // screen. Turn that off so attaching the Taco goes straight to the intro, not the menus.
         if (android.os.Build.VERSION.SDK_INT >= 33) setRecentsScreenshotEnabled(false)
+        hidePhoneStatusBar()
         setContent { LauncherRoot(this) }
         // Newer Android can send a Back button straight to the "back" system instead of to
         // dispatchKeyEvent. Catch it there too, so teaching B and going back always work.
@@ -70,8 +71,21 @@ class MainActivity : ComponentActivity() {
      * When the launcher gets the screen back (after a game, Home, or a popup), make sure a
      * menu item has focus again. Without it, A has nothing to press.
      */
+    /**
+     * Hide the phone's own status bar (time, icons, battery) while Taco Launcher is open:
+     * our top line already shows the clock and battery, so it was doubled. Swipe down from
+     * the top edge to peek at it; it tucks away again by itself.
+     */
+    private fun hidePhoneStatusBar() {
+        androidx.core.view.WindowCompat.getInsetsController(window, window.decorView).apply {
+            systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            hide(androidx.core.view.WindowInsetsCompat.Type.statusBars())
+        }
+    }
+
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) hidePhoneStatusBar()
         ButtonMapperState.launcherInFront = hasFocus
         if (hasFocus) FocusKick.kick()
     }
