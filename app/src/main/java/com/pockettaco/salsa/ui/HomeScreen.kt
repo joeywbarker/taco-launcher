@@ -308,11 +308,19 @@ private fun SystemsView(
     ShortcutStrip(systems.isNotEmpty(), lastPlayed, recentCount, favoriteCount, emulatorCount, onFocused,
         onLastPlayed, onOpenRecent, onOpenFavorites, onRandom, onOpenApps, onOpenSettings)
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
-    val cellW = maxWidth / cols
-    val cellH = maxHeight / rows
-    // Each icon has ~50dp of label and padding under/around it.
-    val size = minOf(cellW - 14.dp, cellH - 50.dp).coerceIn(28.dp, 170.dp)
-    val labelW = (cellW - 4.dp).coerceAtLeast(40.dp)
+    // Everything fits on one screen, never scrolls: with more systems than the chosen
+    // columns x rows there are more rows (and, if icons would get too tiny, more columns),
+    // and the icons, counts and names all shrink to fit.
+    val count = systems.size + (if (empty) 1 else 0)
+    val longestBadge = (systems.maxOfOrNull { it.second.size } ?: 0).toString()
+    val fit = remember(maxWidth, maxHeight, cols, rows, count, longestBadge) {
+        gridFit(maxWidth, maxHeight, cols, rows, count, longestBadge)
+    }
+    val effCols = fit.cols
+    val size = fit.size
+    val vPad = fit.vPad
+    val labelSize = fit.labelSize
+    val labelW = fit.labelW
     // Touch: press and hold a system, then drag it; the others shuffle out of the way.
     // Hold without moving opens its menu (Start does the same with the controller).
     val gridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
@@ -375,13 +383,15 @@ private fun SystemsView(
             }
         }
     LazyVerticalGrid(
-        GridCells.Fixed(cols),
+        GridCells.Fixed(effCols),
         Modifier.fillMaxSize(),
         state = gridState,
         horizontalArrangement = Arrangement.SpaceEvenly,
+        userScrollEnabled = false,
     ) {
         if (empty) item {
             Bubble(SystemLook("+", Color(0xFF4CFF9A), Color(0xFF138A4F)), "Add games", size = size, labelWidth = labelW,
+                labelSize = labelSize, vPad = vPad,
                 focusRequester = first, onFocused = { onFocused(null, addTitle, addSub) }, onClick = onPickFolder)
         }
         systems.forEachIndexed { i, (system, games) ->
@@ -389,6 +399,7 @@ private fun SystemsView(
                 val name = systemName(system)
                 Box(dragModifier(system.id), contentAlignment = Alignment.Center) {
                     Bubble(lookFor(system.id), name, badge = "${games.size}", size = size, labelWidth = labelW,
+                        labelSize = labelSize, vPad = vPad,
                         focusRequester = if (i == focusIndex) first else null,
                         image = Custom.icon(system.id),
                         onFocused = { onFocused(system.id, name, "${games.size} games") },
@@ -402,6 +413,40 @@ private fun SystemsView(
     }
 }
 
+private data class GridFit(val cols: Int, val size: Dp, val vPad: Dp, val labelSize: Float, val labelW: Dp)
+
+/** Works out the biggest icons that let [count] systems all fit in a [w] x [h] space. */
+private fun gridFit(w: Dp, h: Dp, cols: Int, rows: Int, count: Int, badge: String): GridFit {
+    fun tryCols(c: Int): GridFit {
+        val r = maxOf(rows, (count + c - 1) / c)
+        val cellW = w / c
+        val cellH = h / r
+        val vPad = (cellH * 0.06f).coerceIn(2.dp, 10.dp)
+        val labelSize = (cellH.value * 0.11f).coerceIn(7f, 12f)
+        val labelW = (cellW - 4.dp).coerceAtLeast(10.dp)
+        // Shrink from the largest size until the whole bubble (count pill above, name below)
+        // fits the cell's height, and the pill fits beside the icon inside the cell's width.
+        var size = minOf(cellW - 12.dp, 170.dp)
+        while (size > 12.dp) {
+            val tall = bubbleHeight(size, labelSize, vPad, badge = true) * 1.04f <= cellH
+            val sideRoom = (cellW - size - 8.dp) / 2
+            val wide = size <= cellW - 12.dp && badgeOverhang(size, badge) <= sideRoom
+            if (tall && wide) break
+            size -= 2.dp
+        }
+        return GridFit(c, size.coerceAtLeast(12.dp), vPad, labelSize, labelW)
+    }
+    var best = tryCols(cols)
+    var c = cols + 1
+    // Very many systems on few columns: add columns while that gives bigger icons.
+    while (c <= 12 && best.size < 40.dp) {
+        val next = tryCols(c)
+        if (next.size > best.size) best = next
+        c++
+    }
+    return best
+}
+
 /** Quick Start, Recent, Favorites, Random, Emulators and Settings as small icons on one line. */
 @Composable
 private fun ShortcutStrip(
@@ -410,36 +455,45 @@ private fun ShortcutStrip(
     onLastPlayed: () -> Unit, onOpenRecent: () -> Unit, onOpenFavorites: () -> Unit, onRandom: () -> Unit,
     onOpenApps: () -> Unit, onOpenSettings: () -> Unit,
 ) {
-        val s = 40.dp
-        val w = 62.dp
+    // All shortcuts share the width evenly (no sideways scrolling); names shrink to fit.
+    val items = 2 + (if (hasSystems) 3 else 0) + (if (lastPlayed != null) 1 else 0)
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val w = maxWidth / items
+        val badge = maxOf(recentCount, favoriteCount, emulatorCount).toString()
+        // The icon leaves room so a count pill never reaches the next icon.
+        var s = minOf(w * 0.62f, 40.dp)
+        while (s > 16.dp && badgeOverhang(s, badge) > w - s - 8.dp) s -= 1.dp
+        val v = 4.dp
+        val ls = 10f
         Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
             if (hasSystems) {
                 val sub = lastPlayed?.let { systemName(it.system) } ?: "Play any game once, then this jumps right back in"
                 val look = lastPlayed?.let { lookFor(it.system.id) } ?: RECENT_LOOK
-                Bubble(SystemLook("▶", look.top, look.bottom), "Quick Start", size = s, labelWidth = w,
+                Bubble(SystemLook("▶", look.top, look.bottom), "Quick Start", size = s, labelWidth = w, labelSize = ls, vPad = v, reserveBadgeRoom = true,
                     onFocused = { onFocused(null, "▶ Quick Start" + (lastPlayed?.let { ": ${it.label}" } ?: ""), sub) },
                     onClick = onLastPlayed)
             }
-            if (lastPlayed != null) Bubble(RECENT_LOOK, "Recent", badge = "$recentCount", size = s, labelWidth = w,
+            if (lastPlayed != null) Bubble(RECENT_LOOK, "Recent", badge = "$recentCount", size = s, labelWidth = w, labelSize = ls, vPad = v, reserveBadgeRoom = true,
                 onFocused = { onFocused(null, "🕘 Recently played", "Your last $recentCount different games") },
                 onClick = onOpenRecent)
             if (hasSystems) {
-                Bubble(FAVORITES_LOOK, "Favorites", badge = "$favoriteCount", size = s, labelWidth = w,
+                Bubble(FAVORITES_LOOK, "Favorites", badge = "$favoriteCount", size = s, labelWidth = w, labelSize = ls, vPad = v, reserveBadgeRoom = true,
                     onFocused = { onFocused(null, "★ Favorites", "$favoriteCount games from every system") },
                     onClick = onOpenFavorites)
-                Bubble(RANDOM_LOOK, "Random", size = s, labelWidth = w,
+                Bubble(RANDOM_LOOK, "Random", size = s, labelWidth = w, labelSize = ls, vPad = v, reserveBadgeRoom = true,
                     onFocused = { onFocused(null, "🎲 Random game", "Picks any game from any system") },
                     onClick = onRandom)
             }
-            Bubble(EMULATORS_LOOK, "Emulators", badge = "$emulatorCount", size = s, labelWidth = w,
+            Bubble(EMULATORS_LOOK, "Emulators", badge = "$emulatorCount", size = s, labelWidth = w, labelSize = ls, vPad = v, reserveBadgeRoom = true,
                 onFocused = { onFocused(null, "Emulators", "$emulatorCount installed") }, onClick = onOpenApps)
-            Bubble(SETTINGS_LOOK, "Settings", size = s, labelWidth = w,
+            Bubble(SETTINGS_LOOK, "Settings", size = s, labelWidth = w, labelSize = ls, vPad = v, reserveBadgeRoom = true,
                 onFocused = { onFocused(null, "Settings", "Screen size, games folder, controller, look") },
                 onClick = onOpenSettings)
         }
+    }
         // A thin line between the two areas.
         Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp).height(1.dp).background(Color.White.copy(alpha = 0.15f)))
 }
@@ -590,17 +644,23 @@ private fun ColumnScope.Carousel(
     LaunchedEffect(system.id, games.size) { onFocused(system.id, name, "${games.size} games") }
 
     // The map: one dot per system, the current one bigger with a white ring.
-    val dot = if (n > 14) 8.dp else 12.dp
+    // Dots shrink (and sit closer) so every system's dot fits on one line.
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
+    val per = (maxWidth - 32.dp) / n
+    val gap = minOf(6.dp, per * 0.35f)
+    val dot = minOf(12.dp, per - gap).coerceAtLeast(2.dp)
+    val grow = minOf(8.dp, dot)
     Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically) {
         systems.forEachIndexed { i, (s, _) ->
             val look = lookFor(s.id)
             val on = i == index
-            Box(Modifier.padding(horizontal = 3.dp).size(if (on) dot + 8.dp else dot)
+            Box(Modifier.padding(horizontal = gap / 2).size(if (on) dot + grow else dot)
                 .background(Brush.linearGradient(listOf(look.top, look.bottom)), CircleShape)
-                .then(if (on) Modifier.border(2.dp, Color.White, CircleShape) else Modifier)
+                .then(if (on) Modifier.border(if (dot < 8.dp) 1.dp else 2.dp, Color.White, CircleShape) else Modifier)
                 .clickable { direction = if (i > index) 1 else -1; index = i })
         }
+    }
     }
 
     var dragged by remember { mutableFloatStateOf(0f) }
@@ -627,7 +687,10 @@ private fun ColumnScope.Carousel(
                 onLongClick = { onMenu(system.id) }, onClick = { onOpenSystem(system) }),
         contentAlignment = Alignment.Center,
     ) {
-        val iconSize = minOf(maxWidth * 0.72f, maxHeight - 90.dp).coerceAtLeast(80.dp)
+        // Room is left above for the count pill and below for the name, so nothing is cut off.
+        val iconSize = minOf(maxWidth * 0.66f, maxHeight - 120.dp).coerceAtLeast(40.dp)
+        val pillFont = (iconSize.value * 0.1f).coerceIn(12f, 22f)
+        val nameW = maxWidth - 16.dp
         androidx.compose.animation.AnimatedContent(
             targetState = index,
             // A smooth glide: eased slide plus a gentle fade and shrink. No clipping box and no
@@ -652,17 +715,16 @@ private fun ColumnScope.Carousel(
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(Modifier.size(iconSize)) {
                     BigSystemIcon(look, Custom.icon(s.id), iconSize, focused)
-                    // The count sits in the top-right corner, outside the circle, so it never covers it.
-                    Box(
-                        Modifier.align(Alignment.TopEnd).offset(x = 8.dp, y = (-4).dp)
-                            .background(Color(0xFF0B1030), RoundedCornerShape(50))
-                            .border(2.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(50))
-                            .padding(horizontal = 12.dp, vertical = 2.dp)
-                    ) { Text("${g.size}", color = TextBright, fontSize = 22.sp, fontWeight = FontWeight.Black) }
+                    // The count sits just off the circle's top-right edge, so it never covers it.
+                    CountBadge("${g.size}", pillFont, Modifier.align(Alignment.TopStart).cornerOf(iconSize))
                 }
                 Spacer(Modifier.height(10.dp))
-                Text(systemName(s), color = TextBright, fontSize = 30.sp, fontWeight = FontWeight.Black,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                val name = systemName(s)
+                val density = androidx.compose.ui.platform.LocalDensity.current
+                // The name shrinks to fit the width instead of being cut off.
+                Text(name, color = TextBright, fontWeight = FontWeight.Black,
+                    fontSize = with(density) { fitFont(name, nameW, 30f, 10f).dp.toSp() },
+                    maxLines = 1, softWrap = false, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             }
         }
     }
