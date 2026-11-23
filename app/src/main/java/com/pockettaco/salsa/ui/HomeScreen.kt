@@ -7,6 +7,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.draw.zIndex
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -15,6 +20,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
@@ -279,9 +285,71 @@ private fun SystemsView(
     // Each icon has ~50dp of label and padding under/around it.
     val size = minOf(cellW - 14.dp, cellH - 50.dp).coerceIn(28.dp, 170.dp)
     val labelW = (cellW - 4.dp).coerceAtLeast(40.dp)
+    // Touch: press and hold a system, then drag it; the others shuffle out of the way.
+    // Hold without moving opens its menu (Start does the same with the controller).
+    val gridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
+    var dragId by remember { mutableStateOf<String?>(null) }
+    var dragAbs by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
+    var dragGrab by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
+    val ids by rememberUpdatedState(systems.map { it.first.id })
+    val menu by rememberUpdatedState(onMenu)
+    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+    fun itemOffset(key: String) = gridState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == key }
+        ?.let { androidx.compose.ui.geometry.Offset(it.offset.x.toFloat(), it.offset.y.toFloat()) }
+    fun dragModifier(id: String) = Modifier
+        .zIndex(if (dragId == id) 1f else 0f)
+        .pointerInput(id) {
+            awaitEachGesture {
+                val pass = androidx.compose.ui.input.pointer.PointerEventPass.Initial
+                val down = awaitFirstDown(requireUnconsumed = false, pass = pass)
+                // A tap, or a move before the hold time (scrolling), is left to the normal handlers.
+                val early = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+                    while (true) {
+                        val c = awaitPointerEvent(pass).changes.firstOrNull { it.id == down.id } ?: return@withTimeoutOrNull true
+                        if (!c.pressed) return@withTimeoutOrNull true
+                        if ((c.position - down.position).getDistance() > viewConfiguration.touchSlop) return@withTimeoutOrNull true
+                    }
+                    @Suppress("UNREACHABLE_CODE") true
+                }
+                if (early != null) return@awaitEachGesture
+                haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                val start = itemOffset(id) ?: androidx.compose.ui.geometry.Offset.Zero
+                dragId = id; dragGrab = down.position; dragAbs = start + down.position
+                var moved = 0f
+                while (true) {
+                    val event = awaitPointerEvent(pass)
+                    val c = event.changes.firstOrNull { it.id == down.id } ?: break
+                    val delta = c.position - c.previousPosition
+                    c.consume()
+                    if (!c.pressed) break
+                    dragAbs += delta
+                    moved += delta.getDistance()
+                    val hit = gridState.layoutInfo.visibleItemsInfo.firstOrNull { info ->
+                        val key = info.key as? String
+                        key != null && key != id && key in ids &&
+                            dragAbs.x >= info.offset.x && dragAbs.x < info.offset.x + info.size.width &&
+                            dragAbs.y >= info.offset.y && dragAbs.y < info.offset.y + info.size.height
+                    }
+                    if (hit != null) placeSystem(id, hit.key as String, ids)
+                }
+                dragId = null
+                if (moved < viewConfiguration.touchSlop) menu(id)
+            }
+        }
+        .graphicsLayer {
+            if (dragId == id) {
+                val o = itemOffset(id)
+                if (o != null) {
+                    translationX = dragAbs.x - o.x - dragGrab.x
+                    translationY = dragAbs.y - o.y - dragGrab.y
+                }
+                scaleX = 1.15f; scaleY = 1.15f; alpha = 0.92f
+            }
+        }
     LazyVerticalGrid(
         GridCells.Fixed(cols),
         Modifier.fillMaxSize(),
+        state = gridState,
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
         if (empty) item {
@@ -304,12 +372,14 @@ private fun SystemsView(
         systems.forEachIndexed { i, (system, games) ->
             item(system.id) {
                 val name = systemName(system)
-                Bubble(lookFor(system.id), name, badge = "${games.size}", size = size, labelWidth = labelW,
-                    focusRequester = if (i == focusIndex) first else null,
-                    image = Custom.icon(system.id),
-                    onFocused = { onFocused(system.id, name, "${games.size} games") },
-                    onLongClick = { onMenu(system.id) },
-                    onClick = { onOpenSystem(system) })
+                Box(dragModifier(system.id), contentAlignment = Alignment.Center) {
+                    Bubble(lookFor(system.id), name, badge = "${games.size}", size = size, labelWidth = labelW,
+                        focusRequester = if (i == focusIndex) first else null,
+                        image = Custom.icon(system.id),
+                        onFocused = { onFocused(system.id, name, "${games.size} games") },
+                        // Holding is handled by the drag above (hold = menu, hold and move = drag).
+                        onClick = { onOpenSystem(system) })
+                }
             }
         }
         if (systems.isNotEmpty()) {
