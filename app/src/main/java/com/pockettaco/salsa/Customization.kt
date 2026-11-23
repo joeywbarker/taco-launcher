@@ -79,6 +79,11 @@ object Custom {
     fun gridRows(v: HomeView): Int { read(); return p().getInt("rows_${v.name}", 3) }
     fun setGridColumns(v: HomeView, n: Int) { p().edit().putInt("cols_${v.name}", n.coerceIn(GRID_COLS)).apply(); changed() }
     fun setGridRows(v: HomeView, n: Int) { p().edit().putInt("rows_${v.name}", n.coerceIn(GRID_ROWS)).apply(); changed() }
+    /** When on, Select no longer switches the view (home and game lists). */
+    var viewLocked: Boolean
+        get() { read(); return p().getBoolean("viewLocked", false) }
+        set(v) { p().edit().putBoolean("viewLocked", v).apply(); changed() }
+
     val GRID_COLS = 2..8
     val GRID_ROWS = 1..6
 

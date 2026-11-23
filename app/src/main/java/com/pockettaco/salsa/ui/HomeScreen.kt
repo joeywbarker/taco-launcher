@@ -87,7 +87,7 @@ fun HomeScreen(
     // Start = menu for the selected system, Select = next view.
     DisposableEffect(Unit) {
         val start: () -> Boolean = { if (panel == null) panel = Panel.Menu(focusedId?.takeIf { it in visibleIds }); true }
-        val select: () -> Boolean = { if (panel == null) Custom.nextView(); true }
+        val select: () -> Boolean = { if (panel == null && !Custom.viewLocked) Custom.nextView(); true }
         activity.onStartButton = start
         activity.onSelectButton = select
         onDispose {
@@ -353,7 +353,7 @@ private fun SystemMenu(system: GameSystem?, gameCount: Int, hasPicture: Boolean,
             add(Triple("hide", "Hide from home", "Games stay on your phone. Unhide in Settings."))
             add(Triple("delete", "Delete system and games…", "$gameCount games. Asks twice."))
         }
-        add(Triple("view", "Switch view", "Now: ${Custom.homeView.label} (or press Select)"))
+        add(Triple("view", "Switch view", "Now: ${Custom.homeView.label}" + if (Custom.viewLocked) " (locked, Select won't change it)" else " (or press Select)"))
         add(Triple("az", "Sort A to Z", null))
         add(Triple("count", "Sort by number of games", null))
         add(Triple("reset", "Usual order", null))

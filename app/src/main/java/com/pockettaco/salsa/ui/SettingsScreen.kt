@@ -223,6 +223,14 @@ private fun HomeLookSection(activity: MainActivity) {
             else OutlinedButton(onClick = { custom.homeView = v }) { Text(v.label) }
         }
     }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text("Lock the view", color = Color.White)
+            Text("Select won't switch views on the home screen or in game lists. You can still change them here or from a menu.",
+                color = Color(0xFF999999), style = MaterialTheme.typography.bodySmall)
+        }
+        Switch(custom.viewLocked, { custom.viewLocked = it })
+    }
     val view = custom.homeView
     if (view != com.pockettaco.salsa.HomeView.LIST) {
         Text("Icon grid for ${view.label.lowercase()} (icons get bigger or smaller to fit)",
