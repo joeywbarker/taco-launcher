@@ -28,6 +28,7 @@ fun startFitted(activity: MainActivity, intent: Intent, system: GameSystem? = nu
             intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
         }
     }
+    if (system != null) ButtonMapperState.gameOpen = true
     val fit = activity.settings.fitEmulators && activity.watcher.connected.value
     if (!fit) {
         activity.startActivity(intent)

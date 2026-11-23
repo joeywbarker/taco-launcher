@@ -41,7 +41,8 @@ class ButtonMapperService : AccessibilityService() {
         // launcher's window has focus AND it was the last app to come to the front. Either one
         // alone can be out of date for a while (a game in a pop-up window doesn't always tell
         // Android it came to the front), which made hotkeys ignore presses until it caught up.
-        val inLauncher = ButtonMapperState.launcherInFront && (foreground == null || foreground == packageName)
+        val inLauncher = !ButtonMapperState.gameOpen &&
+            ButtonMapperState.launcherInFront && (foreground == null || foreground == packageName)
         if (inLauncher) { held.clear(); swallowed.clear(); return false }
         val device = event.device
         val name = device?.name?.lowercase().orEmpty()

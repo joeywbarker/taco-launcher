@@ -219,10 +219,16 @@ val CORE_OPTIONS: Map<String, List<Pair<String, String>>> = mapOf(
     "pce" to listOf("mednafen_pce_fast" to "Beetle PCE Fast", "mednafen_pce" to "Beetle PCE"),
 )
 
-/** The RetroArch core a system uses: the one picked in its menu, else the usual one. */
-fun coreFor(context: Context, system: String): String =
-    context.getSharedPreferences("taco", Context.MODE_PRIVATE).getString("core_$system", null)
+/**
+ * The RetroArch core to use: the one picked for this game, else the one picked for its
+ * system, else the usual one.
+ */
+fun coreFor(context: Context, system: String, gameFile: String? = null): String {
+    val prefs = context.getSharedPreferences("taco", Context.MODE_PRIVATE)
+    return gameFile?.let { prefs.getString("core_game_$system|$it", null) }
+        ?: prefs.getString("core_$system", null)
         ?: RETROARCH_CORES[system] ?: "mgba"
+}
 
 /** Emulators to suggest on a phone that has none. RetroArch first: it plays almost everything. */
 data class Suggestion(val pkg: String, val name: String, val why: String)
@@ -272,10 +278,10 @@ private fun isInstalled(context: Context, pkg: String) = try {
  * exception: it wants a plain file path and a "core" (the part that emulates
  * one specific console), so it gets its own branch.
  */
-fun launchIntent(context: Context, emu: Emulator, system: GameSystem, game: Uri): Intent {
+fun launchIntent(context: Context, emu: Emulator, system: GameSystem, game: Uri, gameFile: String? = null): Intent {
     val retroActivity = retroArchActivity(context, emu)
     if (retroActivity != null) {
-        val core = coreFor(context, system.id)
+        val core = coreFor(context, system.id, gameFile)
         return Intent(Intent.ACTION_MAIN).apply {
             component = retroActivity
             putExtra("ROM", toFilePath(game))

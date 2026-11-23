@@ -454,11 +454,43 @@ private fun GameMenu(activity: MainActivity, game: Game, onPlay: () -> Unit, onC
     val fav = Custom.isFavorite(game)
     val look = lookFor(game.system.id)
     var picking by remember { mutableStateOf(false) }
+    var pickingCore by remember { mutableStateOf(false) }
     var version by remember { mutableIntStateOf(0) }
     val installed = remember { installedEmulators(activity) }
     val own = remember(version) { activity.settings.emulatorForGame(game) }
     val systemEmu = remember(version) { currentEmulator(activity, game.system, installed) }
     val gameEmu = remember(version) { emulatorForGame(activity, game, installed) }
+    if (pickingCore) {
+        // Which RetroArch core plays just this game (some arcade games only run on one).
+        val options = CORE_OPTIONS[game.system.id].orEmpty()
+        val ownCore = activity.settings.coreForGame(game)
+        val systemCore = coreFor(activity, game.system.id)
+        val coreFocus = remember { FocusRequester() }
+        LaunchedEffect(Unit) { withFrameNanos { }; runCatching { coreFocus.requestFocus() } }
+        Column(Modifier.fillMaxSize()) {
+            Column(Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
+                Text("RetroArch core for this game", color = TextBright, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                Text("The core must be downloaded in RetroArch (Online Updater → Core Downloader)",
+                    color = TextDim, fontSize = 13.sp)
+            }
+            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 6.dp)) {
+                item("system") {
+                    GameCard("Same as ${systemName(game.system)}" + if (ownCore == null) "  ✓" else "",
+                        options.firstOrNull { it.first == systemCore }?.second ?: systemCore,
+                        SETTINGS_LOOK, tile = "↺", focusRequester = coreFocus) {
+                        activity.settings.setCoreForGame(game, null); version++; pickingCore = false
+                    }
+                }
+                items(options, key = { it.first }) { (core, name) ->
+                    GameCard(name + if (ownCore == core) "  ✓" else "", null, EMULATORS_LOOK, tile = "▶") {
+                        activity.settings.setCoreForGame(game, core); version++; pickingCore = false
+                    }
+                }
+                item("back") { GameCard("Back", null, SETTINGS_LOOK, tile = "←") { pickingCore = false } }
+            }
+        }
+        return
+    }
     if (picking) {
         // Which app opens just this game.
         val choices = emulatorChoices(activity, game.system, installed)
@@ -507,6 +539,14 @@ private fun GameMenu(activity: MainActivity, game: Game, onPlay: () -> Unit, onC
                     if (own == null) " (same as ${systemName(game.system)})" else " (just this game)",
                     EMULATORS_LOOK, tile = "⇄") { picking = true }
             }
+            if (gameEmu != null && isRetroArch(gameEmu) && CORE_OPTIONS.containsKey(game.system.id)) item("core") {
+                val core = remember(version) { coreFor(activity, game.system.id, game.file) }
+                val own = remember(version) { activity.settings.coreForGame(game) }
+                GameCard("RetroArch core for this game",
+                    (CORE_OPTIONS[game.system.id]?.firstOrNull { it.first == core }?.second ?: core) +
+                        if (own == null) " (same as ${systemName(game.system)})" else " (just this game)",
+                    EMULATORS_LOOK, tile = "⚙") { pickingCore = true }
+            }
             item("cancel") { GameCard("Cancel", null, SETTINGS_LOOK, tile = "✕", onClick = onClose) }
         }
     }
@@ -514,7 +554,16 @@ private fun GameMenu(activity: MainActivity, game: Game, onPlay: () -> Unit, onC
 
 private fun isRetroArch(e: Emulator) = e.pkg.startsWith("com.retroarch") || "retroarch" in e.name.lowercase()
 
+private var warnedHotkeysOff = false
+
 private fun launchGame(activity: MainActivity, system: GameSystem, emu: Emulator?, choices: List<Emulator>, game: Game) {
+    // Hotkeys (Select + Start, Select + B...) need the button helper switched on in Android's
+    // Accessibility settings. Android can switch it off by itself, so say so once.
+    if (!warnedHotkeysOff && !isMapperOn(activity)) {
+        warnedHotkeysOff = true
+        Toast.makeText(activity, "Hotkeys are off: Android switched off Taco Launcher's button helper. " +
+            "Turn it back on in Settings → Controller (or phone Settings → Accessibility).", Toast.LENGTH_LONG).show()
+    }
     if (emu == null) {
         runCatching { activity.startActivity(openWithAnyApp(game.uri)) }
         Custom.addRecent(game)
@@ -524,7 +573,7 @@ private fun launchGame(activity: MainActivity, system: GameSystem, emu: Emulator
     // never quietly swap to a different emulator.
     val tries = listOf(emu) + if (isRetroArch(emu)) choices.filter { it != emu && isRetroArch(it) } else emptyList()
     val worked = tries.firstOrNull { e ->
-        val intent = launchIntent(activity, e, system, game.uri)
+        val intent = launchIntent(activity, e, system, game.uri, game.file)
         val accepts = intent.component != null ||
             activity.packageManager.queryIntentActivities(intent, 0).isNotEmpty()
         accepts && runCatching { startFitted(activity, intent, system) }.isSuccess

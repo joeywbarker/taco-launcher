@@ -130,6 +130,11 @@ class Settings(context: Context) {
     fun setEmulatorForGame(game: Game, pkg: String?) =
         prefs.edit().putString("emu_game_${game.system.id}|${game.file}", pkg).apply()
 
+    /** The RetroArch core picked for one game, or null to use its system's. */
+    fun coreForGame(game: Game): String? = prefs.getString("core_game_${game.system.id}|${game.file}", null)
+    fun setCoreForGame(game: Game, core: String?) =
+        prefs.edit().putString("core_game_${game.system.id}|${game.file}", core).apply()
+
     /** The RetroArch core picked for a system, or null for the usual one. */
     fun coreFor(system: String): String? = prefs.getString("core_$system", null)
     fun setCoreFor(system: String, core: String?) = prefs.edit().putString("core_$system", core).apply()
