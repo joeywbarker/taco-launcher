@@ -18,6 +18,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -629,10 +630,20 @@ private fun ColumnScope.Carousel(
         val iconSize = minOf(maxWidth * 0.72f, maxHeight - 90.dp).coerceAtLeast(80.dp)
         androidx.compose.animation.AnimatedContent(
             targetState = index,
+            // A smooth glide: eased slide plus a gentle fade and shrink. No clipping box and no
+            // drop shadow during the move (those showed as a square around the icon).
             transitionSpec = {
                 val d = direction
-                (androidx.compose.animation.slideInHorizontally { it * d / 2 } + androidx.compose.animation.fadeIn()) togetherWith
-                    (androidx.compose.animation.slideOutHorizontally { -it * d / 2 } + androidx.compose.animation.fadeOut())
+                val ease = androidx.compose.animation.core.tween<androidx.compose.ui.unit.IntOffset>(
+                    320, easing = androidx.compose.animation.core.FastOutSlowInEasing)
+                val fade = androidx.compose.animation.core.tween<Float>(260)
+                (androidx.compose.animation.slideInHorizontally(ease) { it * d / 2 } +
+                    androidx.compose.animation.fadeIn(fade) +
+                    androidx.compose.animation.scaleIn(fade, initialScale = 0.85f)) togetherWith
+                    (androidx.compose.animation.slideOutHorizontally(ease) { -it * d / 2 } +
+                        androidx.compose.animation.fadeOut(fade) +
+                        androidx.compose.animation.scaleOut(fade, targetScale = 0.85f)) using
+                    androidx.compose.animation.SizeTransform(clip = false)
             },
             label = "carousel",
         ) { i ->
@@ -665,8 +676,18 @@ private fun BigSystemIcon(look: SystemLook, image: ImageBitmap?, size: Dp, focus
         Image(image, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
         return
     }
+    // A soft glow painted inside the icon's own space (a real shadow gets cut off square
+    // while the icon fades during the slide).
     Box(
-        Modifier.fillMaxSize().shadow(20.dp, CircleShape, ambientColor = look.top, spotColor = look.top)
+        Modifier.fillMaxSize()
+            .drawBehind {
+                drawCircle(
+                    Brush.radialGradient(listOf(look.top.copy(alpha = 0.45f), Color.Transparent),
+                        center = center, radius = this.size.minDimension / 2),
+                    radius = this.size.minDimension / 2,
+                )
+            }
+            .padding(size * 0.06f)
             .clip(CircleShape)
             .background(Brush.linearGradient(listOf(look.top, look.bottom)))
             .border(if (focused) 6.dp else 4.dp, ring, CircleShape),
