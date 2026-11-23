@@ -238,15 +238,20 @@ private fun HomeLookSection(activity: MainActivity) {
         @Composable
         fun stepper(label: String, value: Int, range: IntRange, set: (Int) -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(label, color = Color.White, modifier = Modifier.width(90.dp))
+                Text(label, color = Color.White, modifier = Modifier.width(70.dp))
                 OutlinedButton(onClick = { set(value - 1) }, enabled = value > range.first) { Text("−") }
                 Text("$value", color = Color.White, fontWeight = FontWeight.Bold,
                     modifier = Modifier.width(28.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                 OutlinedButton(onClick = { set(value + 1) }, enabled = value < range.last) { Text("+") }
             }
         }
-        stepper("Columns", custom.gridColumns(view), custom.GRID_COLS) { custom.setGridColumns(view, it) }
-        stepper("Rows", custom.gridRows(view), custom.GRID_ROWS) { custom.setGridRows(view, it) }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                stepper("Columns", custom.gridColumns(view), custom.GRID_COLS) { custom.setGridColumns(view, it) }
+                stepper("Rows", custom.gridRows(view), custom.GRID_ROWS) { custom.setGridRows(view, it) }
+            }
+            GridPreview(custom.gridColumns(view), custom.gridRows(view), activity.settings.coveredFraction)
+        }
     }
     Text("Background", color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall)
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -561,4 +566,54 @@ private fun GameNamesSection(activity: MainActivity) {
     }
     option("nameFull", "Show the entire file name")
     details.forEach { (key, label) -> option(key, label) }
+}
+
+/**
+ * A little phone showing what the home screen grid will look like: the icon area on top,
+ * the black strip where the Taco sits, and circles sized the same way the real screen sizes them.
+ */
+@Composable
+private fun GridPreview(cols: Int, rows: Int, covered: Float) {
+    val config = androidx.compose.ui.platform.LocalConfiguration.current
+    val screenW = config.screenWidthDp.toFloat().coerceAtLeast(1f)
+    val screenH = config.screenHeightDp.toFloat().coerceAtLeast(1f)
+    val previewW = 86.dp
+    val previewH = previewW * (screenH / screenW)
+    val colors = listOf(Color(0xFF7B5CFF), Color(0xFF34C3FF), Color(0xFFFF5C8A), Color(0xFF4CFF9A),
+        Color(0xFFFFC34C), Color(0xFFB45CFF))
+    androidx.compose.foundation.Canvas(
+        Modifier.width(previewW).height(previewH)
+            .clip(RoundedCornerShape(10.dp)).background(Color(0xFF15122E))
+            .border(2.dp, Color(0xFF666666), RoundedCornerShape(10.dp))
+    ) {
+        val scale = size.width / screenW          // pixels per real dp
+        val topH = size.height * (1f - covered)
+        // Same sizing as the home screen: header ~150dp, 8dp side padding, ~50dp label room.
+        val header = 150f
+        val gridW = screenW - 16f
+        val gridH = (screenH * (1f - covered) - header).coerceAtLeast(60f)
+        val cellW = gridW / cols
+        val cellH = gridH / rows
+        val icon = minOf(cellW - 14f, cellH - 50f).coerceIn(28f, 170f)
+        val rowH = icon + 8f + 20f + 22f   // icon + ring + padding + label, like the real one
+        var i = 0
+        var y = header + 10f
+        while (y * scale < topH) {
+            for (c in 0 until cols) {
+                val cx = (8f + cellW * c + cellW / 2) * scale
+                val cy = (y + icon / 2) * scale
+                drawCircle(colors[i++ % colors.size], radius = icon / 2 * scale,
+                    center = androidx.compose.ui.geometry.Offset(cx, cy))
+                drawRect(Color(0x66FFFFFF), topLeft = androidx.compose.ui.geometry.Offset(cx - icon / 3 * scale, cy + (icon / 2 + 10f) * scale),
+                    size = androidx.compose.ui.geometry.Size(icon * 2 / 3 * scale, 4f * scale))
+            }
+            y += rowH
+        }
+        // The Taco strip, drawn last so icons that would scroll off are hidden under it.
+        drawRect(Color.Black, topLeft = androidx.compose.ui.geometry.Offset(0f, topH),
+            size = androidx.compose.ui.geometry.Size(size.width, size.height - topH))
+        // Header bar (logo + title), so the preview reads like the real screen.
+        drawRect(Color(0x33FFFFFF), topLeft = androidx.compose.ui.geometry.Offset(20f * scale, 50f * scale),
+            size = androidx.compose.ui.geometry.Size(size.width * 0.5f, 10f * scale))
+    }
 }
