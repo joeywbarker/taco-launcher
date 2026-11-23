@@ -16,7 +16,8 @@ import android.view.accessibility.AccessibilityEvent
  * - A button with its own mapping is kept from the game and acts when released
  *   (unless it was part of a combo).
  * - A combo (two buttons) fires the moment the second button goes down. The
- *   first button still reaches the game, which is normal for hotkeys.
+ *   first button still reaches the game (press and release), which is normal for hotkeys;
+ *   only the second button is kept from it.
  */
 class ButtonMapperService : AccessibilityService() {
 
@@ -63,7 +64,12 @@ class ButtonMapperService : AccessibilityService() {
                 held += k
                 val combo = combos.firstOrNull { k in it.keys && held.containsAll(it.keys) }
                 if (combo != null) {
-                    swallowed += combo.keys
+                    // Keep the key that completed the combo from the game. The other button
+                    // already reached the game when it went down, so let its release reach the
+                    // game too. Swallowing that release left it "held down" in the game (a
+                    // stuck Select in RetroArch blocks the menu's buttons and its own hotkeys).
+                    swallowed += k
+                    combo.keys.filter { it != k && it in singles }.forEach { swallowed += it }
                     perform(combo.action)
                     return true
                 }
