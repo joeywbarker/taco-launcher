@@ -63,7 +63,10 @@ object GameNames {
 
     private val cache = java.util.concurrent.ConcurrentHashMap<String, Parts>()
 
-    fun parse(baseName: String): Parts = cache.getOrPut(baseName) { doParse(baseName) }
+    fun parse(baseName: String): Parts = cache.getOrPut(baseName) {
+        // A name we can't read must never stop the app from opening: show it as it is.
+        runCatching { doParse(baseName) }.getOrElse { Parts(baseName.trim()) }
+    }
 
     private fun doParse(raw: String): Parts {
         var s = raw
@@ -118,7 +121,9 @@ object GameNames {
         }
 
         // 1) Bracketed groups, anywhere in the name.
-        val group = Regex("""\(([^()]*)\)|\[([^\[\]]*)]|\{([^{}]*)}""")
+        // Every bracket is escaped: Android's regex engine rejects a bare { or } (unlike desktop
+        // Java), and that crashed the app as soon as it read the game list.
+        val group = Regex("""\(([^()]*)\)|\[([^\[\]]*)\]|\{([^\{\}]*)\}""")
         for (m in group.findAll(s)) {
             val inside = m.value.drop(1).dropLast(1)
             if (classify(inside, bracketed = true)) continue
