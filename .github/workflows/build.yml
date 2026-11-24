@@ -27,7 +27,22 @@ jobs:
         with:
           gradle-version: "8.14.3"
 
-      - name: Build debug APK
+      # The private signing key, if it has been added as a repository secret.
+      - name: Unpack signing key
+        env:
+          KEY_B64: ${{ secrets.RELEASE_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEY_B64" ]; then
+            echo "$KEY_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "RELEASE_KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+            echo "Signing with the private release key."
+          else
+            echo "No private key secret: signing with the debug key."
+          fi
+
+      - name: Build APK
+        env:
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
         run: gradle :app:assembleDebug -PbuildNumber=${{ github.run_number }}
 
       # Two copies: one with the version in its name (a new file name every update),
