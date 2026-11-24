@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -247,6 +248,42 @@ private fun GamesList(
         return
     }
 
+    // L / R jump to the previous / next letter, with a big letter shown for a moment.
+    var jumpLetter by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    val headerRows = (if (!inFolder && Custom.lastIn(games) != null) 1 else 0) + (if (!inFolder) 2 else 0)
+    val latestList by rememberUpdatedState(list)
+    val menuOpen by rememberUpdatedState(menuFor != null)
+    DisposableEffect(Unit) {
+        val hook: (Int) -> Unit = hook@{ dir ->
+            if (menuOpen) return@hook
+            val all = latestList
+            if (all.isEmpty()) return@hook
+            fun letter(g: Game) = g.label.firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()?.let { if (it.isDigit()) '#' else it } ?: '#'
+            val from = focused?.let { all.indexOf(it) }?.takeIf { it >= 0 } ?: 0
+            val here = letter(all[from])
+            val to = if (dir > 0) {
+                (from + 1 until all.size).firstOrNull { letter(all[it]) != here } ?: (all.size - 1)
+            } else {
+                // Start of this letter, or if already there, start of the previous letter.
+                var i = from
+                while (i > 0 && letter(all[i - 1]) == here) i--
+                if (i == from && i > 0) { val prev = letter(all[i - 1]); i--; while (i > 0 && letter(all[i - 1]) == prev) i-- }
+                i
+            }
+            focused = all[to]
+            jumpLetter = letter(all[to]).toString()
+            scope.launch {
+                gridState.scrollToItem(to + headerRows)
+                FocusKick.kick()
+                kotlinx.coroutines.delay(700)
+                jumpLetter = null
+            }
+        }
+        activity.onShoulder = hook
+        onDispose { if (activity.onShoulder === hook) activity.onShoulder = null }
+    }
+
     // Focus the game you were on (or the first one), also after a menu closes.
     val target = focused?.takeIf { it in list } ?: list.firstOrNull()
     val toolbarFocus = remember { FocusRequester() }
@@ -256,6 +293,14 @@ private fun GamesList(
         runCatching { if (target != null) gameFocus.requestFocus() else toolbarFocus.requestFocus() }
     }
 
+    jumpLetter?.let { l ->
+        androidx.compose.ui.window.Popup(alignment = Alignment.Center) {
+            Box(Modifier.size(110.dp).background(Color.Black.copy(alpha = 0.75f),
+                androidx.compose.foundation.shape.RoundedCornerShape(24.dp)), contentAlignment = Alignment.Center) {
+                Text(l, color = Color(0xFFFFD25A), fontSize = 64.sp, fontWeight = FontWeight.Black)
+            }
+        }
+    }
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.padding(horizontal = 20.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Column {
@@ -264,7 +309,7 @@ private fun GamesList(
                 Text(
                     if (favoritesOnly) "${systemName(system)} · ${list.size} favorites"
                     else if (recentOnly) "${systemName(system)} · last ${list.size} games, newest first"
-                    else "${games.size} games · ${current?.name ?: "no emulator yet"}",
+                    else "${games.size} games · ${current?.name ?: "no emulator yet"}" + if (games.size > 12) " · L / R: jump A–Z" else "",
                     color = TextDim, fontSize = 13.sp,
                 )
             }

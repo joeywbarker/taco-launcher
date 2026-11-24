@@ -37,6 +37,8 @@ class MainActivity : ComponentActivity() {
 
     /** Set by a game list: the favorite button (Y unless changed in Settings) stars the selected game. */
     var onFavoriteButton: (() -> Boolean)? = null
+    /** L (-1) and R (+1) while a game list is showing: jump to the previous/next letter. */
+    var onShoulder: ((Int) -> Unit)? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -122,6 +124,11 @@ class MainActivity : ComponentActivity() {
                 if (event.action == KeyEvent.ACTION_UP) hook()
                 return true
             }
+        }
+        if ((button == TacoButton.L || button == TacoButton.R) && onShoulder != null) {
+            // Held down, it keeps jumping.
+            if (event.action == KeyEvent.ACTION_DOWN) onShoulder?.invoke(if (button == TacoButton.L) -1 else 1)
+            return true
         }
         val code = when (button) {
             TacoButton.B -> KeyEvent.KEYCODE_BUTTON_B
