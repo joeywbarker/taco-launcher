@@ -59,6 +59,7 @@ fun SettingsScreen(
     }
     var fit by remember { mutableStateOf(activity.settings.fitEmulators) }
     var force by remember { mutableStateOf(activity.settings.forceTacoMode) }
+    var raFull by remember { mutableStateOf(activity.settings.retroArchFullScreen) }
     // Settings is split into pages; null = the list of pages.
     var page by remember { mutableStateOf<String?>(null) }
     val goBack: () -> Unit = { if (page != null) page = null else onClose() }
@@ -144,6 +145,14 @@ fun SettingsScreen(
                 Text("Fit emulators above the Pocket Taco (pop-up window)", color = Color.White, modifier = Modifier.weight(1f))
                 Switch(fit, { fit = it; activity.settings.fitEmulators = it })
             }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Open RetroArch games full screen (no window frame)", color = Color.White, modifier = Modifier.weight(1f))
+                Switch(raFull, { raFull = it; activity.settings.retroArchFullScreen = it })
+            }
+            if (raFull) Text(
+                "To keep the picture at the top, above the Taco: in RetroArch go to Settings → Video → Scaling, " +
+                    "set \"Viewport Anchor Bias Y (Portrait)\" to 0.00, then Main Menu → Configuration File → Save Current Configuration.",
+                color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Always use the Taco layout", color = Color.White, modifier = Modifier.weight(1f))
                 Switch(force, { force = it; activity.settings.forceTacoMode = it; activity.watcher.refresh() })

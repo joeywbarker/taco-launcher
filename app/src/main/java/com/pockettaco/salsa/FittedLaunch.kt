@@ -32,7 +32,9 @@ fun startFitted(activity: MainActivity, intent: Intent, system: GameSystem? = nu
         ButtonMapperState.gameOpen = true
         ButtonMapperState.gamePkg = intent.component?.packageName ?: intent.`package`
     }
-    val fit = activity.settings.fitEmulators && activity.watcher.connected.value
+    val retroArch = intent.component?.className?.contains("RetroActivity") == true
+    val fit = activity.settings.fitEmulators && activity.watcher.connected.value &&
+        !(retroArch && activity.settings.retroArchFullScreen)
     if (!fit) {
         activity.startActivity(intent)
         return
