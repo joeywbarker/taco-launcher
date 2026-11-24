@@ -47,6 +47,11 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("raCommands", true)
         set(v) = prefs.edit().putBoolean("raCommands", v).apply()
 
+    /** False after RetroArch didn't answer Taco Launcher's commands (then RetroArch's own buttons are kept). */
+    var raCommandsWork: Boolean
+        get() = prefs.getBoolean("raCommandsWork", false)
+        set(v) = prefs.edit().putBoolean("raCommandsWork", v).apply()
+
     /** Also let Start on its own open RetroArch's menu (RetroArch's own button). */
     var raStartOpensMenu: Boolean
         get() = prefs.getBoolean("raStartOpensMenu", false)
