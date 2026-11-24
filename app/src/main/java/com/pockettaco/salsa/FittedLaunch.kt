@@ -35,6 +35,11 @@ fun startFitted(activity: MainActivity, intent: Intent, system: GameSystem? = nu
     val retroArch = intent.component?.className?.contains("RetroActivity") == true
     if (system != null) {
         if (retroArch && activity.settings.retroArchFullScreen) {
+            activity.settings.folderFor(system.id)?.let { f ->
+                if (!canStillRead(activity, f)) android.widget.Toast.makeText(activity,
+                    "🌮 Taco Launcher lost access to your ${system.name} folder (this happens after reinstalling). " +
+                        "Settings → Setup check fixes it in one tap.", android.widget.Toast.LENGTH_LONG).show()
+            }
             val ok = RetroArchPlacement.apply(activity, intent, system)
             if (!ok) android.widget.Toast.makeText(activity,
                 "🌮 Couldn't set up RetroArch (${RetroArchPlacement.lastError}). The picture and hotkeys use RetroArch's own settings.",

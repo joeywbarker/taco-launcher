@@ -17,7 +17,9 @@ import com.pockettaco.salsa.*
 data class SetupItem(val ok: Boolean, val title: String, val about: String, val fixLabel: String, val fix: () -> Unit)
 
 /** Everything a new user might be missing. Each is checked live, so fixing one ticks it off. */
-fun setupItems(activity: MainActivity, library: Library, onPickFolder: () -> Unit): List<SetupItem> {
+fun setupItems(
+    activity: MainActivity, library: Library, onPickFolder: () -> Unit, onPickSystemFolder: (GameSystem) -> Unit = {},
+): List<SetupItem> {
     val st = activity.settings
     fun open(intent: Intent) = runCatching { activity.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
     val appDetails = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${activity.packageName}"))
@@ -52,6 +54,13 @@ fun setupItems(activity: MainActivity, library: Library, onPickFolder: () -> Uni
             },
             "Get RetroArch") { openStorePage(activity, "com.retroarch") },
     )
+    // A console's own folder that Android forgot (this happens after reinstalling).
+    SYSTEMS.forEach { sys ->
+        val f = st.folderFor(sys.id) ?: return@forEach
+        if (!canStillRead(activity, f)) items += SetupItem(false, "${sys.name} folder needs permission again",
+            "Android forgot Taco Launcher's access to this folder (it does after a reinstall). Pick the same folder again: " +
+                "${folderLabel(f)}.", "Pick ${sys.name} folder") { onPickSystemFolder(sys) }
+    }
     if (st.openOnConnect) {
         val bt = Build.VERSION.SDK_INT < 31 || hasBluetoothPermission(activity)
         items += SetupItem(bt && canAppearOnTop(activity), "Opens by itself when the Taco connects",
@@ -70,12 +79,22 @@ fun setupItems(activity: MainActivity, library: Library, onPickFolder: () -> Uni
 @Composable
 fun SetupCheckSection(activity: MainActivity, onPickFolder: () -> Unit) {
     val library = remember { loadLibrary(activity) }
-    var items by remember { mutableStateOf(setupItems(activity, library, onPickFolder)) }
+    var pendingSystem by remember { mutableStateOf<GameSystem?>(null) }
+    val systemPicker = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree()) { uri ->
+        val sys = pendingSystem
+        if (uri != null && sys != null) {
+            keepFolderAccess(activity, uri)
+            activity.settings.setFolderFor(sys.id, uri)
+        }
+    }
+    val pickSystem: (GameSystem) -> Unit = { pendingSystem = it; systemPicker.launch(activity.settings.folderFor(it.id)) }
+    var items by remember { mutableStateOf(setupItems(activity, library, onPickFolder, pickSystem)) }
     // Re-check every couple of seconds, so coming back from Android's settings ticks it off.
     LaunchedEffect(Unit) {
         while (true) {
             kotlinx.coroutines.delay(2000)
-            items = setupItems(activity, library, onPickFolder)
+            items = setupItems(activity, library, onPickFolder, pickSystem)
         }
     }
     val missing = items.count { !it.ok }
