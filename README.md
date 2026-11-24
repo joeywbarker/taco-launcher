@@ -70,6 +70,10 @@ attached to a release. To build locally, open the project in Android Studio, or 
 | `Settings.kt` / `ui/SettingsScreen.kt` | Your saved choices and the Settings screen. |
 | `Backup.kt` | Backup & restore. |
 
+## Console art
+
+The console and controller pictures shown on the home screen are Creative Commons artwork, released by their artist for RetroArch, and are used under that license. They are not changed apart from being resized and converted to WebP.
+
 ## Not affiliated
 
 Taco Launcher is an independent, fan-made app. It is not affiliated with, endorsed by, or sponsored by GameSir, the makers of the Pocket Taco, RetroArch / Libretro, or any other company. All product names and trademarks belong to their respective owners and are used only to describe compatibility.

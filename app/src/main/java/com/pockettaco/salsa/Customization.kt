@@ -57,6 +57,7 @@ val ICON_COLORS = listOf(
 object Custom {
     private var prefs: SharedPreferences? = null
     private var dir: File? = null
+    private var assets: android.content.res.AssetManager? = null
     val version = mutableIntStateOf(0)
     private val images = HashMap<String, ImageBitmap?>()
 
@@ -64,6 +65,7 @@ object Custom {
         if (prefs != null) return
         prefs = context.getSharedPreferences("taco_custom", Context.MODE_PRIVATE)
         dir = context.filesDir
+        assets = context.applicationContext.assets
     }
 
     fun changed() { images.clear(); version.intValue++ }
@@ -129,7 +131,29 @@ object Custom {
     fun iconFile(id: String) = File(dir, "icons/$id.png")
     fun backgroundFile() = File(dir, "background.jpg")
 
-    fun icon(id: String): ImageBitmap? { read(); return image(iconFile(id), trim = true) }
+    fun icon(id: String): ImageBitmap? { read(); return image(iconFile(id), trim = true) ?: builtIn(id) }
+
+    /**
+     * Console pictures that come with the app (the .webp files in assets/consoles/<id>), used until you pick
+     * your own. The console art is used under its Creative Commons license (credit in About).
+     */
+    private val builtInSets = HashMap<String, List<ImageBitmap>>()
+
+    fun builtIns(id: String): List<ImageBitmap> = synchronized(builtInSets) {
+        builtInSets.getOrPut(id) {
+            val a = assets ?: return@getOrPut emptyList()
+            runCatching {
+                (a.list("consoles/$id") ?: emptyArray()).sorted().mapNotNull { name ->
+                    a.open("consoles/$id/$name").use { BitmapFactory.decodeStream(it) }?.asImageBitmap()
+                }
+            }.getOrDefault(emptyList())
+        }
+    }
+
+    /** True when you picked your own picture for this console. */
+    fun hasOwnIcon(id: String) = iconFile(id).exists()
+
+    private fun builtIn(id: String): ImageBitmap? = builtIns(id).firstOrNull()
     fun backgroundImage(): ImageBitmap? { read(); return image(backgroundFile()) }
 
     private fun image(file: File, trim: Boolean = false): ImageBitmap? = images.getOrPut(file.path) {

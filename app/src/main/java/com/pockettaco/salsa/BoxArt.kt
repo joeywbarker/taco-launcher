@@ -39,6 +39,8 @@ object BoxArt {
         "atari5200" to "Atari - 5200", "atari7800" to "Atari - 7800", "lynx" to "Atari - Lynx",
         "jaguar" to "Atari - Jaguar", "colecovision" to "Coleco - ColecoVision", "intellivision" to "Mattel - Intellivision",
         "msx" to "Microsoft - MSX", "c64" to "Commodore - 64",
+        "ps3" to "Sony - PlayStation 3", "xbox" to "Microsoft - Xbox", "x360" to "Microsoft - Xbox 360",
+        "wiiu" to "Nintendo - Wii U", "vita" to "Sony - PlayStation Vita",
     )
 
     private lateinit var root: File

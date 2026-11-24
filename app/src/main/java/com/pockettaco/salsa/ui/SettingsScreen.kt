@@ -437,6 +437,8 @@ private fun AboutSection(activity: MainActivity) {
         }
     }) { Text("github.com/joeywbarker") }
     Text("Taco Launcher is an independent, fan-made app. It is not affiliated with, endorsed by, or sponsored by GameSir, the makers of the Pocket Taco, RetroArch / Libretro, or any other company. All product names and trademarks belong to their respective owners and are used only to describe compatibility.", color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall)
+    Text("Console and controller pictures: Creative Commons artwork, released by its artist for RetroArch. " +
+        "Used under its license; full credit is in the README.", color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall)
     Text("No games are included. Only play games you own.", color = Color(0xFFAAAAAA),
         style = MaterialTheme.typography.bodySmall)
     var skipSplash by remember { mutableStateOf(!activity.settings.showSplash) }

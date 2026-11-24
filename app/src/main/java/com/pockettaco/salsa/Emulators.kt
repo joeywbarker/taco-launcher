@@ -42,6 +42,15 @@ val SYSTEMS = listOf(
     GameSystem("gc", "GameCube", setOf("gcm", "gcz"), setOf("iso", "rvz", "ciso")),
     GameSystem("wii", "Wii", setOf("wbfs"), setOf("iso", "rvz", "wad", "wia")),
     GameSystem("3ds", "Nintendo 3DS", setOf("3ds", "cia", "cci", "cxi")),
+    // Newer consoles, ready for when Android emulators for them are good enough. Their games
+    // only count inside their own folder, since .iso is shared with many other systems.
+    GameSystem("ps3", "PlayStation 3", emptySet(), setOf("iso", "pkg")),
+    GameSystem("xbox", "Xbox", emptySet(), setOf("iso", "xiso")),
+    GameSystem("x360", "Xbox 360", emptySet(), setOf("iso", "xex", "zar")),
+    GameSystem("wiiu", "Wii U", setOf("wua", "wud", "wux", "rpx")),
+    GameSystem("switch", "Nintendo Switch", setOf("nsp", "xci", "nsz", "xcz")),
+    GameSystem("switch2", "Nintendo Switch 2", emptySet(), setOf("nsp", "xci")),
+    GameSystem("vita", "PlayStation Vita", setOf("vpk"), setOf("zip")),
     GameSystem("fds", "Famicom Disk System", setOf("fds")),
     GameSystem("virtualboy", "Virtual Boy", setOf("vb", "vboy")),
     GameSystem("pokemini", "Pokémon Mini", setOf("min")),
@@ -61,16 +70,20 @@ val SYSTEMS = listOf(
     GameSystem("c64", "Commodore 64", setOf("d64", "t64", "prg", "crt")),
 )
 
+/** Systems RetroArch has no core for, so it isn't offered (or counted) for them. */
+private val NOT_IN_RETROARCH = setOf("ps3", "xbox", "x360", "wiiu", "switch", "switch2", "vita")
+private val RETROARCH_SYSTEMS = SYSTEMS.map { it.id }.toSet() - NOT_IN_RETROARCH
+
 /** Emulator apps we know about. Add more here; the list is just a lookup table. */
 data class Emulator(val pkg: String, val name: String, val systems: Set<String>)
 
 val KNOWN_EMULATORS = listOf(
-    Emulator("com.retroarch", "RetroArch", SYSTEMS.map { it.id }.toSet()),
-    Emulator("com.retroarch.aarch64", "RetroArch (64-bit)", SYSTEMS.map { it.id }.toSet()),
+    Emulator("com.retroarch", "RetroArch", RETROARCH_SYSTEMS),
+    Emulator("com.retroarch.aarch64", "RetroArch (64-bit)", RETROARCH_SYSTEMS),
     Emulator("com.swordfish.lemuroid", "Lemuroid",
         setOf("gb", "gbc", "gba", "nes", "snes", "genesis", "sms", "gg", "pce", "ngp",
             "n64", "nds", "psx", "psp")),
-    Emulator("com.retroarch.ra32", "RetroArch (32-bit)", SYSTEMS.map { it.id }.toSet()),
+    Emulator("com.retroarch.ra32", "RetroArch (32-bit)", RETROARCH_SYSTEMS),
     Emulator("com.fastemulator.gba", "My Boy!", setOf("gba")),
     Emulator("com.fastemulator.gbc", "My OldBoy!", setOf("gb", "gbc")),
     Emulator("it.dbtecno.pizzaboy", "Pizza Boy GBC", setOf("gb", "gbc")),
@@ -115,7 +128,20 @@ fun installedEmulators(context: Context): List<Emulator> {
 
 private val ALL = SYSTEMS.map { it.id }.toSet()
 private val NAME_HINTS = linkedMapOf(
-    "retroarch" to ALL,
+    "retroarch" to RETROARCH_SYSTEMS,
+    // Matched by app name, so any of these works once it's installed.
+    "aps3e" to setOf("ps3"),
+    "rpcs3" to setOf("ps3"),
+    "xemu" to setOf("xbox"),
+    "ax360e" to setOf("x360"),
+    "xenia" to setOf("x360"),
+    "cemu" to setOf("wiiu"),
+    "vita3k" to setOf("vita"),
+    "eden" to setOf("switch"),
+    "citron" to setOf("switch"),
+    "sudachi" to setOf("switch"),
+    "yuzu" to setOf("switch"),
+    "strato" to setOf("switch"),
     "lemuroid" to setOf("gb", "gbc", "gba", "nes", "snes", "genesis", "sms", "gg", "pce", "ngp",
         "n64", "nds", "psx", "fds", "virtualboy", "ws", "wsc", "lynx", "atari2600", "atari7800", "segacd", "sega32x"),
     "my boy" to setOf("gba"),

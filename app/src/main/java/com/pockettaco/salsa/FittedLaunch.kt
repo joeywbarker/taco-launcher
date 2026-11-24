@@ -81,7 +81,7 @@ val SCREEN_SHAPES = mapOf(
     "n64" to 4f / 3f, "psx" to 4f / 3f, "psp" to 16f / 9f,
     "nds" to 2f / 3f, // two screens stacked
     "dreamcast" to 4f / 3f, "saturn" to 4f / 3f, "segacd" to 4f / 3f, "sega32x" to 4f / 3f,
-    "ps2" to 4f / 3f, "gc" to 4f / 3f, "wii" to 16f / 9f, "3ds" to 5f / 6f, "fds" to 4f / 3f,
+    "ps2" to 4f / 3f, "gc" to 4f / 3f, "wii" to 16f / 9f, "3ds" to 5f / 6f, "ps3" to 16f / 9f, "xbox" to 4f / 3f, "x360" to 16f / 9f, "wiiu" to 16f / 9f, "switch" to 16f / 9f, "switch2" to 16f / 9f, "vita" to 16f / 9f, "fds" to 4f / 3f,
     "ws" to 14f / 9f, "wsc" to 14f / 9f, "lynx" to 160f / 102f, "neogeo" to 4f / 3f, "arcade" to 4f / 3f,
 )
 

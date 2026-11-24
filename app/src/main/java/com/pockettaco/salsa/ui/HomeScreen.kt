@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.focus.focusProperties
@@ -844,9 +845,17 @@ private fun ColumnScope.Carousel(
         ) { i ->
             val (s, g) = systems[i.coerceIn(0, n - 1)]
             val look = lookFor(s.id)
-            val img = Custom.icon(s.id)
+            // Built-in console art: while you rest on a console, its pictures slowly take turns,
+            // dissolving into each other. A picture you picked yourself always stays put.
+            val pics = if (Custom.hasOwnIcon(s.id)) emptyList() else Custom.builtIns(s.id)
+            var shown by remember(s.id) { mutableIntStateOf(0) }
+            if (pics.size > 1) LaunchedEffect(s.id) {
+                while (true) { kotlinx.coroutines.delay(3500); shown = (shown + 1) % pics.size }
+            }
+            val cycling = pics.size > 1
+            val img = if (pics.isNotEmpty()) pics[shown % pics.size] else Custom.icon(s.id)
             val cutout = img != null && img.hasAlpha && img.width > 0 && img.height > 0
-            val (iw, ih) = if (cutout && img != null) {
+            val (iw, ih) = if (cycling) boxW to boxH else if (cutout && img != null) {
                 val aspect = img.width.toFloat() / img.height
                 if (boxW / boxH > aspect) (boxH * aspect) to boxH else boxW to (boxW / aspect)
             } else minOf(boxW, boxH).let { it to it }
@@ -855,7 +864,19 @@ private fun ColumnScope.Carousel(
                 // corner, so it never covers it.
                 Box(Modifier.size(iw, ih + pillH)) {
                     Box(Modifier.align(Alignment.BottomCenter).size(iw, ih)) {
-                        BigSystemIcon(look, img, minOf(iw, ih), focused)
+                        if (cycling) {
+                            // A slow "breathing" zoom under the dissolve, so it feels alive.
+                            val breathe by androidx.compose.animation.core.rememberInfiniteTransition(label = "breathe")
+                                .animateFloat(0.96f, 1.03f, androidx.compose.animation.core.infiniteRepeatable(
+                                    androidx.compose.animation.core.tween(3500,
+                                        easing = androidx.compose.animation.core.FastOutSlowInEasing),
+                                    androidx.compose.animation.core.RepeatMode.Reverse), label = "zoom")
+                            androidx.compose.animation.Crossfade(img, Modifier.fillMaxSize()
+                                .graphicsLayer { scaleX = breathe; scaleY = breathe },
+                                animationSpec = androidx.compose.animation.core.tween(1100), label = "pics") { pic ->
+                                BigSystemIcon(look, pic, minOf(iw, ih), focused)
+                            }
+                        } else BigSystemIcon(look, img, minOf(iw, ih), focused)
                     }
                     CountBadge("${g.size}", pillFont, Modifier.align(Alignment.TopEnd))
                 }
