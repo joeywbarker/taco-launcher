@@ -166,7 +166,20 @@ object RetroArchPlacement {
             }
             choice("smooth", "video_smooth")
             choice("fps", "fps_show")
-            choice("resume", "savestate_auto_save", "savestate_auto_load")
+            // Resume where you left off: RetroArch saves your spot when the game closes and
+            // loads it next time, unless you said not to keep it ("Still playing?" prompt).
+            when {
+                st.raChoice("resume") == 2 -> {
+                    append("savestate_auto_save = \"false\"\n")
+                    append("savestate_auto_load = \"false\"\n")
+                }
+                st.raKeepsSpot -> {
+                    val fresh = file != null && st.freshStart(system.id, file)
+                    if (fresh) st.setFreshStart(system.id, file!!, false)
+                    append("savestate_auto_save = \"true\"\n")
+                    append("savestate_auto_load = \"").append(!fresh).append("\"\n")
+                }
+            }
             choice("pauseMenu", "menu_pause_libretro")
             append("#include \"").append(mainConfig).append("\"\n")
         }

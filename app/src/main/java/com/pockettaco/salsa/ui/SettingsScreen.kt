@@ -252,10 +252,13 @@ private fun RetroArchGamesSection(activity: MainActivity) {
     SettingSwitch("Ask \"Still playing?\" before switching games",
         "Only one RetroArch game runs at a time. If you left a game with Home and pick a different one, " +
             "Taco Launcher asks whether to go back to it or close it and start the new one. " +
+            "You can also choose whether to keep your spot in the old game: kept, it picks up right there next time; " +
+            "not kept, it starts from the beginning (or your own save states). " +
             "Off: the new game just replaces the old one. Using the Exit game hotkey never asks.",
         ask, Applies.NOW) { ask = it; st.raAskBeforeSwitch = it }
     RaChoice(activity, "resume", "Resume where you left off",
-        "On: leaving a game saves your spot automatically, and starting it again picks up right there.")
+        "On: leaving a game saves your spot automatically, and starting it again picks up right there. " +
+            "\"RetroArch's\" does this too while \"Still playing?\" is on, so that question can offer to keep your spot.")
     RaChoice(activity, "pauseMenu", "Pause the game while the menu is open",
         "On: the game stops while RetroArch's menu is showing.")
 }

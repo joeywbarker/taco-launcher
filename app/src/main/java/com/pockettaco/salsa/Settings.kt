@@ -175,6 +175,14 @@ class Settings(context: Context) {
         prefs.edit().putString("emu_game_${game.system.id}|${game.file}", pkg).apply()
 
     /** How RetroArch places one game's picture (see RetroArchPlacement.Layout), or null for Auto. */
+    /** Set when you chose not to keep your spot: the game's next start skips its automatic save once. */
+    fun freshStart(system: String, file: String): Boolean = prefs.getBoolean("fresh_$system|$file", false)
+    fun setFreshStart(system: String, file: String, v: Boolean) =
+        prefs.edit().putBoolean("fresh_$system|$file", v).apply()
+
+    /** RetroArch saves your spot when a game closes (needed for the "keep my spot?" choice). */
+    val raKeepsSpot: Boolean get() = raChoice("resume").let { it == 1 || (it == 0 && raAskBeforeSwitch) }
+
     fun layoutForGame(system: String, file: String): String? = prefs.getString("layout_game_$system|$file", null)
     fun setLayoutForGame(system: String, file: String, layout: String?) =
         prefs.edit().putString("layout_game_$system|$file", layout).apply()
