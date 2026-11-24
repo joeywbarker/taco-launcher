@@ -134,7 +134,7 @@ object Custom {
     fun icon(id: String): ImageBitmap? { read(); return image(iconFile(id), trim = true) ?: builtIn(id) }
 
     /**
-     * Console pictures that come with the app (assets/consoles/<id>/*.webp), used until you pick
+     * Console pictures that come with the app (the .webp files in assets/consoles/<id>), used until you pick
      * your own. The console art is used under its Creative Commons license (credit in About).
      */
     private val builtInSets = HashMap<String, List<ImageBitmap>>()
