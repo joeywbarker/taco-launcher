@@ -161,6 +161,7 @@ fun SettingsScreen(
                 OutlinedButton(onClick = onRescan) { Text("Rescan games") }
             }
 
+            BoxArtSection(activity)
             SystemsSection(activity, onRescan)
 
             }
@@ -370,6 +371,21 @@ private fun HomeLookSection(activity: MainActivity) {
     else Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Button(onClick = { custom.resetAll(); confirmReset = false }) { Text("Yes, reset the look") }
         TextButton(onClick = { confirmReset = false }) { Text("Cancel") }
+    }
+}
+
+/** Cover pictures for games, downloaded as they show up. */
+@Composable
+private fun BoxArtSection(activity: MainActivity) {
+    var on by remember { mutableStateOf(activity.settings.boxArt) }
+    var cleared by remember { mutableStateOf(false) }
+    SettingSwitch("Show box art",
+        "Downloads each game's cover picture the first time it shows in a list (Grid and List views), from the free " +
+            "libretro-thumbnails collection that RetroArch also uses. Pictures stay on your phone after that. " +
+            "Works best when game files have their full names, like \"Pokemon - Crystal Version (USA)\". Not for Arcade.",
+        on, Applies.NOW) { on = it; activity.settings.boxArt = it }
+    if (on) OutlinedButton(onClick = { com.pockettaco.salsa.BoxArt.clear(); cleared = true }) {
+        Text(if (cleared) "✓ Cleared: pictures download again" else "Download all box art again")
     }
 }
 

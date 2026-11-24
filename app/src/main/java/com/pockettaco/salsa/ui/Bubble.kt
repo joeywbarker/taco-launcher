@@ -223,7 +223,7 @@ fun GameCard(
 @Composable
 fun GameTile(
     title: String, look: SystemLook, focusRequester: FocusRequester? = null,
-    onFocused: () -> Unit = {}, onLongClick: (() -> Unit)? = null, onClick: () -> Unit,
+    onFocused: () -> Unit = {}, onLongClick: (() -> Unit)? = null, image: ImageBitmap? = null, onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (focused) 1.06f else 1f, label = "s")
@@ -244,7 +244,9 @@ fun GameTile(
                 .border(if (focused) 3.dp else 1.dp, if (focused) Color.White else Color.White.copy(alpha = 0.2f), shape),
             contentAlignment = Alignment.Center,
         ) {
-            Text(title.firstOrNull { it.isLetterOrDigit() }?.uppercase() ?: "?",
+            if (image != null) Image(image, contentDescription = title, contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize().padding(4.dp))
+            else Text(title.firstOrNull { it.isLetterOrDigit() }?.uppercase() ?: "?",
                 color = Color.White, fontWeight = FontWeight.Black, fontSize = 30.sp)
         }
         Spacer(Modifier.height(4.dp))

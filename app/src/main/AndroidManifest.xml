@@ -3,6 +3,7 @@
 
     <!-- Needed to notice the Pocket Taco connecting over Bluetooth while closed. -->
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <!-- "Appear on top": Android only lets a closed app open itself with this. -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />

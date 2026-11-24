@@ -42,6 +42,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         settings = Settings(this)
+        BoxArt.init(this)
         Custom.init(this)
         GameNames.load(settings)
         watcher = ControllerWatcher(this, settings)

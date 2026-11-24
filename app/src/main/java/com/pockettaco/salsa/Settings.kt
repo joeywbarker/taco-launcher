@@ -179,6 +179,11 @@ class Settings(context: Context) {
     fun isBack(e: android.view.KeyEvent) = e.keyCode == backKey && (backScan == 0 || e.scanCode == backScan)
 
     /** Play the short intro when Taco Launcher starts. */
+    /** Download cover pictures for games (needs the internet the first time each one shows). */
+    var boxArt: Boolean
+        get() = prefs.getBoolean("boxArt", true)
+        set(v) = prefs.edit().putBoolean("boxArt", v).apply()
+
     var showSplash: Boolean
         get() = prefs.getBoolean("showSplash", true)
         set(v) = prefs.edit().putBoolean("showSplash", v).apply()
