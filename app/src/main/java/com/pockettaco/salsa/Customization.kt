@@ -134,14 +134,26 @@ object Custom {
     fun icon(id: String): ImageBitmap? { read(); return image(iconFile(id), trim = true) ?: builtIn(id) }
 
     /**
-     * Console pictures that come with the app (assets/consoles/<id>.png), used until you pick
+     * Console pictures that come with the app (assets/consoles/<id>/*.webp), used until you pick
      * your own. The console art is used under its Creative Commons license (credit in About).
      */
-    private fun builtIn(id: String): ImageBitmap? = images.getOrPut("asset:$id") {
-        runCatching {
-            assets?.open("consoles/$id.png")?.use { BitmapFactory.decodeStream(it) }?.asImageBitmap()
-        }.getOrNull()
+    private val builtInSets = HashMap<String, List<ImageBitmap>>()
+
+    fun builtIns(id: String): List<ImageBitmap> = synchronized(builtInSets) {
+        builtInSets.getOrPut(id) {
+            val a = assets ?: return@getOrPut emptyList()
+            runCatching {
+                (a.list("consoles/$id") ?: emptyArray()).sorted().mapNotNull { name ->
+                    a.open("consoles/$id/$name").use { BitmapFactory.decodeStream(it) }?.asImageBitmap()
+                }
+            }.getOrDefault(emptyList())
+        }
     }
+
+    /** True when you picked your own picture for this console. */
+    fun hasOwnIcon(id: String) = iconFile(id).exists()
+
+    private fun builtIn(id: String): ImageBitmap? = builtIns(id).firstOrNull()
     fun backgroundImage(): ImageBitmap? { read(); return image(backgroundFile()) }
 
     private fun image(file: File, trim: Boolean = false): ImageBitmap? = images.getOrPut(file.path) {
