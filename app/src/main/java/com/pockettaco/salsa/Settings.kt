@@ -35,6 +35,32 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("retroArchFullScreen", true)
         set(v) = prefs.edit().putBoolean("retroArchFullScreen", v).apply()
 
+    // ---- RetroArch games (applied through Taco Launcher's own RetroArch settings file) ----
+
+    /** Where the picture goes when a game has no layout of its own: "auto", "top" or "tall". */
+    var raPictureDefault: String
+        get() = prefs.getString("raPictureDefault", "auto") ?: "auto"
+        set(v) = prefs.edit().putString("raPictureDefault", v).apply()
+
+    /** Taco Launcher opens RetroArch's menu (Select + Start) and closes it properly (Home). */
+    var raCommands: Boolean
+        get() = prefs.getBoolean("raCommands", true)
+        set(v) = prefs.edit().putBoolean("raCommands", v).apply()
+
+    /** Also let Start on its own open RetroArch's menu (RetroArch's own button). */
+    var raStartOpensMenu: Boolean
+        get() = prefs.getBoolean("raStartOpensMenu", false)
+        set(v) = prefs.edit().putBoolean("raStartOpensMenu", v).apply()
+
+    /** Select + R1 saves, Select + L1 loads a save state. */
+    var raStateHotkeys: Boolean
+        get() = prefs.getBoolean("raStateHotkeys", true)
+        set(v) = prefs.edit().putBoolean("raStateHotkeys", v).apply()
+
+    /** 0 = leave it to RetroArch, 1 = on, 2 = off. */
+    fun raChoice(key: String): Int = prefs.getInt("ra_$key", 0)
+    fun setRaChoice(key: String, v: Int) = prefs.edit().putInt("ra_$key", v).apply()
+
     /** Jump to the launcher the moment the Pocket Taco connects. */
     var openOnConnect: Boolean
         get() = prefs.getBoolean("openOnConnect", true)

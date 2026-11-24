@@ -592,7 +592,7 @@ private fun GameMenu(activity: MainActivity, game: Game, onPlay: () -> Unit, onC
 
 /** A tiny phone: the Taco's part at the bottom, and where the game picture would go. */
 @Composable
-private fun LayoutPreview(activity: MainActivity, system: GameSystem, layout: RetroArchPlacement.Layout) {
+fun LayoutPreview(activity: MainActivity, system: GameSystem, layout: RetroArchPlacement.Layout) {
     val screen = remember { activity.windowManager.currentWindowMetrics.bounds }
     val covered = activity.settings.coveredFraction
     val shape = SCREEN_SHAPES[system.id] ?: 4f / 3f

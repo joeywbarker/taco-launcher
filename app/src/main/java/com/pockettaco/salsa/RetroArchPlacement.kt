@@ -77,7 +77,8 @@ object RetroArchPlacement {
         // Where the pop-up window would have gone; "Auto" centres the picture on that spot.
         val spot = gameWindowRect(activity.settings, screen.width(), screen.height(), shape)
         val file = intent.getStringExtra("ROM")?.substringAfterLast('/')
-        val layout = Layout.of(file?.let { activity.settings.layoutForGame(system.id, it) })
+        val st = activity.settings
+        val layout = Layout.of(file?.let { st.layoutForGame(system.id, it) } ?: st.raPictureDefault)
         val r = pictureRect(layout, w, h, activity.settings.coveredFraction, spot.exactCenterY(), shape)
         fun f(v: Float) = String.format(java.util.Locale.US, "%.6f", v)
         val text = buildString {
@@ -98,17 +99,37 @@ object RetroArchPlacement {
                 append("video_viewport_bias_portrait_x = \"0.500000\"\n")
                 append("video_viewport_bias_portrait_y = \"").append(f(bias)).append("\"\n")
             }
-            // Lets Taco Launcher's hotkeys open RetroArch's menu and quit it properly
-            // (quitting for real is what lets the next game start without a black screen).
-            append("network_cmd_enable = \"true\"\n")
-            append("network_cmd_port = \"$PORT\"\n")
-            append("quit_press_twice = \"false\"\n")
             append("config_save_on_exit = \"false\"\n")
-            // Select + Start (sent by Taco Launcher) is the only way into the menu, so Start
-            // on its own never opens it and the two can't cancel each other out.
-            append("input_menu_toggle_btn = \"nul\"\n")
-            append("input_menu_toggle_axis = \"nul\"\n")
-            append("input_menu_toggle_gamepad_combo = \"0\"\n")
+            if (st.raCommands) {
+                // Lets Taco Launcher's hotkeys open RetroArch's menu and quit it properly
+                // (quitting for real is what lets the next game start without a black screen).
+                append("network_cmd_enable = \"true\"\n")
+                append("network_cmd_port = \"$PORT\"\n")
+                // No "press again to quit" (older and newer RetroArch names).
+                append("quit_press_twice = \"false\"\n")
+                append("confirm_quit = \"false\"\n")
+                if (!st.raStartOpensMenu) {
+                    // Select + Start (sent by Taco Launcher) is then the only way into the menu,
+                    // so Start on its own never opens it and the two can't cancel each other out.
+                    append("input_menu_toggle_btn = \"nul\"\n")
+                    append("input_menu_toggle_axis = \"nul\"\n")
+                    append("input_menu_toggle_gamepad_combo = \"0\"\n")
+                }
+            }
+            if (st.raStateHotkeys) {
+                // Android button numbers: Select 109, L1 102, R1 103.
+                append("input_enable_hotkey_btn = \"109\"\n")
+                append("input_save_state_btn = \"103\"\n")
+                append("input_load_state_btn = \"102\"\n")
+            }
+            fun choice(key: String, vararg raKeys: String) {
+                val v = st.raChoice(key)
+                if (v != 0) raKeys.forEach { append(it).append(" = \"").append(v == 1).append("\"\n") }
+            }
+            choice("smooth", "video_smooth")
+            choice("fps", "fps_show")
+            choice("resume", "savestate_auto_save", "savestate_auto_load")
+            choice("pauseMenu", "menu_pause_libretro")
             append("#include \"").append(mainConfig).append("\"\n")
         }
         val doc = findOrCreate(activity, folder) ?: return false
