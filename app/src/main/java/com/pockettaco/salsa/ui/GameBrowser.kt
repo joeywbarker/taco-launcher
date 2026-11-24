@@ -323,10 +323,11 @@ private fun GamesList(
                 val title = if (!favoritesOnly && game in favorites) "★ ${game.label}" else game.label
                 val onFocused = { focused = game }
                 val onHold = { menuFor = game }
+                val art = if (view == GameView.COMPACT) null else com.pockettaco.salsa.rememberBoxArt(activity, game)
                 when (view) {
-                    GameView.LIST -> GameCard(title, look = look, focusRequester = focus,
+                    GameView.LIST -> GameCard(title, look = look, focusRequester = focus, image = art,
                         onFocused = onFocused, onLongClick = onHold) { onPlay(game) }
-                    GameView.GRID -> GameTile(title, look, focus, onFocused, onHold) { onPlay(game) }
+                    GameView.GRID -> GameTile(title, look, focus, onFocused, onHold, image = art) { onPlay(game) }
                     GameView.COMPACT -> GameRow(title, look, focus, onFocused, onHold) { onPlay(game) }
                 }
             }

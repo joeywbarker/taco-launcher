@@ -29,7 +29,8 @@ object Backup {
             all.put("version", 1)
             zip.putNextEntry(ZipEntry(MARK)); zip.write(all.toString(1).toByteArray()); zip.closeEntry()
             val root = context.filesDir
-            root.walkTopDown().filter { it.isFile }.forEach { f ->
+            // Box art is left out: it downloads again by itself and would make the file big.
+            root.walkTopDown().onEnter { it.name != "boxart" }.filter { it.isFile }.forEach { f ->
                 zip.putNextEntry(ZipEntry("files/" + f.relativeTo(root).path))
                 f.inputStream().use { it.copyTo(zip) }
                 zip.closeEntry()
