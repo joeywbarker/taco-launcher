@@ -73,6 +73,7 @@ fun SettingsScreen(
         Triple("retroarch", "RetroArch games", "Picture position, menu and quit hotkeys, save states, resume"),
         Triple("games", "Games & systems", "Game names, folders, rescan, which app each system uses"),
         Triple("look", "Look", "Home view, background, app icon"),
+        Triple("backup", "Backup & restore", "Save all your settings to a file, or put them back"),
         Triple("about", "About", "Version and credits"),
     )
     Column(Modifier.fillMaxSize().systemBarsPadding().verticalScroll(rememberScrollState()).padding(16.dp),
@@ -96,7 +97,7 @@ fun SettingsScreen(
         when (page) {
             null -> pages.forEach { (key, title, sub) ->
                 GameCard(title, sub, SETTINGS_LOOK, tile = when (key) {
-                    "controller" -> "🎮"; "screen" -> "▭"; "retroarch" -> "▶"; "games" -> "📁"; "look" -> "🎨"; else -> "ℹ"
+                    "controller" -> "🎮"; "screen" -> "▭"; "retroarch" -> "▶"; "games" -> "📁"; "look" -> "🎨"; "backup" -> "💾"; else -> "ℹ"
                 }) { page = key }
             }
             "controller" -> {
@@ -138,6 +139,8 @@ fun SettingsScreen(
             Text("Screen covered by the Pocket Taco: ${(covered * 100).toInt()}%", color = Color.White)
             Slider(value = covered, onValueChange = onCoveredChange, valueRange = 0f..0.6f, steps = 11)
             GameWindowSection(activity, covered)
+            GameCard("Run the first-time setup again", "Walks you through the Taco's space with a live preview",
+                SETTINGS_LOOK, tile = "📏") { activity.settings.setupDone = false; activity.recreate() }
 
             SettingSwitch("Fit emulators above the Pocket Taco",
                 "Other emulators open in a pop-up window sized to the free part of the screen, so nothing hides behind the Taco. " +
@@ -190,6 +193,7 @@ fun SettingsScreen(
 
             }
             "retroarch" -> RetroArchGamesSection(activity)
+            "backup" -> BackupSection(activity)
             "about" -> AboutSection(activity)
         }
     }
@@ -365,6 +369,38 @@ private fun HomeLookSection(activity: MainActivity) {
         Button(onClick = { custom.resetAll(); confirmReset = false }) { Text("Yes, reset the look") }
         TextButton(onClick = { confirmReset = false }) { Text("Cancel") }
     }
+}
+
+/** Save everything to one file, or put it back (for reinstalling or a new phone). */
+@Composable
+private fun BackupSection(activity: MainActivity) {
+    var note by remember { mutableStateOf<String?>(null) }
+    val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+        if (uri != null) note = com.pockettaco.salsa.Backup.write(activity, uri).fold(
+            { "✓ Saved. Keep this file somewhere safe (it's in the folder you picked)." },
+            { "Couldn't save: ${it.message}" })
+    }
+    var confirm by remember { mutableStateOf(false) }
+    val load = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) com.pockettaco.salsa.Backup.restore(activity, uri).fold(
+            { com.pockettaco.salsa.Backup.restartApp(activity) },
+            { note = "Nothing was changed: ${it.message}" })
+    }
+    Text("One file holds all your Taco Launcher settings, button mappings, per-game choices, pictures and " +
+        "home screen look. Make one before reinstalling or moving to a new phone.",
+        color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall)
+    GameCard("Back up my settings", "Saves a .zip file wherever you choose (Downloads is a good spot)",
+        SETTINGS_LOOK, tile = "💾") {
+        val day = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+        save.launch("taco-launcher-backup-$day.zip")
+    }
+    GameCard(if (confirm) "Press again to restore" else "Restore from a backup",
+        if (confirm) "Replaces all current settings with the backup's" else
+            "Taco Launcher restarts afterwards and asks for your games folder again (Android needs that)",
+        SETTINGS_LOOK, tile = "↺") {
+        if (!confirm) confirm = true else { confirm = false; load.launch(arrayOf("application/zip", "application/octet-stream", "*/*")) }
+    }
+    note?.let { Text(it, color = Color(0xFFFFD25A), style = MaterialTheme.typography.bodySmall) }
 }
 
 @Composable

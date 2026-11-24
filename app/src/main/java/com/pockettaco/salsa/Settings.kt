@@ -7,10 +7,42 @@ import android.net.Uri
 class Settings(context: Context) {
     private val prefs = context.getSharedPreferences("taco", Context.MODE_PRIVATE)
 
-    /** How much of the screen bottom the Taco covers, 0.0 to 0.6. Default 40%. */
+    /**
+     * A first guess at how much of this phone's screen the Taco covers. The Taco hides about
+     * 6.3 cm of screen (40% of a Galaxy S26 Ultra), so a shorter phone loses a bigger share.
+     * The first-run setup lets you fine-tune it with a live preview.
+     */
+    private val guessedCover: Float = runCatching {
+        val m = context.resources.displayMetrics
+        val tallPx = maxOf(m.heightPixels, m.widthPixels).toFloat()
+        val dpi = if (m.heightPixels >= m.widthPixels) m.ydpi else m.xdpi
+        val tallCm = tallPx / dpi * 2.54f
+        if (tallCm in 8f..30f) (6.3f / tallCm).coerceIn(0.25f, 0.6f) else 0.40f
+    }.getOrDefault(0.40f)
+
+    /** How much of the screen bottom the Taco covers, 0.0 to 0.6. */
     var coveredFraction: Float
-        get() = prefs.getFloat("covered", 0.40f)
+        get() = prefs.getFloat("covered", guessedCover)
         set(v) = prefs.edit().putFloat("covered", v.coerceIn(0f, 0.6f)).apply()
+
+    /**
+     * False until the first-run setup is finished (or skipped). Someone updating from an older
+     * version already set things up, so they never see it, and their choices are kept as they are.
+     */
+    var setupDone: Boolean
+        get() {
+            if (!prefs.contains("setupDone")) {
+                val existing = prefs.all.isNotEmpty()
+                prefs.edit().apply {
+                    // Keep the screen split an existing user has always had.
+                    if (existing && !prefs.contains("covered")) putFloat("covered", 0.40f)
+                    putBoolean("setupDone", existing)
+                }.apply()
+                return existing
+            }
+            return prefs.getBoolean("setupDone", false)
+        }
+        set(v) = prefs.edit().putBoolean("setupDone", v).apply()
 
     /** Treat any gamepad as a Taco (handy if the name ever changes). */
     var anyGamepadCounts: Boolean
@@ -83,7 +115,7 @@ class Settings(context: Context) {
 
     /** Game window height as a share of the whole screen, when not auto-sized. */
     var windowHeight: Float
-        get() = prefs.getFloat("windowHeight", 0.6f)
+        get() = prefs.getFloat("windowHeight", (1f - coveredFraction).coerceIn(0.2f, 1f))
         set(v) = prefs.edit().putFloat("windowHeight", v.coerceIn(0.2f, 1f)).apply()
 
     /** Where the game window sits in the space above the Taco: 0 = top, 1 = just above the Taco. */
