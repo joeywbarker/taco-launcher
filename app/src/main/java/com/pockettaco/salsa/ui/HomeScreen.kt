@@ -15,6 +15,7 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.animation.togetherWith
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.draw.shadow
@@ -781,6 +782,9 @@ private fun ColumnScope.Carousel(
             Box(Modifier.padding(horizontal = gap / 2).size(if (on) dot + grow else dot)
                 .background(Brush.linearGradient(listOf(look.top, look.bottom)), CircleShape)
                 .then(if (on) Modifier.border(if (dot < 8.dp) 1.dp else 2.dp, Color.White, CircleShape) else Modifier)
+                // Tap-only: the controller skips the dots (they're too small to show a highlight,
+                // so stopping on them felt like an invisible extra line).
+                .focusProperties { canFocus = false }
                 .clickable { direction = if (i > index) 1 else -1; index = i })
         }
     }
