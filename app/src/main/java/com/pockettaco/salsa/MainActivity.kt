@@ -19,7 +19,10 @@ class MainActivity : ComponentActivity() {
     /** You came back to the launcher (Home button, or tapped it): show the menus again. */
     override fun onTopResumedActivityChanged(isTopResumedActivity: Boolean) {
         super.onTopResumedActivityChanged(isTopResumedActivity)
-        if (isTopResumedActivity) { gameWindowOpen.value = false; ButtonMapperState.gameOpen = false }
+        if (isTopResumedActivity) {
+            gameWindowOpen.value = false; ButtonMapperState.gameOpen = false
+            PlayTime.stop(this)
+        }
     }
 
     /** Name of the last controller button pressed, shown in Settings to help set things up. */
@@ -40,6 +43,15 @@ class MainActivity : ComponentActivity() {
     /** L (-1) and R (+1) while a game list is showing: jump to the previous/next letter. */
     var onShoulder: ((Int) -> Unit)? = null
 
+    private val screenOff = object : android.content.BroadcastReceiver() {
+        override fun onReceive(c: android.content.Context, i: android.content.Intent) = PlayTime.stop(c)
+    }
+
+    override fun onDestroy() {
+        runCatching { unregisterReceiver(screenOff) }
+        super.onDestroy()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -54,6 +66,8 @@ class MainActivity : ComponentActivity() {
         if (android.os.Build.VERSION.SDK_INT >= 33) setRecentsScreenshotEnabled(false)
         hidePhoneStatusBar()
         setContent { LauncherRoot(this) }
+        // The screen turning off ends a play session (the game closes then too).
+        registerReceiver(screenOff, android.content.IntentFilter(android.content.Intent.ACTION_SCREEN_OFF))
         // Newer Android can send a Back button straight to the "back" system instead of to
         // dispatchKeyEvent. Catch it there too, so teaching B and going back always work.
         onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {

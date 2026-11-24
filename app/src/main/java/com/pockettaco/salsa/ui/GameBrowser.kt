@@ -370,7 +370,7 @@ private fun GamesList(
                 val onHold = { menuFor = game }
                 val art = if (view == GameView.COMPACT) null else com.pockettaco.salsa.rememberBoxArt(activity, game)
                 when (view) {
-                    GameView.LIST -> GameCard(title, look = look, focusRequester = focus, image = art,
+                    GameView.LIST -> GameCard(title, PlayTime.summary(activity, game), look = look, focusRequester = focus, image = art,
                         onFocused = onFocused, onLongClick = onHold) { onPlay(game) }
                     GameView.GRID -> GameTile(title, look, focus, onFocused, onHold, image = art) { onPlay(game) }
                     GameView.COMPACT -> GameRow(title, look, focus, onFocused, onHold) { onPlay(game) }
@@ -601,6 +601,7 @@ private fun GameMenu(activity: MainActivity, game: Game, onPlay: () -> Unit, onC
         Column(Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
             Text(game.label, color = TextBright, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 2)
             Text("${systemName(game.system)} · B to close", color = TextDim, fontSize = 13.sp)
+            PlayTime.summary(activity, game)?.let { Text("⏱ $it", color = TextDim, fontSize = 13.sp) }
         }
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 6.dp)) {
             item("play") { GameCard("Play", null, look, tile = "▶", focusRequester = first, onClick = onPlay) }
@@ -779,6 +780,7 @@ private fun startGame(activity: MainActivity, system: GameSystem, emu: Emulator,
     }
     if (worked != null) {
         if (isRetroArch(worked)) ButtonMapperState.lastGame = game
+        PlayTime.start(activity, game)
         Custom.addRecent(game)
         if (worked != emu) Toast.makeText(activity, "Opened with ${worked.name}", Toast.LENGTH_SHORT).show()
         return
