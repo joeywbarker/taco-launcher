@@ -455,11 +455,42 @@ private fun GameMenu(activity: MainActivity, game: Game, onPlay: () -> Unit, onC
     val look = lookFor(game.system.id)
     var picking by remember { mutableStateOf(false) }
     var pickingCore by remember { mutableStateOf(false) }
+    var pickingLayout by remember { mutableStateOf(false) }
     var version by remember { mutableIntStateOf(0) }
     val installed = remember { installedEmulators(activity) }
     val own = remember(version) { activity.settings.emulatorForGame(game) }
     val systemEmu = remember(version) { currentEmulator(activity, game.system, installed) }
     val gameEmu = remember(version) { emulatorForGame(activity, game, installed) }
+    if (pickingLayout) {
+        val current = RetroArchPlacement.Layout.of(activity.settings.layoutForGame(game.system.id, game.file))
+        val layoutFocus = remember { FocusRequester() }
+        LaunchedEffect(Unit) { withFrameNanos { }; runCatching { layoutFocus.requestFocus() } }
+        Column(Modifier.fillMaxSize()) {
+            Column(Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
+                Text("Screen layout for this game", color = TextBright, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                Text("Used the next time you start ${game.label}", color = TextDim, fontSize = 13.sp, maxLines = 1)
+            }
+            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 6.dp)) {
+                RetroArchPlacement.Layout.entries.forEachIndexed { i, layout ->
+                    item(layout.key) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 16.dp)) {
+                            LayoutPreview(activity, game.system, layout)
+                            Box(Modifier.weight(1f)) {
+                                GameCard(layout.label + if (layout == current) "  ✓" else "", layout.about,
+                                    EMULATORS_LOOK, tile = "▭", focusRequester = if (i == 0) layoutFocus else null) {
+                                    activity.settings.setLayoutForGame(game.system.id, game.file,
+                                        if (layout == RetroArchPlacement.Layout.AUTO) null else layout.key)
+                                    version++; pickingLayout = false
+                                }
+                            }
+                        }
+                    }
+                }
+                item("back") { GameCard("Back", null, SETTINGS_LOOK, tile = "←") { pickingLayout = false } }
+            }
+        }
+        return
+    }
     if (pickingCore) {
         // Which RetroArch core plays just this game (some arcade games only run on one).
         val options = CORE_OPTIONS[game.system.id].orEmpty()
@@ -547,8 +578,38 @@ private fun GameMenu(activity: MainActivity, game: Game, onPlay: () -> Unit, onC
                         if (own == null) " (same as ${systemName(game.system)})" else " (just this game)",
                     EMULATORS_LOOK, tile = "⚙") { pickingCore = true }
             }
+            if (gameEmu != null && isRetroArch(gameEmu) && activity.settings.retroArchFullScreen) item("layout") {
+                val layout = remember(version) {
+                    RetroArchPlacement.Layout.of(activity.settings.layoutForGame(game.system.id, game.file))
+                }
+                GameCard("Screen layout", layout.label + " · where the picture sits in RetroArch",
+                    EMULATORS_LOOK, tile = "▭") { pickingLayout = true }
+            }
             item("cancel") { GameCard("Cancel", null, SETTINGS_LOOK, tile = "✕", onClick = onClose) }
         }
+    }
+}
+
+/** A tiny phone: the Taco's part at the bottom, and where the game picture would go. */
+@Composable
+private fun LayoutPreview(activity: MainActivity, system: GameSystem, layout: RetroArchPlacement.Layout) {
+    val screen = remember { activity.windowManager.currentWindowMetrics.bounds }
+    val covered = activity.settings.coveredFraction
+    val shape = SCREEN_SHAPES[system.id] ?: 4f / 3f
+    val spot = remember { gameWindowRect(activity.settings, screen.width(), screen.height(), shape) }
+    val r = RetroArchPlacement.pictureRect(layout, screen.width().toFloat(), screen.height().toFloat(),
+        covered, spot.exactCenterY(), shape)
+    val look = lookFor(system.id)
+    androidx.compose.foundation.Canvas(Modifier.size(width = 40.dp, height = 86.dp)) {
+        val cr = androidx.compose.ui.geometry.CornerRadius(6.dp.toPx())
+        drawRoundRect(Color(0xFF15182A), cornerRadius = cr)
+        // The Taco's part of the screen.
+        drawRect(Color(0xFF6B4A1E), topLeft = androidx.compose.ui.geometry.Offset(0f, size.height * (1f - covered)),
+            size = androidx.compose.ui.geometry.Size(size.width, size.height * covered))
+        drawRect(look.top, topLeft = androidx.compose.ui.geometry.Offset(r.left * size.width, r.top * size.height),
+            size = androidx.compose.ui.geometry.Size(r.width() * size.width, r.height() * size.height))
+        drawRoundRect(Color.White.copy(alpha = 0.4f), cornerRadius = cr,
+            style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()))
     }
 }
 
