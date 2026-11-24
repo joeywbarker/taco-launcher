@@ -208,6 +208,7 @@ private fun RetroArchGamesSection(activity: MainActivity) {
     var commands by remember { mutableStateOf(st.raCommands) }
     var startMenu by remember { mutableStateOf(st.raStartOpensMenu) }
     var states by remember { mutableStateOf(st.raStateHotkeys) }
+    var ask by remember { mutableStateOf(st.raAskBeforeSwitch) }
     Text("Taco Launcher sets these up in RetroArch for you each time it starts a game. " +
         "Your own RetroArch settings stay as they are when you open RetroArch by itself.",
         color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall)
@@ -248,6 +249,11 @@ private fun RetroArchGamesSection(activity: MainActivity) {
         states, Applies.NEXT_GAME) { states = it; st.raStateHotkeys = it }
 
     SettingHeader("Playing")
+    SettingSwitch("Ask \"Still playing?\" before switching games",
+        "Only one RetroArch game runs at a time. If you left a game with Home and pick a different one, " +
+            "Taco Launcher asks whether to go back to it or close it and start the new one. " +
+            "Off: the new game just replaces the old one. Using the Exit game hotkey never asks.",
+        ask, Applies.NOW) { ask = it; st.raAskBeforeSwitch = it }
     RaChoice(activity, "resume", "Resume where you left off",
         "On: leaving a game saves your spot automatically, and starting it again picks up right there.")
     RaChoice(activity, "pauseMenu", "Pause the game while the menu is open",

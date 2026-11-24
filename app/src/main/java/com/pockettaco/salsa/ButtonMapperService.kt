@@ -102,6 +102,7 @@ class ButtonMapperService : AccessibilityService() {
         runCatching {
             android.widget.Toast.makeText(this, "🌮 ${action.label}", android.widget.Toast.LENGTH_SHORT).show()
         }
+        if (action == MapAction.EXIT_GAME) ButtonMapperState.lastGame = null
         when (action) {
             MapAction.EXIT_GAME -> if (retroArchInFront() && ButtonMapperState.retroArchCommands) {
                 // Ask RetroArch to quit for real (it saves and closes), then come back. If it

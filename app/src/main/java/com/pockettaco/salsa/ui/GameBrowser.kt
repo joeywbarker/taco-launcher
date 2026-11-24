@@ -630,16 +630,67 @@ private fun launchGame(activity: MainActivity, system: GameSystem, emu: Emulator
         Custom.addRecent(game)
         return
     }
+    // Only one RetroArch game at a time: if you left a different one with Home, ask first.
+    val previous = ButtonMapperState.lastGame
+    if (isRetroArch(emu) && activity.settings.raAskBeforeSwitch && previous != null &&
+        previous.uri != game.uri) {
+        askStillPlaying(activity, previous, game,
+            resume = { startGame(activity, system, emu, choices, previous) },
+            switch = { startGame(activity, system, emu, choices, game) })
+        return
+    }
+    startGame(activity, system, emu, choices, game)
+}
+
+/** "Are you still playing?" with big, controller-friendly choices. Back or B just cancels. */
+private fun askStillPlaying(activity: MainActivity, old: Game, new: Game, resume: () -> Unit, switch: () -> Unit) {
+    val dialog = android.app.AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+        .setTitle("Still playing ${old.label}?")
+        .setItems(arrayOf(
+            "▶  Go back to ${old.label}",
+            "✕  Close it and start ${new.label}",
+            "Cancel",
+        )) { d, which ->
+            d.dismiss()
+            when (which) { 0 -> resume(); 1 -> switch() }
+        }
+        .setCancelable(true)
+        .create()
+    // A picks the highlighted choice, B cancels (Android's lists only know the D-pad's centre).
+    // Only act on a press that started here, not the release of the A that opened this.
+    var aDown = false
+    dialog.setOnKeyListener { d, code, ev ->
+        val list = dialog.listView
+        when (code) {
+            android.view.KeyEvent.KEYCODE_BUTTON_A -> {
+                if (ev.action == android.view.KeyEvent.ACTION_DOWN) aDown = true
+                if (ev.action == android.view.KeyEvent.ACTION_UP && aDown && list != null) {
+                    val pos = list.selectedItemPosition.takeIf { it >= 0 } ?: 0
+                    list.performItemClick(list.getChildAt(pos - list.firstVisiblePosition), pos, pos.toLong())
+                }
+                true
+            }
+            android.view.KeyEvent.KEYCODE_BUTTON_B -> { if (ev.action == android.view.KeyEvent.ACTION_UP) d.cancel(); true }
+            else -> false
+        }
+    }
+    dialog.setOnShowListener { dialog.listView?.apply { requestFocus(); setSelection(0) } }
+    dialog.show()
+}
+
+private fun startGame(activity: MainActivity, system: GameSystem, emu: Emulator, choices: List<Emulator>, game: Game) {
+    val sys = if (game.system.id == system.id) system else game.system
     // Use the emulator you picked. If it's RetroArch, another RetroArch build may step in;
     // never quietly swap to a different emulator.
     val tries = listOf(emu) + if (isRetroArch(emu)) choices.filter { it != emu && isRetroArch(it) } else emptyList()
     val worked = tries.firstOrNull { e ->
-        val intent = launchIntent(activity, e, system, game.uri, game.file)
+        val intent = launchIntent(activity, e, sys, game.uri, game.file)
         val accepts = intent.component != null ||
             activity.packageManager.queryIntentActivities(intent, 0).isNotEmpty()
-        accepts && runCatching { startFitted(activity, intent, system) }.isSuccess
+        accepts && runCatching { startFitted(activity, intent, sys) }.isSuccess
     }
     if (worked != null) {
+        if (isRetroArch(worked)) ButtonMapperState.lastGame = game
         Custom.addRecent(game)
         if (worked != emu) Toast.makeText(activity, "Opened with ${worked.name}", Toast.LENGTH_SHORT).show()
         return
