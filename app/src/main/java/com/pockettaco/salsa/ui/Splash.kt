@@ -114,11 +114,17 @@ fun Splash(onReveal: () -> Unit, onDone: () -> Unit) {
             )
         }
         // The credit: small and quiet at the bottom.
-        Text(
-            "by Joey Wayne Erickson",
-            color = Color.White.copy(alpha = 0.4f), fontSize = 11.sp, letterSpacing = 1.sp,
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 18.dp)
+        // The splash sits in the area above the Taco, so this stays visible.
+        Column(
+            Modifier.align(Alignment.BottomCenter).padding(bottom = 14.dp, start = 24.dp, end = 24.dp)
                 .graphicsLayer { alpha = creditAlpha.value },
-        )
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text("by Joey Wayne Erickson", color = Color.White.copy(alpha = 0.4f), fontSize = 11.sp, letterSpacing = 1.sp)
+            Spacer(Modifier.height(4.dp))
+            Text("Fan-made and unofficial. Product names are used only to describe compatibility. See About for details.",
+                color = Color.White.copy(alpha = 0.28f), fontSize = 9.sp, lineHeight = 12.sp,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        }
     }
 }
