@@ -40,8 +40,10 @@ fun startFitted(activity: MainActivity, intent: Intent, system: GameSystem? = nu
             if (!ok) android.widget.Toast.makeText(activity,
                 "🌮 Couldn't set up RetroArch (${RetroArchPlacement.lastError}). The picture and hotkeys use RetroArch's own settings.",
                 android.widget.Toast.LENGTH_LONG).show()
-            else if (activity.settings.raCommands) checkRetroArchLater(activity)
         }
+        // QUITFOCUS makes RetroArch close itself completely as soon as you leave it (Home).
+        // Otherwise it lingers in the background and the next game starts on a black screen.
+        if (retroArch && activity.settings.raCommands) intent.putExtra("QUITFOCUS", "")
     }
     val fit = activity.settings.fitEmulators && activity.watcher.connected.value &&
         !(retroArch && activity.settings.retroArchFullScreen)
@@ -60,32 +62,6 @@ fun startFitted(activity: MainActivity, intent: Intent, system: GameSystem? = nu
     runCatching { activity.startActivity(intent, options.toBundle()) }
         .onFailure { activity.startActivity(intent) }
     activity.gameWindowOpen.value = true
-}
-
-/**
- * A few seconds after a RetroArch game starts, check that RetroArch answers. If it does, the
- * hotkeys talk to it directly; if not, say so and leave RetroArch's own buttons in charge.
- */
-private fun checkRetroArchLater(activity: MainActivity) {
-    val main = android.os.Handler(android.os.Looper.getMainLooper())
-    Thread {
-        var ok = false
-        for (i in 0 until 6) {
-            Thread.sleep(if (i == 0) 3000 else 1500)
-            if (RetroArchPlacement.isListening()) { ok = true; break }
-        }
-        ButtonMapperState.retroArchCommands = ok
-        val before = activity.settings.raCommandsWork
-        activity.settings.raCommandsWork = ok
-        main.post {
-            val msg = when {
-                ok && !before -> "🌮 RetroArch connected: Select + Start opens its menu, Home closes it."
-                !ok -> "🌮 RetroArch isn't answering Taco Launcher, so its own buttons stay in charge. Tell Claude."
-                else -> null
-            }
-            if (msg != null) android.widget.Toast.makeText(activity, msg, android.widget.Toast.LENGTH_LONG).show()
-        }
-    }.start()
 }
 
 /** Opens an installed app by package name, fitted when Taco mode is on. */
