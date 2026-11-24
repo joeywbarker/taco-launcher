@@ -84,6 +84,11 @@ fun saveMappings(context: Context, list: List<Mapping>) {
 
 /** Shared between the screen and the background service (same app process). */
 object ButtonMapperState {
+    /**
+     * The RetroArch game you started last and haven't closed with the Exit game hotkey yet
+     * (Home leaves it). Used to ask "still playing?" before starting a different one.
+     */
+    @Volatile var lastGame: Game? = null
     /** True while Settings is listening for a new button press, so the service stays out of the way. */
     @Volatile var capturing = false
     @Volatile var reload = true

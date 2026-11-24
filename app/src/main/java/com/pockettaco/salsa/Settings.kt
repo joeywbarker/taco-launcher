@@ -57,6 +57,11 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("raStartOpensMenu", false)
         set(v) = prefs.edit().putBoolean("raStartOpensMenu", v).apply()
 
+    /** Ask "still playing?" before a different RetroArch game replaces the one you left. */
+    var raAskBeforeSwitch: Boolean
+        get() = prefs.getBoolean("raAskBeforeSwitch", true)
+        set(v) = prefs.edit().putBoolean("raAskBeforeSwitch", v).apply()
+
     /** Select + R1 saves, Select + L1 loads a save state. */
     var raStateHotkeys: Boolean
         get() = prefs.getBoolean("raStateHotkeys", true)
