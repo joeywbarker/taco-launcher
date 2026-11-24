@@ -80,7 +80,15 @@ object RetroArchPlacement {
     /** Rewrites [intent]'s settings file so the picture lands where it should. False if it couldn't. */
     fun apply(activity: MainActivity, intent: Intent, system: GameSystem): Boolean = runCatching {
         val mainConfig = intent.getStringExtra("CONFIGFILE") ?: return false
-        val folder = activity.settings.folderFor(system.id) ?: activity.settings.romFolder ?: return false
+        // Any games folder we may still write to will do (RetroArch only needs to read the file).
+        // After a reinstall Android can forget one folder, so try the others too.
+        val writable = activity.contentResolver.persistedUriPermissions.filter { it.isWritePermission }.map { it.uri }.toSet()
+        val folders = (listOfNotNull(activity.settings.folderFor(system.id), activity.settings.romFolder) +
+            SYSTEMS.mapNotNull { activity.settings.folderFor(it.id) }).distinct().filter { it in writable }
+        if (folders.isEmpty()) {
+            lastError = "no games folder Taco Launcher may write to. Settings → Setup check fixes it"
+            return false
+        }
         val screen = activity.windowManager.currentWindowMetrics.bounds
         val w = screen.width().toFloat()
         val h = screen.height().toFloat()
@@ -155,12 +163,16 @@ object RetroArchPlacement {
             choice("pauseMenu", "menu_pause_libretro")
             append("#include \"").append(mainConfig).append("\"\n")
         }
-        val doc = findOrCreate(activity, folder) ?: run { lastError = "couldn't create the file"; return false }
-        activity.contentResolver.openOutputStream(doc, "wt")?.use { it.write(text.toByteArray()) }
-            ?: run { lastError = "couldn't write the file"; return false }
-        intent.putExtra("CONFIGFILE", toFilePath(doc))
-        lastError = null
-        true
+        for (folder in folders) {
+            val ok = runCatching {
+                val doc = findOrCreate(activity, folder) ?: error("couldn't create the file")
+                activity.contentResolver.openOutputStream(doc, "wt")?.use { it.write(text.toByteArray()) }
+                    ?: error("couldn't write the file")
+                intent.putExtra("CONFIGFILE", toFilePath(doc))
+            }.onFailure { lastError = it.message ?: it.javaClass.simpleName }.isSuccess
+            if (ok) { lastError = null; return true }
+        }
+        false
     }.getOrElse { lastError = it.message ?: it.javaClass.simpleName; false }
 
     private fun findOrCreate(activity: MainActivity, tree: Uri): Uri? {
