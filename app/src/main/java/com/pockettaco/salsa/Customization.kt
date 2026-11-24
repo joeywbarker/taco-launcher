@@ -57,6 +57,7 @@ val ICON_COLORS = listOf(
 object Custom {
     private var prefs: SharedPreferences? = null
     private var dir: File? = null
+    private var assets: android.content.res.AssetManager? = null
     val version = mutableIntStateOf(0)
     private val images = HashMap<String, ImageBitmap?>()
 
@@ -64,6 +65,7 @@ object Custom {
         if (prefs != null) return
         prefs = context.getSharedPreferences("taco_custom", Context.MODE_PRIVATE)
         dir = context.filesDir
+        assets = context.applicationContext.assets
     }
 
     fun changed() { images.clear(); version.intValue++ }
@@ -129,7 +131,17 @@ object Custom {
     fun iconFile(id: String) = File(dir, "icons/$id.png")
     fun backgroundFile() = File(dir, "background.jpg")
 
-    fun icon(id: String): ImageBitmap? { read(); return image(iconFile(id), trim = true) }
+    fun icon(id: String): ImageBitmap? { read(); return image(iconFile(id), trim = true) ?: builtIn(id) }
+
+    /**
+     * Console pictures that come with the app (assets/consoles/<id>.png), used until you pick
+     * your own. The console art is used under its Creative Commons license (credit in About).
+     */
+    private fun builtIn(id: String): ImageBitmap? = images.getOrPut("asset:$id") {
+        runCatching {
+            assets?.open("consoles/$id.png")?.use { BitmapFactory.decodeStream(it) }?.asImageBitmap()
+        }.getOrNull()
+    }
     fun backgroundImage(): ImageBitmap? { read(); return image(backgroundFile()) }
 
     private fun image(file: File, trim: Boolean = false): ImageBitmap? = images.getOrPut(file.path) {
