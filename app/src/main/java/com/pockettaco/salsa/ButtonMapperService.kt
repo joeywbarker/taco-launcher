@@ -106,7 +106,9 @@ class ButtonMapperService : AccessibilityService() {
             MapAction.EXIT_GAME -> if (retroArchInFront() && ButtonMapperState.retroArchCommands) {
                 // Ask RetroArch to quit for real (it saves and closes), then come back. If it
                 // didn't listen, fall back to Home.
+                // Sent twice, quickly: if RetroArch asks "press again to quit", this is the second press.
                 RetroArchPlacement.send("QUIT")
+                handler.postDelayed({ RetroArchPlacement.send("QUIT") }, 150)
                 waitForQuit(tries = 0)
             } else {
                 // Home first tucks the game's pop-up window away; then bring Taco Launcher up

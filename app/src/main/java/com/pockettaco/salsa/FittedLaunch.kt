@@ -35,7 +35,8 @@ fun startFitted(activity: MainActivity, intent: Intent, system: GameSystem? = nu
     val retroArch = intent.component?.className?.contains("RetroActivity") == true
     if (system != null) {
         ButtonMapperState.retroArchCommands =
-            retroArch && activity.settings.retroArchFullScreen && RetroArchPlacement.apply(activity, intent, system)
+            retroArch && activity.settings.retroArchFullScreen && RetroArchPlacement.apply(activity, intent, system) &&
+                activity.settings.raCommands
     }
     val fit = activity.settings.fitEmulators && activity.watcher.connected.value &&
         !(retroArch && activity.settings.retroArchFullScreen)

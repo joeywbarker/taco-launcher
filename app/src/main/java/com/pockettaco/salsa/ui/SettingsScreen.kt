@@ -59,7 +59,6 @@ fun SettingsScreen(
     }
     var fit by remember { mutableStateOf(activity.settings.fitEmulators) }
     var force by remember { mutableStateOf(activity.settings.forceTacoMode) }
-    var raFull by remember { mutableStateOf(activity.settings.retroArchFullScreen) }
     // Settings is split into pages; null = the list of pages.
     var page by remember { mutableStateOf<String?>(null) }
     val goBack: () -> Unit = { if (page != null) page = null else onClose() }
@@ -71,6 +70,7 @@ fun SettingsScreen(
     val pages = listOf(
         Triple("controller", "Controller & buttons", "A and B, button mapping, auto-open, detection"),
         Triple("screen", "Screen & game window", "Space the Taco covers, game window size and spot"),
+        Triple("retroarch", "RetroArch games", "Picture position, menu and quit hotkeys, save states, resume"),
         Triple("games", "Games & systems", "Game names, folders, rescan, which app each system uses"),
         Triple("look", "Look", "Home view, background, app icon"),
         Triple("about", "About", "Version and credits"),
@@ -96,7 +96,7 @@ fun SettingsScreen(
         when (page) {
             null -> pages.forEach { (key, title, sub) ->
                 GameCard(title, sub, SETTINGS_LOOK, tile = when (key) {
-                    "controller" -> "🎮"; "screen" -> "▭"; "games" -> "📁"; "look" -> "🎨"; else -> "ℹ"
+                    "controller" -> "🎮"; "screen" -> "▭"; "retroarch" -> "▶"; "games" -> "📁"; "look" -> "🎨"; else -> "ℹ"
                 }) { page = key }
             }
             "controller" -> {
@@ -104,14 +104,12 @@ fun SettingsScreen(
             FavoriteButtonSection(activity)
             ButtonMappingSection(activity)
             RetroArchHotkeysSection(activity)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Treat any controller as a Pocket Taco", color = Color.White, modifier = Modifier.weight(1f))
-                Switch(anyPad, { anyPad = it; activity.settings.anyGamepadCounts = it; activity.watcher.refresh() })
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Open this launcher when the Pocket Taco connects", color = Color.White, modifier = Modifier.weight(1f))
-                Switch(openOnConnect, { openOnConnect = it; activity.settings.openOnConnect = it })
-            }
+            SettingSwitch("Treat any controller as a Pocket Taco",
+                "Any gamepad switches on the Taco layout, not just the Pocket Taco. Handy for other clip-on controllers.",
+                anyPad) { anyPad = it; activity.settings.anyGamepadCounts = it; activity.watcher.refresh() }
+            SettingSwitch("Open this launcher when the Pocket Taco connects",
+                "Clip the Taco on and Taco Launcher comes up by itself (with the intro unless you skip it in About).",
+                openOnConnect) { openOnConnect = it; activity.settings.openOnConnect = it }
             if (openOnConnect && (!btOk || !topOk)) {
                 Text("To open by itself, Android needs two permissions:", color = Color(0xFFFFC107),
                     style = MaterialTheme.typography.bodySmall)
@@ -141,22 +139,13 @@ fun SettingsScreen(
             Slider(value = covered, onValueChange = onCoveredChange, valueRange = 0f..0.6f, steps = 11)
             GameWindowSection(activity, covered)
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Fit emulators above the Pocket Taco (pop-up window)", color = Color.White, modifier = Modifier.weight(1f))
-                Switch(fit, { fit = it; activity.settings.fitEmulators = it })
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Open RetroArch games full screen (no window frame)", color = Color.White, modifier = Modifier.weight(1f))
-                Switch(raFull, { raFull = it; activity.settings.retroArchFullScreen = it })
-            }
-            if (raFull) Text(
-                "To keep the picture at the top, above the Taco: in RetroArch go to Settings → Video → Scaling, " +
-                    "set \"Viewport Anchor Bias Y (Portrait)\" to 0.00, then Main Menu → Configuration File → Save Current Configuration.",
-                color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Always use the Taco layout", color = Color.White, modifier = Modifier.weight(1f))
-                Switch(force, { force = it; activity.settings.forceTacoMode = it; activity.watcher.refresh() })
-            }
+            SettingSwitch("Fit emulators above the Pocket Taco",
+                "Other emulators open in a pop-up window sized to the free part of the screen, so nothing hides behind the Taco. " +
+                    "RetroArch games have their own setting on the RetroArch games page.",
+                fit, Applies.NEXT_GAME) { fit = it; activity.settings.fitEmulators = it }
+            SettingSwitch("Always use the Taco layout",
+                "Keep the menus in the top part of the screen even when no controller is connected.",
+                force) { force = it; activity.settings.forceTacoMode = it; activity.watcher.refresh() }
             }
             "games" -> {
             GameNamesSection(activity)
@@ -200,9 +189,79 @@ fun SettingsScreen(
                 color = Color(0xFF777777), style = MaterialTheme.typography.bodySmall)
 
             }
+            "retroarch" -> RetroArchGamesSection(activity)
             "about" -> AboutSection(activity)
         }
     }
+}
+
+/**
+ * Everything about how RetroArch games look and behave. Taco Launcher applies these itself each
+ * time it starts a game (through its own RetroArch settings file), so nothing needs changing
+ * inside RetroArch, and your own RetroArch settings are never overwritten.
+ */
+@Composable
+private fun RetroArchGamesSection(activity: MainActivity) {
+    val st = activity.settings
+    var full by remember { mutableStateOf(st.retroArchFullScreen) }
+    var picture by remember { mutableStateOf(st.raPictureDefault) }
+    var commands by remember { mutableStateOf(st.raCommands) }
+    var startMenu by remember { mutableStateOf(st.raStartOpensMenu) }
+    var states by remember { mutableStateOf(st.raStateHotkeys) }
+    Text("Taco Launcher sets these up in RetroArch for you each time it starts a game. " +
+        "Your own RetroArch settings stay as they are when you open RetroArch by itself.",
+        color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall)
+
+    SettingHeader("Screen")
+    SettingSwitch("Full screen (no window frame)",
+        "Games fill the screen with no pop-up frame or title bar. Taco Launcher places the picture above the Taco. " +
+            "Off: games open in a pop-up window instead, and the options below about the picture don't apply.",
+        full, Applies.NEXT_GAME) { full = it; st.retroArchFullScreen = it }
+    if (full) {
+        val sample = remember { com.pockettaco.salsa.SYSTEMS.first { it.id == "snes" } }
+        SettingChoice("Picture position",
+            "For every game, unless you pick a different one for a game (hold A on a game → Screen layout).",
+            listOf(
+                Triple("auto", "Auto", "Keeps the game's shape, centred on your game spot (Screen & game window page)."),
+                Triple("top", "Top", "Keeps the game's shape, starting at the very top of the screen."),
+                Triple("tall", "Tall", "Fills from the top of the screen down to the Taco's edge. Best for upright arcade games like 1941."),
+            ), picture, Applies.NEXT_GAME,
+            preview = { LayoutPreview(activity, sample, com.pockettaco.salsa.RetroArchPlacement.Layout.of(it)) },
+        ) { picture = it; st.raPictureDefault = it }
+        RaChoice(activity, "smooth", "Smooth picture",
+            "On softens the pixels (blurry but smooth). Off keeps sharp, blocky pixels.")
+        RaChoice(activity, "fps", "Show frames per second", "A small speed counter in the corner of the game.")
+    }
+
+    SettingHeader("Hotkeys")
+    SettingSwitch("Taco Launcher controls the menu and quitting",
+        "Select + Start opens RetroArch's menu, and Home closes RetroArch properly (it saves and shuts down, so the " +
+            "next game starts cleanly). Turn off only if you set RetroArch's buttons up yourself.",
+        commands, Applies.NEXT_GAME) { commands = it; st.raCommands = it }
+    if (commands) SettingSwitch("Start on its own also opens the menu",
+        "Off: only Select + Start opens it, so pressing Start in a game (to pause) never brings up the menu.",
+        startMenu, Applies.NEXT_GAME) { startMenu = it; st.raStartOpensMenu = it }
+    SettingSwitch("Save state hotkeys",
+        "Select + R1 saves your exact spot in the game, Select + L1 loads it back.",
+        states, Applies.NEXT_GAME) { states = it; st.raStateHotkeys = it }
+
+    SettingHeader("Playing")
+    RaChoice(activity, "resume", "Resume where you left off",
+        "On: leaving a game saves your spot automatically, and starting it again picks up right there.")
+    RaChoice(activity, "pauseMenu", "Pause the game while the menu is open",
+        "On: the game stops while RetroArch's menu is showing.")
+}
+
+/** A three-way RetroArch option: leave it to RetroArch, or force on or off. */
+@Composable
+private fun RaChoice(activity: MainActivity, key: String, title: String, about: String) {
+    var v by remember { mutableStateOf(activity.settings.raChoice(key)) }
+    SettingChoice(title, about,
+        listOf(
+            Triple(0, "RetroArch's", "Uses whatever RetroArch itself is set to."),
+            Triple(1, "On", "Always on for games started from Taco Launcher."),
+            Triple(2, "Off", "Always off for games started from Taco Launcher."),
+        ), v, Applies.NEXT_GAME) { v = it; activity.settings.setRaChoice(key, it) }
 }
 
 /** View, background, hidden systems and a reset for the home screen's look. */
@@ -412,27 +471,13 @@ private fun MenuButtonsSection(activity: MainActivity) {
  */
 @Composable
 private fun RetroArchHotkeysSection(activity: MainActivity) {
-    var open by remember { mutableStateOf(false) }
     Text("Game hotkeys", color = Color.White, fontWeight = FontWeight.Bold)
     Text(
-        "Select + Start = RetroArch's menu (the game keeps going; press again to go back).  " +
-            "Home = leave the game and come back here; RetroArch closes and saves.  " +
-            "These need button mapping switched on (above). Change them in the list above.",
+        "Select + Start = RetroArch's menu.  Home = leave the game and come back here.  " +
+            "Select + R1 / Select + L1 = save / load your spot (RetroArch games).  " +
+            "These need button mapping switched on (above). More RetroArch options: Settings → RetroArch games.",
         color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall,
     )
-    if (open) Text(
-        "Optional extras, set inside RetroArch (open it below, without a game):\n" +
-            "1. Settings → Input → Hotkeys → Hotkey Enable → press Select.\n" +
-            "2. Save State → press Y.  Load State → press X.  Fast-Forward (Toggle) → press Right.\n" +
-            "3. Main Menu → Configuration File → Save Current Configuration.\n" +
-            "Leaving with Home closes RetroArch fully, so turn on Settings → Saving → Auto Save State if you want to resume exactly.",
-        color = Color(0xFFDDDDDD), style = MaterialTheme.typography.bodySmall,
-    )
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedButton(onClick = { open = !open }) { Text(if (open) "Hide extras" else "Save state extras") }
-        val ra = remember { com.pockettaco.salsa.installedEmulators(activity).firstOrNull { "retroarch" in it.pkg || "retroarch" in it.name.lowercase() } }
-        if (ra != null) TextButton(onClick = { com.pockettaco.salsa.openAppFitted(activity, ra.pkg) }) { Text("Open RetroArch") }
-    }
 }
 
 /** Which button adds a game to favorites in a game list (Y unless you change it). */
