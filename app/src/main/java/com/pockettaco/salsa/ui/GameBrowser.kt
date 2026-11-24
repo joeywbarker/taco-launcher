@@ -646,13 +646,29 @@ private fun launchGame(activity: MainActivity, system: GameSystem, emu: Emulator
 private fun askStillPlaying(activity: MainActivity, old: Game, new: Game, resume: () -> Unit, switch: () -> Unit) {
     val dialog = android.app.AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Dialog_Alert)
         .setTitle("Still playing ${old.label}?")
-        .setItems(arrayOf(
-            "▶  Go back to ${old.label}",
-            "✕  Close it and start ${new.label}",
-            "Cancel",
-        )) { d, which ->
+        .setItems(
+            if (activity.settings.raKeepsSpot) arrayOf(
+                "▶  Go back to ${old.label}",
+                "💾  Quit it, keep my spot, and start ${new.label}",
+                "✕  Quit it, don't keep my spot, and start ${new.label}",
+                "Cancel",
+            ) else arrayOf(
+                "▶  Go back to ${old.label}",
+                "✕  Quit it and start ${new.label}",
+                "Cancel",
+            ),
+        ) { d, which ->
             d.dismiss()
-            when (which) { 0 -> resume(); 1 -> switch() }
+            val keeps = activity.settings.raKeepsSpot
+            when {
+                which == 0 -> resume()
+                which == 1 -> switch()
+                keeps && which == 2 -> {
+                    // RetroArch already saved when it closed; skip that save next time instead.
+                    activity.settings.setFreshStart(old.system.id, old.file, true)
+                    switch()
+                }
+            }
         }
         .setCancelable(true)
         .create()
