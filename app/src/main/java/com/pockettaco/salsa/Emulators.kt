@@ -114,15 +114,34 @@ val KNOWN_EMULATORS = listOf(
     Emulator("com.seleuco.mame4droid", "MAME4droid", setOf("arcade", "neogeo")),
 )
 
-fun installedEmulators(context: Context): List<Emulator> {
+// Looking through every installed app's name takes a second or two on a phone with many apps,
+// and menus ask for this often. So the answer is kept until Android says an app was added,
+// removed or updated (its package change counter moves).
+private val emulatorLock = Any()
+private var emulatorCache: List<Emulator>? = null
+private var packageSeq = 0
+
+fun installedEmulators(context: Context): List<Emulator> = synchronized(emulatorLock) {
+    val pm = context.packageManager
+    val changed = runCatching { pm.getChangedPackages(packageSeq) }.getOrNull()
+    if (changed != null) { packageSeq = changed.sequenceNumber; emulatorCache = null }
+    emulatorCache ?: findEmulators(context).also { emulatorCache = it }
+}
+
+private fun findEmulators(context: Context): List<Emulator> {
+    val pm = context.packageManager
     val byPackage = KNOWN_EMULATORS.filter { isInstalled(context, it.pkg) }
     // Also match by app name, in case an emulator uses a package name we don't know.
+    // Only names are read here (app icons are slow to load and aren't needed).
     val known = byPackage.map { it.pkg }.toSet()
-    val byName = loadApps(context).filter { it.pkg !in known }.mapNotNull { app ->
-        val label = app.label.lowercase()
-        NAME_HINTS.entries.firstOrNull { (hint, _) -> hint in label }
-            ?.let { (_, systems) -> Emulator(app.pkg, app.label, systems) }
-    }
+    val byName = pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)
+        .filter { it.activityInfo.packageName != context.packageName && it.activityInfo.packageName !in known }
+        .distinctBy { it.activityInfo.packageName }
+        .mapNotNull { info ->
+            val label = info.loadLabel(pm).toString()
+            NAME_HINTS.entries.firstOrNull { (hint, _) -> hint in label.lowercase() }
+                ?.let { (_, systems) -> Emulator(info.activityInfo.packageName, label, systems) }
+        }
     return byPackage + byName
 }
 
