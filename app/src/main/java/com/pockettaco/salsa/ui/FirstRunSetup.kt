@@ -80,6 +80,10 @@ fun FirstRunSetup(
                 "Tip: Select + Start opens the emulator's menu in a game, and Home brings you back here.",
         ) {
             GameCard("Start playing", null, SETTINGS_LOOK, tile = "🎮", focusRequester = first) { onDone() }
+            Spacer(Modifier.height(8.dp))
+            Column(Modifier.padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                SetupCheckSection(activity, onPickFolder)
+            }
         }
     }
 }
