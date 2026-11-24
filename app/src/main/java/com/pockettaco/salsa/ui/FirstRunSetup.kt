@@ -50,14 +50,33 @@ fun FirstRunSetup(
         kotlinx.coroutines.delay(300)
         runCatching { first.requestFocus() }
     }
+    // Controllers disagree on which signal the A button sends (some send "B"), so the first
+    // page simply asks you to press A, and learns it. B becomes the other one.
+    if (step == 0) DisposableEffect(Unit) {
+        val learn: (android.view.KeyEvent) -> Unit = { e ->
+            val a = android.view.KeyEvent.KEYCODE_BUTTON_A
+            val b = android.view.KeyEvent.KEYCODE_BUTTON_B
+            if (e.action == android.view.KeyEvent.ACTION_UP && (e.keyCode == a || e.keyCode == b)) {
+                val st = activity.settings
+                st.swapAB = e.keyCode == b
+                st.selectKey = e.keyCode; st.selectScan = 0
+                st.backKey = if (e.keyCode == a) b else a; st.backScan = 0
+                activity.onKeyCapture = null
+                step = 1
+            }
+        }
+        activity.onKeyCapture = learn
+        onDispose { if (activity.onKeyCapture === learn) activity.onKeyCapture = null }
+    }
     when (step) {
         0 -> SetupPage(
             "🌮 Welcome to Taco Launcher",
             "A home screen for playing retro games with the GameSir Pocket Taco.\n\n" +
-                "Clip your phone into the Taco and switch the Taco to Android mode (hold M + A for 2 seconds). " +
-                "Then use the D-pad to move and A to press.\n\nTwo quick questions and you're playing.",
+                "Clip your phone into the Taco and switch the Taco to Android mode (hold M + A for 2 seconds).\n\n" +
+                "Then press the A button on your Taco to start. (Taco Launcher learns which button is A, " +
+                "so it's right on any controller.)",
         ) {
-            GameCard("Let's go", "Set up in under a minute", SETTINGS_LOOK, tile = "▶", focusRequester = first) { step = 1 }
+            GameCard("Let's go", "Or tap here to set up by touch", SETTINGS_LOOK, tile = "▶", focusRequester = first) { step = 1 }
             GameCard("Skip setup", "Use the usual settings. Change anything later in Settings.", SETTINGS_LOOK, tile = "⏭") { onDone() }
         }
         1 -> CoverStep(covered, onCoveredChange, first, onNext = { step = 2 })
