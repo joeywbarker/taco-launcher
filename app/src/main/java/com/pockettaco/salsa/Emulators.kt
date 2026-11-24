@@ -341,7 +341,7 @@ private val RETROARCH_CORES = mapOf(
 )
 
 /** Turns a picker Uri like ".../primary:ROMs/gba/x.gba" into "/storage/emulated/0/ROMs/gba/x.gba". */
-private fun toFilePath(uri: Uri): String {
+internal fun toFilePath(uri: Uri): String {
     val docId = DocumentsContract.getDocumentId(uri)
     val (volume, path) = docId.split(":", limit = 2).let { it[0] to it.getOrElse(1) { "" } }
     return if (volume == "primary") "/storage/emulated/0/$path" else "/storage/$volume/$path"
