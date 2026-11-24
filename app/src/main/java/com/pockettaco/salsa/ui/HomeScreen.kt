@@ -541,7 +541,7 @@ private fun SystemMenu(activity: MainActivity, system: GameSystem?, gameCount: I
             add(Triple("move", "Move", "Change where it sits"))
             add(Triple("rename", "Rename", "Now: ${systemName(system)}"))
             add(Triple("picture", "Change picture", "Pick any image file; see-through PNGs stay see-through"))
-            if (hasPicture) add(Triple("nopicture", "Remove picture", "Back to the text icon"))
+            if (hasPicture) add(Triple("nopicture", "Remove picture", "Back to the built-in pictures"))
             add(Triple("color", "Change color", null))
             add(Triple("hide", "Hide from home", "Games stay on your phone. Unhide in Settings."))
             add(Triple("delete", "Delete system and games…", "$gameCount games. Asks twice."))
@@ -846,8 +846,9 @@ private fun ColumnScope.Carousel(
             val (s, g) = systems[i.coerceIn(0, n - 1)]
             val look = lookFor(s.id)
             // Built-in console art: while you rest on a console, its pictures slowly take turns,
-            // dissolving into each other. A picture you picked yourself always stays put.
-            val pics = if (Custom.hasOwnIcon(s.id)) emptyList() else Custom.builtIns(s.id)
+            // dissolving into each other. A picture you picked yourself comes first in the turns.
+            val pics = (if (Custom.hasOwnIcon(s.id)) listOfNotNull(Custom.icon(s.id)) else emptyList()) +
+                Custom.builtIns(s.id)
             var shown by remember(s.id) { mutableIntStateOf(0) }
             if (pics.size > 1) LaunchedEffect(s.id) {
                 while (true) { kotlinx.coroutines.delay(3500); shown = (shown + 1) % pics.size }
