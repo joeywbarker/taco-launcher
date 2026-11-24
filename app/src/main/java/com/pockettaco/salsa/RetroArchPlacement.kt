@@ -23,21 +23,6 @@ object RetroArchPlacement {
     /** Why the last settings file couldn't be written, for the note shown at launch. */
     @Volatile var lastError: String? = null
 
-    /**
-     * Asks RetroArch for its version and waits for the answer. True means RetroArch read our
-     * settings file and is taking our commands (menu, quit).
-     */
-    fun isListening(): Boolean = runCatching {
-        java.net.DatagramSocket().use { s ->
-            s.soTimeout = 1200
-            val data = "VERSION".toByteArray()
-            s.send(java.net.DatagramPacket(data, data.size, java.net.InetAddress.getByName("127.0.0.1"), PORT))
-            val buf = ByteArray(256)
-            s.receive(java.net.DatagramPacket(buf, buf.size))
-            true
-        }
-    }.getOrDefault(false)
-
     /** Upright arcade games (romset names). Auto puts these from the top down to the Taco. */
     private val TALL_ARCADE = setOf(
         "1941", "1942", "1943", "1943kai", "1944", "19xx", "galaga", "galaga88", "galaxian", "gaplus",
@@ -56,19 +41,6 @@ object RetroArchPlacement {
         if (system != "arcade" || file == null) return false
         val name = file.substringBeforeLast('.').lowercase()
         return TALL_ARCADE.any { name == it || (name.startsWith(it) && name.length - it.length <= 2) }
-    }
-    const val PORT = 55355
-
-    /** Sends RetroArch a command ("MENU_TOGGLE", "QUIT"...) on this phone. */
-    fun send(command: String) {
-        Thread {
-            runCatching {
-                java.net.DatagramSocket().use { s ->
-                    val data = command.toByteArray()
-                    s.send(java.net.DatagramPacket(data, data.size, java.net.InetAddress.getByName("127.0.0.1"), PORT))
-                }
-            }
-        }.start()
     }
 
     /** How the picture is placed, picked per game (hold A on a game → Screen layout). */

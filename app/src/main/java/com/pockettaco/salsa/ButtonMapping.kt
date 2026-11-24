@@ -103,8 +103,6 @@ object ButtonMapperState {
     @Volatile var gameOpen = false
     /** The app the last game was started in. */
     @Volatile var gamePkg: String? = null
-    /** The current RetroArch game was started with our settings file, so it takes our commands. */
-    @Volatile var retroArchCommands = false
 }
 
 /** Asks the open menu screen to put focus back on its first (or last used) item. */

@@ -64,9 +64,8 @@ class ButtonMapperService : AccessibilityService() {
                 if (event.repeatCount > 0) return k in swallowed || k in singles
                 held += k
                 val combo = combos.firstOrNull { k in it.keys && held.containsAll(it.keys) }
-                if (combo != null && combo.action == MapAction.EMULATOR_MENU && retroArchInFront() &&
-                    !ButtonMapperState.retroArchCommands) {
-                    // RetroArch has its own menu combo (you set it to Select + Start there).
+                if (combo != null && combo.action == MapAction.EMULATOR_MENU && retroArchInFront()) {
+                    // RetroArch has its own Select + Start menu combo (Taco Launcher sets it up).
                     // Let both buttons reach it untouched; pressing Back on top of that would
                     // open and close the menu again, or do nothing.
                     return false
@@ -104,14 +103,7 @@ class ButtonMapperService : AccessibilityService() {
         }
         if (action == MapAction.EXIT_GAME) ButtonMapperState.lastGame = null
         when (action) {
-            MapAction.EXIT_GAME -> if (retroArchInFront() && ButtonMapperState.retroArchCommands) {
-                // Ask RetroArch to quit for real (it saves and closes), then come back. If it
-                // didn't listen, fall back to Home.
-                // Sent twice, quickly: if RetroArch asks "press again to quit", this is the second press.
-                RetroArchPlacement.send("QUIT")
-                handler.postDelayed({ RetroArchPlacement.send("QUIT") }, 150)
-                waitForQuit(tries = 0)
-            } else {
+            MapAction.EXIT_GAME -> {
                 // Home first tucks the game's pop-up window away; then bring Taco Launcher up
                 // full screen. Keep trying for a moment: if another home screen (Samsung's)
                 // grabs the front, we'd otherwise be left there.
@@ -119,9 +111,7 @@ class ButtonMapperService : AccessibilityService() {
                 bringBack(attempt = 0)
             }
             // Android's Back opens RetroArch's menu (and backs out of it), with no RetroArch setup.
-            MapAction.EMULATOR_MENU ->
-                if (retroArchInFront() && ButtonMapperState.retroArchCommands) RetroArchPlacement.send("MENU_TOGGLE")
-                else performGlobalAction(GLOBAL_ACTION_BACK)
+            MapAction.EMULATOR_MENU -> performGlobalAction(GLOBAL_ACTION_BACK)
             MapAction.TACO_LAUNCHER -> openLauncher()
             MapAction.HOME -> performGlobalAction(GLOBAL_ACTION_HOME)
             MapAction.BACK -> performGlobalAction(GLOBAL_ACTION_BACK)
@@ -136,29 +126,6 @@ class ButtonMapperService : AccessibilityService() {
     }
 
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
-
-    /**
-     * After asking RetroArch to quit: wait (up to 2 seconds) for it to close, then come back.
-     * If it never closes, say so (the next game might then start black) and use Home instead.
-     */
-    private fun waitForQuit(tries: Int) {
-        handler.postDelayed({
-            val stillThere = foreground?.startsWith("com.retroarch") == true
-            when {
-                !stillThere -> bringBack(attempt = 0)
-                tries < 7 -> waitForQuit(tries + 1)
-                else -> {
-                    runCatching {
-                        android.widget.Toast.makeText(this,
-                            "🌮 RetroArch didn't close by itself, so the next game may start black. Tell Claude.",
-                            android.widget.Toast.LENGTH_LONG).show()
-                    }
-                    performGlobalAction(GLOBAL_ACTION_HOME)
-                    bringBack(attempt = 0)
-                }
-            }
-        }, 300)
-    }
 
     private fun bringBack(attempt: Int) {
         handler.postDelayed({
