@@ -35,6 +35,7 @@ fun LauncherRoot(activity: MainActivity) {
     var scanCount by remember { mutableIntStateOf(0) }
     var rescanKey by remember { mutableIntStateOf(0) }
     var showSettings by remember { mutableStateOf(false) }
+    var setupDone by remember { mutableStateOf(activity.settings.setupDone) }
     // The intro plays on a fresh start and each time the Taco is attached (not when you come
     // back from a game). It's decided before drawing, so the menus never flash first.
     // The menus load underneath while it plays, so there's no wait after it.
@@ -87,7 +88,13 @@ fun LauncherRoot(activity: MainActivity) {
         Surface(Modifier.fillMaxSize(), color = Color(0xFF101014)) {
           Box(Modifier.fillMaxSize()) {
             // As the splash fades, the menus zoom gently into place.
-            if (mounted) AnimatedContent(
+            if (mounted && !setupDone) FirstRunSetup(
+                activity, covered,
+                onCoveredChange = { covered = it; activity.settings.coveredFraction = it },
+                hasFolder = romFolder != null,
+                onPickFolder = { picker.launch(null) },
+                onDone = { activity.settings.setupDone = true; setupDone = true },
+            ) else if (mounted) AnimatedContent(
                 modifier = Modifier.graphicsLayer {
                     alpha = enter; scaleX = 0.92f + 0.08f * enter; scaleY = 0.92f + 0.08f * enter
                 },targetState = tacoOn to showSettings, label = "mode") { (taco, settingsOpen) ->
@@ -135,8 +142,8 @@ fun LauncherRoot(activity: MainActivity) {
 
 /**
  * Splits the screen: games on top, a blank strip where the Taco sits.
- * The blank strip is plain black so it costs almost no battery on the S26's
- * OLED screen and nothing important is ever hidden under the controller.
+ * The blank strip is plain black so it costs almost no battery on OLED screens
+ * and nothing important is ever hidden under the controller.
  */
 @Composable
 fun TacoLayout(

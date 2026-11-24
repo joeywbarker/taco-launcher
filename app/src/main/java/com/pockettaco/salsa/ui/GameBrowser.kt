@@ -675,10 +675,12 @@ private fun askStillPlaying(activity: MainActivity, old: Game, new: Game, resume
     // A picks the highlighted choice, B cancels (Android's lists only know the D-pad's centre).
     // Only act on a press that started here, not the release of the A that opened this.
     var aDown = false
-    dialog.setOnKeyListener { d, code, ev ->
+    dialog.setOnKeyListener { d, _, ev ->
         val list = dialog.listView
-        when (code) {
-            android.view.KeyEvent.KEYCODE_BUTTON_A -> {
+        // The buttons taught in Settings (the Taco's A may not send "A").
+        val pressed = activity.settings.buttonFor(ev)
+        when {
+            pressed == com.pockettaco.salsa.TacoButton.A -> {
                 if (ev.action == android.view.KeyEvent.ACTION_DOWN) aDown = true
                 if (ev.action == android.view.KeyEvent.ACTION_UP && aDown && list != null) {
                     val pos = list.selectedItemPosition.takeIf { it >= 0 } ?: 0
@@ -686,7 +688,7 @@ private fun askStillPlaying(activity: MainActivity, old: Game, new: Game, resume
                 }
                 true
             }
-            android.view.KeyEvent.KEYCODE_BUTTON_B -> { if (ev.action == android.view.KeyEvent.ACTION_UP) d.cancel(); true }
+            pressed == com.pockettaco.salsa.TacoButton.B -> { if (ev.action == android.view.KeyEvent.ACTION_UP) d.cancel(); true }
             else -> false
         }
     }

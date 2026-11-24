@@ -1,54 +1,78 @@
-# Taco Launcher
+# 🌮 Taco Launcher
 
-A home screen app for Android (built for a Galaxy S26 Ultra) that rearranges
-itself the moment a GameSir Pocket Taco connects.
+A home screen app for Android phones, made for the **GameSir Pocket Taco** clip-on controller.
 
-## What it does
+Clip your phone into the Pocket Taco and Taco Launcher switches straight into a console-style
+game menu. Everything fits in the part of the screen the Taco leaves visible, and you can
+pick and play games using only the controller. Take the Taco off and you get an ordinary home
+screen with all your apps.
 
-- **No controller:** a plain home screen with all your apps in a grid.
-- **Pocket Taco connects:** it switches instantly to "Taco mode". Everything moves
-  into the top ~70% of the screen. The bottom strip, where the Taco clamps on,
-  is left black so nothing important hides under it.
-- **In Taco mode you only need the controller:** D-pad to move, **A** to pick,
-  **B** to go back. Browse Systems → Games → it opens the game in your emulator.
-- **Settings:** a slider for how much screen the Taco covers (default 30%),
-  choosing your games folder, a test switch to preview Taco mode without the
-  controller, and a switch to treat *any* controller as a Taco.
+> **No games are included.** Taco Launcher only shows and opens game files you already own.
+> You also need an emulator app. **RetroArch** is recommended and gets the most built-in setup.
 
-## How the pieces fit
+## Features
 
-| File | Plain-words job |
+- **Taco mode turns on by itself** when the Pocket Taco connects, and can open the launcher for you.
+- **Works on any phone size.** A first-run setup with a live preview asks how much of the screen
+  the Taco covers. Menus, game windows and game pictures all fit above it.
+- **Fully controller-driven.** Use the D-pad to move, A to pick and B to go back. You can teach
+  it your buttons and map hotkeys like Exit game or Screenshot.
+- **Your games, sorted by console.** Pick your games folder once and it sorts GBA, GBC, GB,
+  NES, SNES, Genesis, arcade and more.
+- **RetroArch set up for you each launch, with no RetroArch settings to change:**
+  - the game picture sits above the Taco (including a "Tall" mode for upright arcade games);
+  - Select + Start opens the menu;
+  - Select + R1 and Select + L1 save and load your spot;
+  - one game runs at a time, with a "Still playing?" prompt.
+- **Per-system and per-game choices:** emulator, RetroArch core, screen layout and how names show.
+- **Settings for everything:** each option is explained and says when it takes effect.
+- **Backup & restore** for all your settings in one file.
+
+## What you need
+
+- An Android phone running Android 10 or newer.
+- A GameSir Pocket Taco in **Android mode** (hold **M + A** for 2 seconds). Other controllers
+  work too if you turn on "Treat any controller as a Pocket Taco".
+- An emulator app. RetroArch is recommended, and you'll need to download the cores you want
+  inside it (for example mGBA for Game Boy Advance).
+- Your own game files.
+
+## Install
+
+1. On your phone, open the [latest release](../../releases/latest) and download the `.apk` file.
+2. Open it. If Android asks, allow installing apps from your browser or files app.
+3. Press Home, choose **Taco Launcher** and tap **Always**.
+4. Follow the short first-run setup.
+
+To switch back to your phone's own home screen, go to Settings → Apps → Default apps → Home app.
+
+**Hotkeys** (Exit game, Select + Start and so on) need Taco Launcher's button helper turned on:
+Settings → Accessibility → Installed apps → Taco Launcher. The app points you there when needed.
+
+## Building it yourself
+
+Every push to `main` is built by GitHub Actions (see `.github/workflows`), and the APK is
+attached to a release. To build locally, open the project in Android Studio, or run
+`gradle :app:assembleDebug` with JDK 17.
+
+| File | What it does |
 |---|---|
-| `ControllerWatcher.kt` | Listens for controllers connecting. Android announces this instantly, so no Bluetooth permission is needed. It recognises the Taco by name ("Gamesir -Pocket 1"). |
-| `ui/LauncherRoot.kt` | Chooses normal layout or Taco layout, and does the top/bottom screen split. |
-| `ui/GameBrowser.kt` | The controller-driven menus: systems, games, emulators. |
-| `RomLibrary.kt` | Looks through your games folder and sorts games by console using the file ending (.gba, .sfc, …). |
-| `Emulators.kt` | A list of known emulator apps (RetroArch, Lemuroid, My Boy!, melonDS, DraStic, PPSSPP, DuckStation…) and how to ask each one to open a game. |
-| `Settings.kt` | Remembers your choices. |
+| `ControllerWatcher.kt` | Notices the Taco connecting (it shows up as "Gamesir -Pocket 1"). |
+| `ui/LauncherRoot.kt` | Chooses the normal or Taco layout and splits the screen. |
+| `ui/FirstRunSetup.kt` | The first-run setup with the live preview. |
+| `ui/GameBrowser.kt` | The controller menus: systems, games, emulators. |
+| `RomLibrary.kt` | Finds your games and sorts them by console. |
+| `Emulators.kt` | Known emulator apps and how to hand each one a game. |
+| `RetroArchPlacement.kt` | The per-launch RetroArch settings (picture position, hotkeys). |
+| `ButtonMapperService.kt` | Hotkeys that work while a game is open. |
+| `Settings.kt` / `ui/SettingsScreen.kt` | Your saved choices and the Settings screen. |
+| `Backup.kt` | Backup & restore. |
 
-## Things to know
+## Not affiliated
 
-- **Put the Taco in Android mode** (hold M + A for 2 seconds). Other modes give it
-  a different name. If detection ever misses it, turn on "treat any controller
-  as a Pocket Taco" in Settings.
-- **The launcher only controls its own screen.** Once a game opens, the emulator
-  draws the screen. Set each emulator to show the game in the top part of the
-  screen (in RetroArch: Settings → Video → Scaling, or use a portrait overlay).
-- **It switches when you're on the home screen.** If you're inside another app
-  when the Taco connects, you'll see Taco mode the next time you press Home.
-  Android blocks apps from jumping to the front on their own.
-- **RetroArch** needs the matching "core" downloaded inside RetroArch first
-  (e.g. mGBA for Game Boy Advance). Other emulators just receive the file.
-- Not yet built or tested on a phone. See "Building it" below.
+Taco Launcher is a fan-made project. It isn't made by or connected to GameSir or the RetroArch
+/ libretro team. All names belong to their owners.
 
-## Building it
+## License
 
-1. Install [Android Studio](https://developer.android.com/studio) (free).
-2. Open this `taco-launcher` folder in it. It will download what it needs.
-3. On the phone: Settings → About phone → Software information → tap
-   **Build number** 7 times to unlock Developer options, then turn on
-   **USB debugging**.
-4. Plug the phone in and press the green ▶ Run button in Android Studio.
-5. Press Home on the phone and pick **Taco Launcher**, then "Always".
-   To go back to Samsung's home screen: Settings → Apps → Choose default apps →
-   Home app → One UI Home.
+[MIT](LICENSE)
