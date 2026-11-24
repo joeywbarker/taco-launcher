@@ -142,21 +142,16 @@ object RetroArchPlacement {
             }
             append("config_save_on_exit = \"false\"\n")
             if (st.raCommands) {
-                // Lets Taco Launcher's hotkeys open RetroArch's menu and quit it properly
-                // (quitting for real is what lets the next game start without a black screen).
-                append("network_cmd_enable = \"true\"\n")
-                append("network_cmd_port = \"$PORT\"\n")
+                // RetroArch's own Select + Start menu combo (4 = START_SELECT), so the menu opens
+                // without any help from Taco Launcher.
+                append("input_menu_toggle_gamepad_combo = \"4\"\n")
                 // No "press again to quit" (older and newer RetroArch names).
                 append("quit_press_twice = \"false\"\n")
                 append("confirm_quit = \"false\"\n")
-                // Only take Start away once we know RetroArch answers our commands, or the
-                // menu could become unreachable.
-                if (!st.raStartOpensMenu && st.raCommandsWork) {
-                    // Select + Start (sent by Taco Launcher) is then the only way into the menu,
-                    // so Start on its own never opens it and the two can't cancel each other out.
+                if (!st.raStartOpensMenu) {
+                    // Start on its own no longer opens the menu; Select + Start still does.
                     append("input_menu_toggle_btn = \"nul\"\n")
                     append("input_menu_toggle_axis = \"nul\"\n")
-                    append("input_menu_toggle_gamepad_combo = \"0\"\n")
                 }
             }
             if (st.raStateHotkeys) {

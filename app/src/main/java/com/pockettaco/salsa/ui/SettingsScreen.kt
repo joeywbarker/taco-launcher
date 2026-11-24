@@ -235,8 +235,10 @@ private fun RetroArchGamesSection(activity: MainActivity) {
 
     SettingHeader("Hotkeys")
     SettingSwitch("Taco Launcher controls the menu and quitting",
-        "Select + Start opens RetroArch's menu, and Home closes RetroArch properly (it saves and shuts down, so the " +
-            "next game starts cleanly). Turn off only if you set RetroArch's buttons up yourself.",
+        "Select + Start opens RetroArch's menu. Leaving a game (Home, or your Exit game hotkey) closes RetroArch " +
+            "completely, so the next game starts cleanly instead of on a black screen. Locking the screen also " +
+            "closes the game, so turn on \"Resume where you left off\" below to keep your spot. " +
+            "Turn off only if you set RetroArch's buttons up yourself.",
         commands, Applies.NEXT_GAME) { commands = it; st.raCommands = it }
     if (commands) SettingSwitch("Start on its own also opens the menu",
         "Off: only Select + Start opens it, so pressing Start in a game (to pause) never brings up the menu.",
