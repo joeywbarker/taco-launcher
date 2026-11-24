@@ -27,6 +27,14 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("fit", true)
         set(v) = prefs.edit().putBoolean("fit", v).apply()
 
+    /**
+     * Open RetroArch games full screen (no pop-up window frame). RetroArch itself keeps the
+     * picture at the top, above the Taco, with its "Viewport Anchor Bias Y (Portrait)" setting.
+     */
+    var retroArchFullScreen: Boolean
+        get() = prefs.getBoolean("retroArchFullScreen", true)
+        set(v) = prefs.edit().putBoolean("retroArchFullScreen", v).apply()
+
     /** Jump to the launcher the moment the Pocket Taco connects. */
     var openOnConnect: Boolean
         get() = prefs.getBoolean("openOnConnect", true)
