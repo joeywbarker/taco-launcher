@@ -68,6 +68,7 @@ fun SettingsScreen(
         onDispose { if (activity.onBackRequest === handler) activity.onBackRequest = null }
     }
     val pages = listOf(
+        Triple("check", "Setup check", "Spot anything missing (emulator, hotkeys, home app) and fix it"),
         Triple("controller", "Controller & buttons", "A and B, button mapping, auto-open, detection"),
         Triple("screen", "Screen & game window", "Space the Taco covers, game window size and spot"),
         Triple("retroarch", "RetroArch games", "Picture position, menu and quit hotkeys, save states, resume"),
@@ -97,7 +98,7 @@ fun SettingsScreen(
         when (page) {
             null -> pages.forEach { (key, title, sub) ->
                 GameCard(title, sub, SETTINGS_LOOK, tile = when (key) {
-                    "controller" -> "🎮"; "screen" -> "▭"; "retroarch" -> "▶"; "games" -> "📁"; "look" -> "🎨"; "backup" -> "💾"; else -> "ℹ"
+                    "controller" -> "🎮"; "screen" -> "▭"; "retroarch" -> "▶"; "games" -> "📁"; "look" -> "🎨"; "backup" -> "💾"; "check" -> "✓"; else -> "ℹ"
                 }) { page = key }
             }
             "controller" -> {
@@ -193,6 +194,7 @@ fun SettingsScreen(
 
             }
             "retroarch" -> RetroArchGamesSection(activity)
+            "check" -> SetupCheckSection(activity, onPickFolder)
             "backup" -> BackupSection(activity)
             "about" -> AboutSection(activity)
         }
