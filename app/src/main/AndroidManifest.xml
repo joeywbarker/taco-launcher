@@ -7,6 +7,8 @@
     <!-- "Appear on top": Android only lets a closed app open itself with this. -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
+    <!-- Only to send RetroArch its "open menu" and "quit" commands on this phone (127.0.0.1). -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <!-- Lets the launcher see every app that has a home-screen icon. -->
     <queries>
