@@ -47,6 +47,10 @@ val SYSTEMS = listOf(
     GameSystem("ps3", "PlayStation 3", emptySet(), setOf("iso", "pkg")),
     GameSystem("xbox", "Xbox", emptySet(), setOf("iso", "xiso")),
     GameSystem("x360", "Xbox 360", emptySet(), setOf("iso", "xex", "zar")),
+    GameSystem("wiiu", "Wii U", setOf("wua", "wud", "wux", "rpx")),
+    GameSystem("switch", "Nintendo Switch", setOf("nsp", "xci", "nsz", "xcz")),
+    GameSystem("switch2", "Nintendo Switch 2", emptySet(), setOf("nsp", "xci")),
+    GameSystem("vita", "PlayStation Vita", setOf("vpk"), setOf("zip")),
     GameSystem("fds", "Famicom Disk System", setOf("fds")),
     GameSystem("virtualboy", "Virtual Boy", setOf("vb", "vboy")),
     GameSystem("pokemini", "Pokémon Mini", setOf("min")),
@@ -67,7 +71,7 @@ val SYSTEMS = listOf(
 )
 
 /** Systems RetroArch has no core for, so it isn't offered (or counted) for them. */
-private val NOT_IN_RETROARCH = setOf("ps3", "xbox", "x360")
+private val NOT_IN_RETROARCH = setOf("ps3", "xbox", "x360", "wiiu", "switch", "switch2", "vita")
 private val RETROARCH_SYSTEMS = SYSTEMS.map { it.id }.toSet() - NOT_IN_RETROARCH
 
 /** Emulator apps we know about. Add more here; the list is just a lookup table. */
@@ -131,6 +135,13 @@ private val NAME_HINTS = linkedMapOf(
     "xemu" to setOf("xbox"),
     "ax360e" to setOf("x360"),
     "xenia" to setOf("x360"),
+    "cemu" to setOf("wiiu"),
+    "vita3k" to setOf("vita"),
+    "eden" to setOf("switch"),
+    "citron" to setOf("switch"),
+    "sudachi" to setOf("switch"),
+    "yuzu" to setOf("switch"),
+    "strato" to setOf("switch"),
     "lemuroid" to setOf("gb", "gbc", "gba", "nes", "snes", "genesis", "sms", "gg", "pce", "ngp",
         "n64", "nds", "psx", "fds", "virtualboy", "ws", "wsc", "lynx", "atari2600", "atari7800", "segacd", "sega32x"),
     "my boy" to setOf("gba"),
