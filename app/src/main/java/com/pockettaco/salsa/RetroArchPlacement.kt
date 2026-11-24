@@ -17,7 +17,46 @@ import android.provider.DocumentsContract
  * (it loads the games from there).
  */
 object RetroArchPlacement {
-    private const val FILE_NAME = ".taco-retroarch.cfg"
+    // A plain name (no leading dot): some phones refuse to create "hidden" files there.
+    private const val FILE_NAME = "taco-launcher-retroarch.cfg"
+
+    /** Why the last settings file couldn't be written, for the note shown at launch. */
+    @Volatile var lastError: String? = null
+
+    /**
+     * Asks RetroArch for its version and waits for the answer. True means RetroArch read our
+     * settings file and is taking our commands (menu, quit).
+     */
+    fun isListening(): Boolean = runCatching {
+        java.net.DatagramSocket().use { s ->
+            s.soTimeout = 1200
+            val data = "VERSION".toByteArray()
+            s.send(java.net.DatagramPacket(data, data.size, java.net.InetAddress.getByName("127.0.0.1"), PORT))
+            val buf = ByteArray(256)
+            s.receive(java.net.DatagramPacket(buf, buf.size))
+            true
+        }
+    }.getOrDefault(false)
+
+    /** Upright arcade games (romset names). Auto puts these from the top down to the Taco. */
+    private val TALL_ARCADE = setOf(
+        "1941", "1942", "1943", "1943kai", "1944", "19xx", "galaga", "galaga88", "galaxian", "gaplus",
+        "pacman", "puckman", "mspacman", "mspacmab", "mspacmnf", "pacplus", "superpac", "jrpacman", "pengo",
+        "dkong", "dkongjr", "dkong3", "digdug", "frogger", "centiped", "milliped", "xevious", "bosco",
+        "arkanoid", "invaders", "phoenix", "pleiads", "zaxxon", "ladybug", "mrdo", "amidar", "timeplt",
+        "gyruss", "circusc", "bombjack", "commando", "gunsmoke", "exedexes", "ikari", "victroad", "tnk3",
+        "mercs", "varth", "truxton", "truxton2", "tatsujin", "batsugun", "vfive", "dogyuun", "outzone",
+        "fireshrk", "ktiger", "twincobr", "tigerh", "vimana", "sstriker", "grindstm", "kingdmgp", "shippumd",
+        "batrider", "bbakraid", "raiden", "raidendx", "raiden2", "rdft", "donpachi", "ddonpach", "dfeveron",
+        "esprade", "guwange", "espgal", "mmatrix", "dimahoo", "gunbird", "gunbird2", "s1945", "s1945ii",
+        "s1945iii", "sonicwi", "sonicwi2", "sonicwi3", "terracre", "bgaregga",
+    )
+
+    fun isTallArcade(system: String, file: String?): Boolean {
+        if (system != "arcade" || file == null) return false
+        val name = file.substringBeforeLast('.').lowercase()
+        return TALL_ARCADE.any { name == it || (name.startsWith(it) && name.length - it.length <= 2) }
+    }
     const val PORT = 55355
 
     /** Sends RetroArch a command ("MENU_TOGGLE", "QUIT"...) on this phone. */
@@ -78,7 +117,9 @@ object RetroArchPlacement {
         val spot = gameWindowRect(activity.settings, screen.width(), screen.height(), shape)
         val file = intent.getStringExtra("ROM")?.substringAfterLast('/')
         val st = activity.settings
-        val layout = Layout.of(file?.let { st.layoutForGame(system.id, it) } ?: st.raPictureDefault)
+        var layout = Layout.of(file?.let { st.layoutForGame(system.id, it) } ?: st.raPictureDefault)
+        // Auto knows the well-known upright arcade games (1941, Pac-Man, Galaga...).
+        if (layout == Layout.AUTO && isTallArcade(system.id, file)) layout = Layout.TALL
         val r = pictureRect(layout, w, h, activity.settings.coveredFraction, spot.exactCenterY(), shape)
         fun f(v: Float) = String.format(java.util.Locale.US, "%.6f", v)
         val text = buildString {
@@ -108,7 +149,9 @@ object RetroArchPlacement {
                 // No "press again to quit" (older and newer RetroArch names).
                 append("quit_press_twice = \"false\"\n")
                 append("confirm_quit = \"false\"\n")
-                if (!st.raStartOpensMenu) {
+                // Only take Start away once we know RetroArch answers our commands, or the
+                // menu could become unreachable.
+                if (!st.raStartOpensMenu && st.raCommandsWork) {
                     // Select + Start (sent by Taco Launcher) is then the only way into the menu,
                     // so Start on its own never opens it and the two can't cancel each other out.
                     append("input_menu_toggle_btn = \"nul\"\n")
@@ -132,11 +175,13 @@ object RetroArchPlacement {
             choice("pauseMenu", "menu_pause_libretro")
             append("#include \"").append(mainConfig).append("\"\n")
         }
-        val doc = findOrCreate(activity, folder) ?: return false
-        activity.contentResolver.openOutputStream(doc, "wt")?.use { it.write(text.toByteArray()) } ?: return false
+        val doc = findOrCreate(activity, folder) ?: run { lastError = "couldn't create the file"; return false }
+        activity.contentResolver.openOutputStream(doc, "wt")?.use { it.write(text.toByteArray()) }
+            ?: run { lastError = "couldn't write the file"; return false }
         intent.putExtra("CONFIGFILE", toFilePath(doc))
+        lastError = null
         true
-    }.getOrDefault(false)
+    }.getOrElse { lastError = it.message ?: it.javaClass.simpleName; false }
 
     private fun findOrCreate(activity: MainActivity, tree: Uri): Uri? {
         val resolver = activity.contentResolver
