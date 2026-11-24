@@ -642,6 +642,27 @@ private fun launchGame(activity: MainActivity, system: GameSystem, emu: Emulator
     startGame(activity, system, emu, choices, game)
 }
 
+/**
+ * Android puts pop-ups at the bottom on some phones (Samsung), right under the Taco. Pin it near
+ * the top instead, and keep it within the part of the screen the Taco leaves visible (its list
+ * scrolls if it doesn't all fit).
+ */
+private fun fitAboveTaco(activity: MainActivity, dialog: android.app.Dialog) {
+    val window = dialog.window ?: return
+    val screen = activity.windowManager.currentWindowMetrics.bounds
+    val taco = activity.watcher.connected.value
+    val covered = if (taco) activity.settings.coveredFraction else 0f
+    val visible = (screen.height() * (1f - covered)).toInt()
+    val top = (screen.height() * 0.06f).toInt()
+    window.setGravity(android.view.Gravity.TOP or android.view.Gravity.CENTER_HORIZONTAL)
+    window.attributes = window.attributes.apply { y = top }
+    // Measure the dialog and shrink it if it would run past the Taco's edge.
+    window.decorView.post {
+        val maxH = visible - top - (screen.height() * 0.02f).toInt()
+        if (window.decorView.height > maxH) window.setLayout(window.attributes.width, maxH)
+    }
+}
+
 /** "Are you still playing?" with big, controller-friendly choices. Back or B just cancels. */
 private fun askStillPlaying(activity: MainActivity, old: Game, new: Game, resume: () -> Unit, switch: () -> Unit) {
     val dialog = android.app.AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Dialog_Alert)
@@ -692,7 +713,10 @@ private fun askStillPlaying(activity: MainActivity, old: Game, new: Game, resume
             else -> false
         }
     }
-    dialog.setOnShowListener { dialog.listView?.apply { requestFocus(); setSelection(0) } }
+    dialog.setOnShowListener {
+        fitAboveTaco(activity, dialog)
+        dialog.listView?.apply { requestFocus(); setSelection(0) }
+    }
     dialog.show()
 }
 

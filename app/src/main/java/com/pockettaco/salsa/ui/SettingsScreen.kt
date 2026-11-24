@@ -410,7 +410,7 @@ private fun AboutSection(activity: MainActivity) {
     }.getOrNull()
     Text("About", color = Color.White, fontWeight = FontWeight.Bold)
     Text("🌮 Taco Launcher ${version ?: ""}", color = Color(0xFFFFD25A), fontWeight = FontWeight.Bold)
-    Text("Designed by: Joey Wayne Barker-Erickson (2026)", color = Color.White)
+    Text("Designed by: Joey Wayne Erickson (2026)", color = Color.White)
     Text("Check out his other projects @", color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall)
     TextButton(onClick = {
         runCatching {
@@ -418,6 +418,9 @@ private fun AboutSection(activity: MainActivity) {
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }
     }) { Text("github.com/joeywbarker") }
+    Text("Taco Launcher is an independent, fan-made app. It is not affiliated with, endorsed by, or sponsored by GameSir, the makers of the Pocket Taco, RetroArch / Libretro, or any other company. All product names and trademarks belong to their respective owners and are used only to describe compatibility.", color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall)
+    Text("No games are included. Only play games you own.", color = Color(0xFFAAAAAA),
+        style = MaterialTheme.typography.bodySmall)
     var skipSplash by remember { mutableStateOf(!activity.settings.showSplash) }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {

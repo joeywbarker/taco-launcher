@@ -7,6 +7,8 @@ game menu. Everything fits in the part of the screen the Taco leaves visible, an
 pick and play games using only the controller. Take the Taco off and you get an ordinary home
 screen with all your apps.
 
+> **Unofficial:** not affiliated with or endorsed by GameSir. See [Not affiliated](#not-affiliated).
+>
 > **No games are included.** Taco Launcher only shows and opens game files you already own.
 > You also need an emulator app. **RetroArch** is recommended and gets the most built-in setup.
 
@@ -70,8 +72,7 @@ attached to a release. To build locally, open the project in Android Studio, or 
 
 ## Not affiliated
 
-Taco Launcher is a fan-made project. It isn't made by or connected to GameSir or the RetroArch
-/ libretro team. All names belong to their owners.
+Taco Launcher is an independent, fan-made app. It is not affiliated with, endorsed by, or sponsored by GameSir, the makers of the Pocket Taco, RetroArch / Libretro, or any other company. All product names and trademarks belong to their respective owners and are used only to describe compatibility.
 
 ## License
 
