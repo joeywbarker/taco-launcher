@@ -34,7 +34,6 @@ fun startFitted(activity: MainActivity, intent: Intent, system: GameSystem? = nu
     }
     val retroArch = intent.component?.className?.contains("RetroActivity") == true
     if (system != null) {
-        ButtonMapperState.retroArchCommands = false
         if (retroArch && activity.settings.retroArchFullScreen) {
             val ok = RetroArchPlacement.apply(activity, intent, system)
             if (!ok) android.widget.Toast.makeText(activity,
