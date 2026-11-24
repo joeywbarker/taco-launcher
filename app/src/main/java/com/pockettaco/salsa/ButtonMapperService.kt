@@ -107,10 +107,7 @@ class ButtonMapperService : AccessibilityService() {
                 // Ask RetroArch to quit for real (it saves and closes), then come back. If it
                 // didn't listen, fall back to Home.
                 RetroArchPlacement.send("QUIT")
-                handler.postDelayed({
-                    if (foreground != null && foreground != packageName) performGlobalAction(GLOBAL_ACTION_HOME)
-                    bringBack(attempt = 0)
-                }, 700)
+                waitForQuit(tries = 0)
             } else {
                 // Home first tucks the game's pop-up window away; then bring Taco Launcher up
                 // full screen. Keep trying for a moment: if another home screen (Samsung's)
@@ -136,6 +133,29 @@ class ButtonMapperService : AccessibilityService() {
     }
 
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+
+    /**
+     * After asking RetroArch to quit: wait (up to 2 seconds) for it to close, then come back.
+     * If it never closes, say so (the next game might then start black) and use Home instead.
+     */
+    private fun waitForQuit(tries: Int) {
+        handler.postDelayed({
+            val stillThere = foreground?.startsWith("com.retroarch") == true
+            when {
+                !stillThere -> bringBack(attempt = 0)
+                tries < 7 -> waitForQuit(tries + 1)
+                else -> {
+                    runCatching {
+                        android.widget.Toast.makeText(this,
+                            "🌮 RetroArch didn't close by itself, so the next game may start black. Tell Claude.",
+                            android.widget.Toast.LENGTH_LONG).show()
+                    }
+                    performGlobalAction(GLOBAL_ACTION_HOME)
+                    bringBack(attempt = 0)
+                }
+            }
+        }, 300)
+    }
 
     private fun bringBack(attempt: Int) {
         handler.postDelayed({
