@@ -21,6 +21,10 @@ android {
     // A fixed signing key kept in the repo. Without it, GitHub makes a new
     // random key on every build, Android refuses to install the update over
     // the old app, and you'd have to uninstall (losing all settings) each time.
+    //
+    // For public releases, a private key is used instead when GitHub provides it (the
+    // RELEASE_KEYSTORE_* secrets). Without those secrets, builds keep using the debug key.
+    val releaseStore = System.getenv("RELEASE_KEYSTORE_FILE")?.let { file(it) }?.takeIf { it.exists() }
     signingConfigs {
         getByName("debug") {
             storeFile = file("debug.keystore")
@@ -28,10 +32,18 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
+        if (releaseStore != null) create("private") {
+            storeFile = releaseStore
+            storePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD")
+            keyAlias = "taco"
+            keyPassword = System.getenv("RELEASE_KEYSTORE_PASSWORD")
+        }
     }
 
     buildTypes {
-        debug { signingConfig = signingConfigs.getByName("debug") }
+        debug {
+            signingConfig = if (releaseStore != null) signingConfigs.getByName("private") else signingConfigs.getByName("debug")
+        }
         release { isMinifyEnabled = false }
     }
     compileOptions {
