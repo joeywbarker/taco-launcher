@@ -410,7 +410,7 @@ private fun AboutSection(activity: MainActivity) {
     }.getOrNull()
     Text("About", color = Color.White, fontWeight = FontWeight.Bold)
     Text("🌮 Taco Launcher ${version ?: ""}", color = Color(0xFFFFD25A), fontWeight = FontWeight.Bold)
-    Text("Designed by: Joey Wayne Barker-Erickson (2026)", color = Color.White)
+    Text("Designed by: Joey Wayne Erickson (2026)", color = Color.White)
     Text("Check out his other projects @", color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall)
     TextButton(onClick = {
         runCatching {

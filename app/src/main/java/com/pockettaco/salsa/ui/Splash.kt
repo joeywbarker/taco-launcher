@@ -115,7 +115,7 @@ fun Splash(onReveal: () -> Unit, onDone: () -> Unit) {
         }
         // The credit: small and quiet at the bottom.
         Text(
-            "by Joey Wayne Barker-Erickson",
+            "by Joey Wayne Erickson",
             color = Color.White.copy(alpha = 0.4f), fontSize = 11.sp, letterSpacing = 1.sp,
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 18.dp)
                 .graphicsLayer { alpha = creditAlpha.value },
