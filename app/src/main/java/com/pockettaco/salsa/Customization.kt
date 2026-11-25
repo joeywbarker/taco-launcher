@@ -59,13 +59,17 @@ object Custom {
     private var dir: File? = null
     private var assets: android.content.res.AssetManager? = null
     val version = mutableIntStateOf(0)
-    private val images = HashMap<String, ImageBitmap?>()
+    // Opened pictures, newest kept; old ones are let go so lots of big pictures can't use up memory.
+    private val images = object : LinkedHashMap<String, ImageBitmap?>(32, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ImageBitmap?>?) = size > 24
+    }
 
     fun init(context: Context) {
         if (prefs != null) return
         prefs = context.getSharedPreferences("taco_custom", Context.MODE_PRIVATE)
         dir = context.filesDir
         assets = context.applicationContext.assets
+        runCatching { moveOldPictures() }
     }
 
     fun changed() { images.clear(); version.intValue++ }
@@ -128,32 +132,155 @@ object Custom {
         get() { read(); return p().getInt("background", 0) }
         set(v) { p().edit().putInt("background", v).apply(); changed() }
 
-    fun iconFile(id: String) = File(dir, "icons/$id.png")
     fun backgroundFile() = File(dir, "background.jpg")
 
-    fun icon(id: String): ImageBitmap? { read(); return image(iconFile(id), trim = true) ?: builtIn(id) }
+    /** The picture this console shows in the grid and list views: the first one that's turned on. */
+    fun icon(id: String): ImageBitmap? {
+        read()
+        return carouselKeys(id).firstNotNullOfOrNull { picImage(id, it) }
+    }
 
-    /**
-     * Console pictures that come with the app (the .webp files in assets/consoles/<id>), used until you pick
-     * your own. The console art is used under its Creative Commons license (credit in About).
-     */
-    private val builtInSets = HashMap<String, List<ImageBitmap>>()
+    // ---- Console pictures -------------------------------------------------------------------
+    // Each console has the pictures that come with the app (assets/consoles/<id>/*.webp, used
+    // under their Creative Commons license, credit in About) plus up to [MAX_OWN_PICTURES] of
+    // your own (files in art/<id>/). Every picture has a key: "b:<asset name>" for built-in
+    // ones and "u:<file name>" for yours. You can turn any of them off and change their order.
 
-    fun builtIns(id: String): List<ImageBitmap> = synchronized(builtInSets) {
-        builtInSets.getOrPut(id) {
+    /** One console picture, as shown in the picture settings. */
+    data class ConsolePic(val key: String, val builtIn: Boolean, val on: Boolean, val number: Int) {
+        val label get() = if (builtIn) "Built-in picture $number" else "Your picture $number"
+    }
+
+    const val MAX_OWN_PICTURES = 10
+
+    fun ownDir(id: String) = File(dir, "art/$id")
+
+    private val builtInNames = HashMap<String, List<String>>()
+    private val builtInImages = HashMap<String, ImageBitmap?>()
+
+    private fun builtInNamesFor(id: String): List<String> = synchronized(builtInNames) {
+        builtInNames.getOrPut(id) {
             val a = assets ?: return@getOrPut emptyList()
-            runCatching {
-                (a.list("consoles/$id") ?: emptyArray()).sorted().mapNotNull { name ->
-                    a.open("consoles/$id/$name").use { BitmapFactory.decodeStream(it) }?.asImageBitmap()
-                }
-            }.getOrDefault(emptyList())
+            runCatching { (a.list("consoles/$id") ?: emptyArray()).filter { it.endsWith(".webp") }.sorted() }
+                .getOrDefault(emptyList())
         }
     }
 
-    /** True when you picked your own picture for this console. */
-    fun hasOwnIcon(id: String) = iconFile(id).exists()
+    private fun ownNames(id: String): List<String> =
+        (ownDir(id).listFiles()?.filter { it.isFile && it.name.endsWith(".png") }?.map { it.name } ?: emptyList()).sorted()
 
-    private fun builtIn(id: String): ImageBitmap? = builtIns(id).firstOrNull()
+    fun ownPictureCount(id: String): Int { read(); return ownNames(id).size }
+    fun builtInCount(id: String): Int = builtInNamesFor(id).size
+
+    private fun offKeys(id: String): Set<String> = p().getStringSet("artOff_$id", emptySet())!!.toSet()
+    private fun savedOrder(id: String): List<String> =
+        p().getString("artOrder_$id", "")!!.split('\n').filter { it.isNotBlank() }
+
+    /** Every picture for a console, in your order (yours first, then the built-in ones, unless you moved them). */
+    fun pictures(id: String): List<ConsolePic> {
+        read()
+        val own = ownNames(id).mapIndexed { i, n -> "u:$n" to i + 1 }
+        val built = builtInNamesFor(id).mapIndexed { i, n -> "b:$n" to i + 1 }
+        val all = (own + built).toMap()
+        val saved = savedOrder(id).filter { it in all }
+        val keys = saved + all.keys.filter { it !in saved }
+        val off = offKeys(id)
+        return keys.map { k -> ConsolePic(k, k.startsWith("b:"), k !in off, all.getValue(k)) }
+    }
+
+    /** The keys of the pictures that are turned on, in order: these take turns on the carousel. */
+    fun carouselKeys(id: String): List<String> = pictures(id).filter { it.on }.map { it.key }
+
+    /** Opens one picture (null if it can't be read; the console then shows its plain icon). */
+    fun picImage(id: String, key: String): ImageBitmap? {
+        read()
+        return when {
+            key.startsWith("u:") -> image(File(ownDir(id), key.removePrefix("u:")), trim = true)
+            key.startsWith("b:") -> synchronized(builtInImages) {
+                builtInImages.getOrPut("$id/$key") {
+                    runCatching {
+                        assets?.open("consoles/$id/${key.removePrefix("b:")}")?.use { BitmapFactory.decodeStream(it) }
+                            ?.asImageBitmap()
+                    }.getOrNull()
+                }
+            }
+            else -> null
+        }
+    }
+
+    fun setPictureOn(id: String, key: String, on: Boolean) {
+        val off = offKeys(id)
+        p().edit().putStringSet("artOff_$id", if (on) off - key else off + key).apply(); changed()
+    }
+
+    /** Moves a picture earlier (-1) or later (+1); a big number moves it to the start or end. */
+    fun movePicture(id: String, key: String, delta: Int) {
+        val keys = pictures(id).map { it.key }.toMutableList()
+        val i = keys.indexOf(key)
+        if (i < 0) return
+        val j = (i + delta).coerceIn(0, keys.size - 1)
+        if (i == j) return
+        keys.removeAt(i); keys.add(j, key)
+        p().edit().putString("artOrder_$id", keys.joinToString("\n")).apply(); changed()
+    }
+
+    /** A new file for one of your pictures, or null when you already have [MAX_OWN_PICTURES]. */
+    fun newOwnFile(id: String): File? {
+        if (ownNames(id).size >= MAX_OWN_PICTURES) return null
+        var t = System.currentTimeMillis()
+        while (File(ownDir(id), "p$t.png").exists()) t++
+        return File(ownDir(id), "p$t.png")
+    }
+
+    /** Call after saving a new picture: it goes to the front, so you see it straight away. */
+    fun ownPictureAdded(id: String, file: File) {
+        val key = "u:${file.name}"
+        val saved = savedOrder(id).filter { it != key }
+        if (saved.isNotEmpty()) p().edit().putString("artOrder_$id", (listOf(key) + saved).joinToString("\n")).apply()
+        changed()
+    }
+
+    fun removeOwnPicture(id: String, key: String) {
+        if (!key.startsWith("u:")) return  // built-in pictures can only be turned off
+        File(ownDir(id), key.removePrefix("u:")).delete()
+        p().edit().putStringSet("artOff_$id", offKeys(id) - key)
+            .putString("artOrder_$id", savedOrder(id).filter { it != key }.joinToString("\n")).apply()
+        changed()
+    }
+
+    /** Turns every picture back on and puts them in the usual order. Your own pictures are kept. */
+    fun resetPictures(id: String) {
+        p().edit().remove("artOff_$id").remove("artOrder_$id").apply(); changed()
+    }
+
+    /** True when anything was changed for this console's pictures. */
+    fun picturesChanged(id: String): Boolean {
+        read(); return offKeys(id).isNotEmpty() || savedOrder(id).isNotEmpty()
+    }
+
+    /** When on, a console's pictures take turns on the carousel; when off, only the first one shows. */
+    var slideshow: Boolean
+        get() { read(); return p().getBoolean("slideshow", true) }
+        set(v) { p().edit().putBoolean("slideshow", v).apply(); changed() }
+
+    /** How long each picture stays before the next one fades in. */
+    var slideMillis: Int
+        get() { read(); return p().getInt("slideMillis", 3500).coerceIn(1500, 20000) }
+        set(v) { p().edit().putInt("slideMillis", v.coerceIn(1500, 20000)).apply(); changed() }
+
+    /** Before Nov 25 2026 a console could have just one picture of your own, in icons/<id>.png. */
+    private fun moveOldPictures() {
+        val old = File(dir, "icons")
+        old.listFiles()?.filter { it.isFile && it.name.endsWith(".png") }?.forEach { f ->
+            runCatching {
+                val target = File(File(dir, "art/${f.name.removeSuffix(".png")}"), "p0.png")
+                target.parentFile?.mkdirs()
+                if (!target.exists()) { if (!f.renameTo(target)) { f.copyTo(target); f.delete() } } else f.delete()
+            }
+        }
+        runCatching { if (old.listFiles()?.isEmpty() == true) old.delete() }
+    }
+
     fun backgroundImage(): ImageBitmap? { read(); return image(backgroundFile()) }
 
     private fun image(file: File, trim: Boolean = false): ImageBitmap? = images.getOrPut(file.path) {
@@ -221,8 +348,6 @@ object Custom {
         return recent.mapNotNull { byKey[it] }
     }
 
-    fun removeIcon(id: String) { iconFile(id).delete(); changed() }
-
     /** Clears the view, order, names, colours, pictures and background. */
     fun resetAll() {
         // Favorites and recently played aren't "look"; keep them.
@@ -232,6 +357,7 @@ object Custom {
             played.forEach { (k, v) -> putString(k, v as? String) }
         }.apply()
         File(dir, "icons").deleteRecursively()
+        File(dir, "art").deleteRecursively()
         backgroundFile().delete()
         changed()
     }

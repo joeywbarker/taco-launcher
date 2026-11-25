@@ -27,6 +27,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -67,6 +68,7 @@ private sealed interface Panel {
     data class Emulator(val id: String) : Panel
     data class Core(val id: String) : Panel
     data class Names(val id: String) : Panel
+    data class Pictures(val id: String) : Panel
 }
 
 /**
@@ -103,20 +105,6 @@ fun HomeScreen(
     var title by remember { mutableStateOf("Games") }
     var subtitle by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
-
-    var pictureFor by remember { mutableStateOf<String?>(null) }
-    // Opens the file browser, so a picture can come from any folder (PNG see-through parts are kept).
-    val picturePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        val id = pictureFor ?: return@rememberLauncherForActivityResult
-        if (uri == null) return@rememberLauncherForActivityResult
-        scope.launch {
-            val error = withContext(Dispatchers.IO) {
-                savePicture(activity, uri, Custom.iconFile(id), maxSide = 1024, square = true)
-            }
-            if (error != null) Toast.makeText(activity, error, Toast.LENGTH_LONG).show()
-            Custom.changed()
-        }
-    }
 
     // Start = menu for the selected system, Select = next view.
     DisposableEffect(Unit) {
@@ -180,15 +168,13 @@ fun HomeScreen(
                 activity,
                 p.id?.let { id -> SYSTEMS.firstOrNull { it.id == id } },
                 gameCount = p.id?.let { id -> systems.firstOrNull { it.first.id == id }?.second?.size } ?: 0,
-                hasPicture = p.id?.let { Custom.iconFile(it).exists() } == true,
                 onChoose = { action ->
                     val id = p.id
                     panel = null
                     when (action) {
                         "move" -> if (id != null) panel = Panel.Move(id)
                         "rename" -> if (id != null) panel = Panel.Rename(id)
-                        "picture" -> if (id != null) { pictureFor = id; picturePicker.launch(arrayOf("image/*")) }
-                        "nopicture" -> if (id != null) Custom.removeIcon(id)
+                        "picture" -> if (id != null) panel = Panel.Pictures(id)
                         "color" -> if (id != null) panel = Panel.Colors(id)
                         "emulator" -> if (id != null) panel = Panel.Emulator(id)
                         "core" -> if (id != null) panel = Panel.Core(id)
@@ -209,6 +195,9 @@ fun HomeScreen(
             is Panel.Emulator -> EmulatorPanel(activity, p.id) { panel = null }
             is Panel.Core -> CorePanel(activity, p.id) { panel = null }
             is Panel.Names -> NamesPanel(activity, p.id) { panel = null }
+            is Panel.Pictures -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                ConsolePicturesEditor(activity, p.id) { panel = null }
+            }
             is Panel.Delete -> {
                 val system = SYSTEMS.first { it.id == p.id }
                 val games = library[system].orEmpty()
@@ -315,10 +304,18 @@ private fun SystemsView(
     }
 
     if (view == HomeView.CAROUSEL && !empty) {
+        // While Quick Start is selected, the big picture shows the game it will play (its cover,
+        // or its console's picture) instead of a console. Down goes to the consoles as before.
+        var onQuickStart by remember { mutableStateOf(false) }
+        val stripFocused: (String?, String, String) -> Unit = { id, t, sub ->
+            if (id == null) onQuickStart = t.startsWith("▶ Quick Start")
+            onFocused(id, t, sub)
+        }
         Column(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
-            ShortcutStrip(systems.isNotEmpty(), lastPlayed, recentCount, favoriteCount, emulatorCount, onFocused,
+            ShortcutStrip(systems.isNotEmpty(), lastPlayed, recentCount, favoriteCount, emulatorCount, stripFocused,
                 onLastPlayed, onOpenRecent, onOpenFavorites, onRandom, onOpenApps, onOpenSettings)
-            if (systems.isNotEmpty()) Carousel(systems, focusIndex, first, onFocused, onOpenSystem, onMenu)
+            if (systems.isNotEmpty()) Carousel(systems, focusIndex, first, onFocused, onOpenSystem, onMenu,
+                quickGame = if (onQuickStart) lastPlayed else null, onQuickGame = onLastPlayed)
         }
         return
     }
@@ -523,7 +520,7 @@ private fun ShortcutStrip(
 
 /** The list of choices for a system (or the whole home screen). */
 @Composable
-private fun SystemMenu(activity: MainActivity, system: GameSystem?, gameCount: Int, hasPicture: Boolean, onChoose: (String) -> Unit) {
+private fun SystemMenu(activity: MainActivity, system: GameSystem?, gameCount: Int, onChoose: (String) -> Unit) {
     val first = remember { FocusRequester() }
     LaunchedEffect(FocusKick.count.intValue) { runCatching { first.requestFocus() } }
     val look = system?.let { lookFor(it.id) } ?: SETTINGS_LOOK
@@ -540,8 +537,9 @@ private fun SystemMenu(activity: MainActivity, system: GameSystem?, gameCount: I
             add(Triple("names", "Game names", if (GameNames.systemFlags.containsKey(system.id)) "Its own settings" else "Same as Settings"))
             add(Triple("move", "Move", "Change where it sits"))
             add(Triple("rename", "Rename", "Now: ${systemName(system)}"))
-            add(Triple("picture", "Change picture", "Pick any image file; see-through PNGs stay see-through"))
-            if (hasPicture) add(Triple("nopicture", "Remove picture", "Back to the built-in pictures"))
+            Custom.pictures(system.id).let { pics ->
+                add(Triple("picture", "Pictures", "${pics.count { it.on }} of ${pics.size} on · add your own, turn off, reorder"))
+            }
             add(Triple("color", "Change color", null))
             add(Triple("hide", "Hide from home", "Games stay on your phone. Unhide in Settings."))
             add(Triple("delete", "Delete system and games…", "$gameCount games. Asks twice."))
@@ -758,6 +756,8 @@ private fun ColumnScope.Carousel(
     onFocused: (id: String?, title: String, subtitle: String) -> Unit,
     onOpenSystem: (GameSystem) -> Unit,
     onMenu: (String?) -> Unit,
+    quickGame: Game? = null,
+    onQuickGame: () -> Unit = {},
 ) {
     val n = systems.size
     var index by remember { mutableIntStateOf(startIndex.coerceIn(0, n - 1)) }
@@ -793,6 +793,7 @@ private fun ColumnScope.Carousel(
 
     var dragged by remember { mutableFloatStateOf(0f) }
     var focused by remember { mutableStateOf(false) }
+    val gameShown = if (focused) null else quickGame
     androidx.compose.foundation.layout.BoxWithConstraints(
         Modifier.fillMaxWidth().weight(1f)
             .focusRequester(focus)
@@ -812,7 +813,8 @@ private fun ColumnScope.Carousel(
                 ) { change, amount -> change.consume(); dragged += amount }
             }
             .combinedClickable(remember { MutableInteractionSource() }, indication = null,
-                onLongClick = { onMenu(system.id) }, onClick = { onOpenSystem(system) }),
+                onLongClick = { onMenu(system.id) },
+                onClick = { if (gameShown != null) onQuickGame() else onOpenSystem(system) }),
         contentAlignment = Alignment.Center,
     ) {
         // The picture gets every bit of room left: the full width, and the full height apart
@@ -824,6 +826,10 @@ private fun ColumnScope.Carousel(
         val nameH = (nameMax * 1.2f).dp + 4.dp
         val boxW = maxWidth - 8.dp
         val boxH = (maxHeight - pillH - nameH).coerceAtLeast(40.dp)
+        if (gameShown != null) {
+            QuickStartPicture(gameShown, boxW, boxH + pillH - 18.dp, nameMax)
+            return@BoxWithConstraints
+        }
         androidx.compose.animation.AnimatedContent(
             targetState = index,
             // A smooth glide: eased slide plus a gentle fade and shrink. No clipping box and no
@@ -846,15 +852,16 @@ private fun ColumnScope.Carousel(
             val (s, g) = systems[i.coerceIn(0, n - 1)]
             val look = lookFor(s.id)
             // Built-in console art: while you rest on a console, its pictures slowly take turns,
-            // dissolving into each other. A picture you picked yourself comes first in the turns.
-            val pics = (if (Custom.hasOwnIcon(s.id)) listOfNotNull(Custom.icon(s.id)) else emptyList()) +
-                Custom.builtIns(s.id)
+            // dissolving into each other. Which ones, and their order, is up to you (Pictures in
+            // the console's menu, or Settings > Console pictures). Each one opens only when shown.
+            val keys = Custom.carouselKeys(s.id)
             var shown by remember(s.id) { mutableIntStateOf(0) }
-            if (pics.size > 1) LaunchedEffect(s.id) {
-                while (true) { kotlinx.coroutines.delay(3500); shown = (shown + 1) % pics.size }
+            val cycling = keys.size > 1 && Custom.slideshow
+            val wait = Custom.slideMillis
+            if (cycling) LaunchedEffect(s.id, keys.size, wait) {
+                while (true) { kotlinx.coroutines.delay(wait.toLong()); shown = (shown + 1) % keys.size }
             }
-            val cycling = pics.size > 1
-            val img = if (pics.isNotEmpty()) pics[shown % pics.size] else Custom.icon(s.id)
+            val img = keys.getOrNull(if (cycling) shown % keys.size else 0)?.let { Custom.picImage(s.id, it) }
             val cutout = img != null && img.hasAlpha && img.width > 0 && img.height > 0
             val (iw, ih) = if (cycling) boxW to boxH else if (cutout && img != null) {
                 val aspect = img.width.toFloat() / img.height
@@ -891,6 +898,30 @@ private fun ColumnScope.Carousel(
                     modifier = Modifier.padding(top = 4.dp))
             }
         }
+    }
+}
+
+/** The game Quick Start will play: its cover (when box art is on), else its console's picture, and its name. */
+@Composable
+private fun QuickStartPicture(game: Game, w: Dp, h: Dp, nameMax: Float) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val cover = rememberBoxArt(context, game)
+    val look = lookFor(game.system.id)
+    val img = cover ?: Custom.icon(game.system.id)
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text("▶ Play again", color = TextDim, fontSize = 13.sp, maxLines = 1, modifier = Modifier.height(18.dp))
+        Box(Modifier.size(w, h), contentAlignment = Alignment.Center) {
+            if (cover != null) Image(cover, contentDescription = game.label, contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)))
+            else Box(Modifier.size(minOf(w, h))) { BigSystemIcon(look, img, minOf(w, h), false) }
+        }
+        val name = game.label
+        val nf = fitFont(name, w, nameMax, 10f)
+        Text(name, color = TextBright, fontWeight = FontWeight.Black,
+            fontSize = with(density) { nf.dp.toSp() }, lineHeight = with(density) { (nf * 1.2f).dp.toSp() },
+            maxLines = 1, softWrap = false, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.padding(top = 4.dp))
     }
 }
 

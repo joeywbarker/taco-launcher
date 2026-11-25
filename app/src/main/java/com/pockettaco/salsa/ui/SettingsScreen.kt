@@ -74,6 +74,7 @@ fun SettingsScreen(
         Triple("retroarch", "RetroArch games", "Picture position, menu and quit hotkeys, save states, resume"),
         Triple("games", "Games & systems", "Game names, folders, rescan, which app each system uses"),
         Triple("look", "Look", "Home view, background, app icon"),
+        Triple("pictures", "Console pictures", "Turn pictures off, change their order, add up to 10 of your own"),
         Triple("backup", "Backup & restore", "Save all your settings to a file, or put them back"),
         Triple("about", "About", "Version and credits"),
     )
@@ -98,7 +99,7 @@ fun SettingsScreen(
         when (page) {
             null -> pages.forEach { (key, title, sub) ->
                 GameCard(title, sub, SETTINGS_LOOK, tile = when (key) {
-                    "controller" -> "🎮"; "screen" -> "▭"; "retroarch" -> "▶"; "games" -> "📁"; "look" -> "🎨"; "backup" -> "💾"; "check" -> "✓"; else -> "ℹ"
+                    "controller" -> "🎮"; "screen" -> "▭"; "retroarch" -> "▶"; "games" -> "📁"; "look" -> "🎨"; "pictures" -> "🖼"; "backup" -> "💾"; "check" -> "✓"; else -> "ℹ"
                 }) { page = key }
             }
             "controller" -> {
@@ -165,8 +166,12 @@ fun SettingsScreen(
             SystemsSection(activity, onRescan)
 
             }
+            "pictures" -> ConsolePicturesPage(activity)
             "look" -> {
                 HomeLookSection(activity)
+                SlideshowSettings()
+                GameCard("Console pictures", "Turn pictures off, change their order, add your own",
+                    SETTINGS_LOOK, tile = "🖼") { page = "pictures" }
             Text("App icon", color = Color.White, fontWeight = FontWeight.Bold)
             var icon by remember { mutableStateOf(currentAppIcon(activity)) }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
