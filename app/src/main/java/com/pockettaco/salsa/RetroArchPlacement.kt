@@ -179,8 +179,11 @@ object RetroArchPlacement {
             val noSelect = system.id in NO_SELECT_SYSTEMS
             ButtonMapperState.raGameIgnoresSelect = noSelect
             if (noSelect) {
+                // Not "nul": an empty button falls back to RetroArch's built-in profile for the
+                // controller, which binds Select again. Point it at a button the Taco doesn't
+                // have (Android's "button 16", code 203) so Select really never reaches the game.
                 append("input_player1_select = \"nul\"\n")
-                append("input_player1_select_btn = \"nul\"\n")
+                append("input_player1_select_btn = \"203\"\n")
                 append("input_player1_select_axis = \"nul\"\n")
             }
             if (st.raStateHotkeys) {
