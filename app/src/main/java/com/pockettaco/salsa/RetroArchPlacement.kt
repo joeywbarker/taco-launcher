@@ -164,6 +164,16 @@ object RetroArchPlacement {
             // Shader presets you save in RetroArch (for one game or a whole system) always load.
             append("auto_shaders_enable = \"true\"\n")
             append("video_shader_enable = \"true\"\n")
+            // The Lynx has no Select button, so its emulator turns the screen around whenever it
+            // sees Select. Keep Select for Taco Launcher's hotkeys and give "turn the screen" to Y
+            // instead (Y isn't a Lynx button, so nothing else is lost).
+            val noSelect = system.id in NO_SELECT_SYSTEMS
+            ButtonMapperState.raGameIgnoresSelect = false
+            if (noSelect) {
+                append("input_player1_select = \"nul\"\n")
+                append("input_player1_select_btn = \"").append(st.signalFor(TacoButton.Y).first).append("\"\n")
+                append("input_player1_select_axis = \"nul\"\n")
+            }
             if (st.raCommands) {
                 // RetroArch's own Select + Start menu combo (4 = START_SELECT), so the menu opens
                 // without any help from Taco Launcher.
@@ -171,24 +181,16 @@ object RetroArchPlacement {
                 // No "press again to quit" (older and newer RetroArch names).
                 append("quit_press_twice = \"false\"\n")
                 append("confirm_quit = \"false\"\n")
-                if (!st.raStartOpensMenu) {
+                if (noSelect) {
+                    // RetroArch's combo above reads the game's Select, which the Lynx doesn't get.
+                    // Use RetroArch's hotkey route instead: hold button + Start opens the menu.
+                    append("input_enable_hotkey_btn = \"").append(st.signalFor(st.raHotkeyButton).first).append("\"\n")
+                    append("input_menu_toggle_btn = \"").append(st.signalFor(TacoButton.START).first).append("\"\n")
+                } else if (!st.raStartOpensMenu) {
                     // Start on its own no longer opens the menu; Select + Start still does.
                     append("input_menu_toggle_btn = \"nul\"\n")
                     append("input_menu_toggle_axis = \"nul\"\n")
                 }
-            }
-            // The Lynx has no Select button, so its emulator uses Select to turn the screen
-            // around. Keep Select away from the game there; the hotkeys below still see it, and
-            // Taco Launcher opens the menu for Select + Start itself.
-            val noSelect = system.id in NO_SELECT_SYSTEMS
-            ButtonMapperState.raGameIgnoresSelect = noSelect
-            if (noSelect) {
-                // Not "nul": an empty button falls back to RetroArch's built-in profile for the
-                // controller, which binds Select again. Point it at a button the Taco doesn't
-                // have (Android's "button 16", code 203) so Select really never reaches the game.
-                append("input_player1_select = \"nul\"\n")
-                append("input_player1_select_btn = \"203\"\n")
-                append("input_player1_select_axis = \"nul\"\n")
             }
             if (st.raStateHotkeys) {
                 // RetroArch on Android numbers buttons by their Android code (Select 109, L1 102,
