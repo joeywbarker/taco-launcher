@@ -64,7 +64,8 @@ class ButtonMapperService : AccessibilityService() {
                 if (event.repeatCount > 0) return k in swallowed || k in singles
                 held += k
                 val combo = combos.firstOrNull { k in it.keys && held.containsAll(it.keys) }
-                if (combo != null && combo.action == MapAction.EMULATOR_MENU && retroArchInFront()) {
+                if (combo != null && combo.action == MapAction.EMULATOR_MENU && retroArchInFront() &&
+                    !ButtonMapperState.raGameIgnoresSelect) {
                     // RetroArch has its own Select + Start menu combo (Taco Launcher sets it up).
                     // Let both buttons reach it untouched; pressing Back on top of that would
                     // open and close the menu again, or do nothing.
