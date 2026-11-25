@@ -47,7 +47,70 @@ class MainActivity : ComponentActivity() {
         override fun onReceive(c: android.content.Context, i: android.content.Intent) = PlayTime.stop(c)
     }
 
+    // ---- Taco mode or full screen ----
+
+    private var started = false
+    /** The phone is being held sideways (only watched while "switch when sideways" is on). */
+    private var sideways = false
+    private var pendingSideways: Boolean? = null
+    private var pendingSince = 0L
+    private var tiltOn = false
+
+    /**
+     * Feels which way the phone is held, even while the screen is locked upright. Only a turn
+     * held for over half a second counts, so a wobble in your hands never flips the screen.
+     * Lying flat or upside down changes nothing.
+     */
+    private val tilt by lazy {
+        object : android.view.OrientationEventListener(this) {
+            override fun onOrientationChanged(deg: Int) {
+                if (deg == android.view.OrientationEventListener.ORIENTATION_UNKNOWN) return
+                val now = when {
+                    deg in 60..120 || deg in 240..300 -> true
+                    deg <= 25 || deg >= 335 -> false
+                    else -> return
+                }
+                if (now == sideways) { pendingSideways = null; return }
+                val t = android.os.SystemClock.uptimeMillis()
+                if (pendingSideways != now) { pendingSideways = now; pendingSince = t; return }
+                if (t - pendingSince >= 600) {
+                    sideways = now; pendingSideways = null
+                    updateScreenMode()
+                }
+            }
+        }
+    }
+
+    /**
+     * Works out Taco mode or full screen from Settings (and how the phone is held, if that
+     * switch is on), and turns the screen to match. Safe to call any time, as often as needed.
+     */
+    fun updateScreenMode() {
+        val tiltWanted = settings.autoFullSideways && settings.screenMode != "full"
+        val watchTilt = started && tiltWanted
+        if (watchTilt != tiltOn) {
+            tiltOn = watchTilt
+            runCatching { if (watchTilt) tilt.enable() else tilt.disable() }
+        }
+        // Switched off: forget the turn. (While a game is open we just stop watching and keep
+        // the last answer, so coming back doesn't flash upright first.)
+        if (!tiltWanted) { sideways = false; pendingSideways = null }
+        val full = settings.screenMode == "full" || (settings.autoFullSideways && sideways)
+        ScreenMode.full.value = full
+        val wanted = when {
+            // The first-time setup measures the Taco, so it's always upright.
+            !full || !settings.setupDone -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            // Turned sideways to get here: stay sideways (either way round) until stood upright.
+            settings.screenMode != "full" -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            settings.fullRotation == "upright" -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            settings.fullRotation == "turn" -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR
+            else -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        }
+        if (requestedOrientation != wanted) runCatching { requestedOrientation = wanted }
+    }
+
     override fun onDestroy() {
+        runCatching { if (tiltOn) tilt.disable() }
         runCatching { unregisterReceiver(screenOff) }
         super.onDestroy()
     }
@@ -65,6 +128,7 @@ class MainActivity : ComponentActivity() {
         // screen. Turn that off so attaching the Taco goes straight to the intro, not the menus.
         if (android.os.Build.VERSION.SDK_INT >= 33) setRecentsScreenshotEnabled(false)
         hidePhoneStatusBar()
+        updateScreenMode()
         setContent { LauncherRoot(this) }
         // The screen turning off ends a play session (the game closes then too).
         registerReceiver(screenOff, android.content.IntentFilter(android.content.Intent.ACTION_SCREEN_OFF))
@@ -112,8 +176,15 @@ class MainActivity : ComponentActivity() {
         // Decide on the intro before the first frame, so the menus never flash first.
         com.pockettaco.salsa.ui.SplashState.playIfJustAttached()
         watcher.start()
+        started = true
+        updateScreenMode()
     }
-    override fun onStop() { watcher.stop(); super.onStop() }
+    override fun onStop() {
+        watcher.stop()
+        started = false
+        updateScreenMode()   // stops feeling for turns while a game is open
+        super.onStop()
+    }
 
     /** Pressing Home while already home: do nothing special, just stay. */
     override fun onNewIntent(intent: Intent) {

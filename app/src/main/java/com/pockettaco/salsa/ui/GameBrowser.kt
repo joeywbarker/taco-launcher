@@ -641,7 +641,8 @@ private fun GameMenu(activity: MainActivity, game: Game, onPlay: () -> Unit, onC
                         if (own == null) " (same as ${systemName(game.system)})" else " (just this game)",
                     EMULATORS_LOOK, tile = "⚙") { pickingCore = true }
             }
-            if (gameEmu != null && isRetroArch(gameEmu) && activity.settings.retroArchFullScreen) item("layout") {
+            if (gameEmu != null && isRetroArch(gameEmu) && activity.settings.retroArchFullScreen &&
+                !ScreenMode.full.value) item("layout") {
                 val layout = remember(version) {
                     RetroArchPlacement.Layout.of(activity.settings.layoutForGame(game.system.id, game.file))
                 }
@@ -714,7 +715,7 @@ private fun fitAboveTaco(activity: MainActivity, dialog: android.app.Dialog) {
     val window = dialog.window ?: return
     val screen = activity.windowManager.currentWindowMetrics.bounds
     val taco = activity.watcher.connected.value
-    val covered = if (taco) activity.settings.coveredFraction else 0f
+    val covered = if (taco) ScreenMode.covered(activity.settings) else 0f
     val visible = (screen.height() * (1f - covered)).toInt()
     val top = (screen.height() * 0.06f).toInt()
     window.setGravity(android.view.Gravity.TOP or android.view.Gravity.CENTER_HORIZONTAL)
