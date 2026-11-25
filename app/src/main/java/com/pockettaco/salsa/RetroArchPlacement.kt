@@ -171,10 +171,29 @@ object RetroArchPlacement {
                 }
             }
             if (st.raStateHotkeys) {
-                // Android button numbers: Select 109, L1 102, R1 103.
-                append("input_enable_hotkey_btn = \"109\"\n")
-                append("input_save_state_btn = \"103\"\n")
-                append("input_load_state_btn = \"102\"\n")
+                // RetroArch on Android numbers buttons by their Android code (Select 109, L1 102,
+                // R1 103). Use the codes your Taco really sends (Settings → Controller → Teach
+                // buttons), for the buttons picked in Settings.
+                append("input_enable_hotkey_btn = \"").append(st.signalFor(st.raHotkeyButton).first).append("\"\n")
+                append("input_save_state_btn = \"").append(st.signalFor(st.raSaveButton).first).append("\"\n")
+                append("input_load_state_btn = \"").append(st.signalFor(st.raLoadButton).first).append("\"\n")
+                // No keyboard keys or stick moves on these from older RetroArch setups.
+                listOf("input_enable_hotkey", "input_save_state", "input_load_state").forEach {
+                    append(it).append(" = \"nul\"\n")
+                    append(it).append("_axis = \"nul\"\n")
+                }
+                // Hotkeys work from any controller, even if Android lists the Taco second.
+                append("input_hotkey_device_merge = \"true\"\n")
+                if (st.raSaveSlots == "same") {
+                    // One slot, overwritten each time; loading always takes it.
+                    append("savestate_auto_index = \"false\"\n")
+                    append("state_slot = \"0\"\n")
+                } else {
+                    // Each save goes to the next slot (1, 2, 3...); when a game starts, RetroArch
+                    // picks the newest one, so loading always brings back your latest save.
+                    append("savestate_auto_index = \"true\"\n")
+                    append("savestate_max_keep = \"0\"\n")
+                }
             }
             fun choice(key: String, vararg raKeys: String) {
                 val v = st.raChoice(key)

@@ -222,7 +222,6 @@ private fun RetroArchGamesSection(activity: MainActivity) {
     var picture by remember { mutableStateOf(st.raPictureDefault) }
     var commands by remember { mutableStateOf(st.raCommands) }
     var startMenu by remember { mutableStateOf(st.raStartOpensMenu) }
-    var states by remember { mutableStateOf(st.raStateHotkeys) }
     var ask by remember { mutableStateOf(st.raAskBeforeSwitch) }
     var same by remember { mutableStateOf(st.raSameForEveryGame) }
     var menuAbove by remember { mutableStateOf(st.raMenuAboveTaco) }
@@ -262,9 +261,7 @@ private fun RetroArchGamesSection(activity: MainActivity) {
     if (commands) SettingSwitch("Start on its own also opens the menu",
         "Off: only Select + Start opens it, so pressing Start in a game (to pause) never brings up the menu.",
         startMenu, Applies.NEXT_GAME) { startMenu = it; st.raStartOpensMenu = it }
-    SettingSwitch("Save state hotkeys",
-        "Select + R1 saves your exact spot in the game, Select + L1 loads it back.",
-        states, Applies.NEXT_GAME) { states = it; st.raStateHotkeys = it }
+    SaveStateSettings(activity)
     SettingSwitch("RetroArch's menu stays above the Taco",
         "On: Select + Start opens RetroArch's simple retro-style menu inside the game's picture, so the Taco " +
             "never covers any of it. Off: RetroArch's usual menu style, which fills the whole screen and partly " +
@@ -567,10 +564,74 @@ private fun RetroArchHotkeysSection(activity: MainActivity) {
     Text("Game hotkeys", color = Color.White, fontWeight = FontWeight.Bold)
     Text(
         "Select + Start = RetroArch's menu.  Home = leave the game and come back here.  " +
-            "Select + R1 / Select + L1 = save / load your spot (RetroArch games).  " +
             "These need button mapping switched on (above). More RetroArch options: Settings → RetroArch games.",
         color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall,
     )
+    SaveStateSettings(activity)
+}
+
+/**
+ * Save state hotkeys for RetroArch games: on/off, which buttons, and how slots are used.
+ * Shown on both the Controller page and the RetroArch games page (same settings).
+ */
+@Composable
+private fun SaveStateSettings(activity: MainActivity) {
+    val st = activity.settings
+    var on by remember { mutableStateOf(st.raStateHotkeys) }
+    var hold by remember { mutableStateOf(st.raHotkeyButton) }
+    var save by remember { mutableStateOf(st.raSaveButton) }
+    var load by remember { mutableStateOf(st.raLoadButton) }
+    var slots by remember { mutableStateOf(st.raSaveSlots) }
+    SettingSwitch("Save state hotkeys",
+        "${hold.label} + ${save.label} saves your exact spot in the game, ${hold.label} + ${load.label} loads it back " +
+            "(RetroArch games). Off: those buttons just do their normal thing in the game.",
+        on, Applies.NEXT_GAME) { on = it; st.raStateHotkeys = it }
+    if (!on) return
+    // Each button can only have one job; picking skips buttons the other two already use.
+    // Home and Start are left out: Home leaves the game and Select + Start opens the menu.
+    val holdChoices = listOf(TacoButton.SELECT, TacoButton.L, TacoButton.R, TacoButton.X, TacoButton.Y)
+    val pressChoices = listOf(TacoButton.R, TacoButton.L, TacoButton.X, TacoButton.Y, TacoButton.A, TacoButton.B)
+    fun next(list: List<TacoButton>, current: TacoButton, taken: Set<TacoButton>): TacoButton {
+        val i = list.indexOf(current)
+        for (step in 1..list.size) {
+            val c = list[((if (i < 0) 0 else i) + step) % list.size]
+            if (c !in taken) return c
+        }
+        return current
+    }
+    HotkeyButtonRow("Hold button", "Hold this, then press the save or load button.", hold) {
+        hold = next(holdChoices, hold, setOf(save, load)); st.raHotkeyButton = hold
+    }
+    HotkeyButtonRow("Save button", "With the hold button: save your spot.", save) {
+        save = next(pressChoices, save, setOf(hold, load)); st.raSaveButton = save
+    }
+    HotkeyButtonRow("Load button", "With the hold button: load it back.", load) {
+        load = next(pressChoices, load, setOf(hold, save)); st.raLoadButton = load
+    }
+    if (hold != TacoButton.SELECT || save != TacoButton.R || load != TacoButton.L) TextButton(onClick = {
+        hold = TacoButton.SELECT; save = TacoButton.R; load = TacoButton.L
+        st.raHotkeyButton = hold; st.raSaveButton = save; st.raLoadButton = load
+    }) { Text("Back to Select + R / Select + L") }
+    SettingChoice("Where saves go",
+        null,
+        listOf(
+            Triple("next", "New slot each time",
+                "Your first save goes to slot 1, the next to slot 2, and so on, so older saves are kept. " +
+                    "Loading always brings back your newest save, also after closing the game."),
+            Triple("same", "Always one slot",
+                "Every save replaces the one before, so there's only ever one. Loading brings it back."),
+        ), slots, Applies.NEXT_GAME) { slots = it; st.raSaveSlots = it }
+}
+
+@Composable
+private fun HotkeyButtonRow(title: String, about: String, current: TacoButton, onChange: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text("$title: ${current.label}", color = Color.White)
+            Text(about, color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall)
+        }
+        OutlinedButton(onClick = onChange) { Text("Change") }
+    }
 }
 
 /** Which button adds a game to favorites in a game list (Y unless you change it). */

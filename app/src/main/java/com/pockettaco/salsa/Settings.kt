@@ -125,6 +125,24 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("raSameForEveryGame", true)
         set(v) = prefs.edit().putBoolean("raSameForEveryGame", v).apply()
 
+    /** RetroArch hotkeys: hold [raHotkeyButton], press [raSaveButton] / [raLoadButton]. */
+    var raHotkeyButton: TacoButton
+        get() = tacoButtonPref("raHotkeyButton", TacoButton.SELECT)
+        set(v) = prefs.edit().putString("raHotkeyButton", v.name).apply()
+    var raSaveButton: TacoButton
+        get() = tacoButtonPref("raSaveButton", TacoButton.R)
+        set(v) = prefs.edit().putString("raSaveButton", v.name).apply()
+    var raLoadButton: TacoButton
+        get() = tacoButtonPref("raLoadButton", TacoButton.L)
+        set(v) = prefs.edit().putString("raLoadButton", v.name).apply()
+    private fun tacoButtonPref(key: String, default: TacoButton) =
+        prefs.getString(key, null)?.let { n -> TacoButton.entries.firstOrNull { it.name == n } } ?: default
+
+    /** "next": every save goes to a new slot and loading picks the newest. "same": one slot, overwritten. */
+    var raSaveSlots: String
+        get() = prefs.getString("raSaveSlots", "next") ?: "next"
+        set(v) = prefs.edit().putString("raSaveSlots", v).apply()
+
     /** 0 = leave it to RetroArch, 1 = on, 2 = off. */
     fun raChoice(key: String): Int = prefs.getInt("ra_$key", 0)
     fun setRaChoice(key: String, v: Int) = prefs.edit().putInt("ra_$key", v).apply()
