@@ -225,7 +225,7 @@ private fun RetroArchGamesSection(activity: MainActivity) {
     var commands by remember { mutableStateOf(st.raCommands) }
     var startMenu by remember { mutableStateOf(st.raStartOpensMenu) }
     var ask by remember { mutableStateOf(st.raAskBeforeSwitch) }
-    var same by remember { mutableStateOf(st.raSameForEveryGame) }
+    var extras by remember { mutableStateOf(st.raExtras) }
     var menuAbove by remember { mutableStateOf(st.raMenuAboveTaco) }
     Text("Taco Launcher sets these up in RetroArch for you each time it starts a game. " +
         "Your own RetroArch settings stay as they are when you open RetroArch by itself.",
@@ -269,13 +269,22 @@ private fun RetroArchGamesSection(activity: MainActivity) {
             "never covers any of it. Off: RetroArch's usual menu style, which fills the whole screen and partly " +
             "sits behind the Taco.",
         menuAbove, Applies.NEXT_GAME) { menuAbove = it; st.raMenuAboveTaco = it }
-    SettingSwitch("Same settings for every game",
-        "RetroArch can quietly keep its own settings for one game, or for all games of one system " +
-            "(for example if \"Save Game Overrides\" or \"Save Remap File\" was picked in its menu). Those can " +
-            "change or switch off the hotkeys above in just that game. On: every game starts fresh with " +
-            "Taco Launcher's settings and your normal RetroArch setup, and those extra files are skipped " +
-            "(not deleted). Off: RetroArch uses them again.",
-        same, Applies.NEXT_GAME) { same = it; st.raSameForEveryGame = it }
+    SettingChoice("What you save inside RetroArch",
+        "In RetroArch's menu you can save controls (Controls → Manage Remap Files) or other settings " +
+            "(Settings → Configuration → Save Core Overrides / Game Overrides) for one game or for a whole system. " +
+            "This picks which of those Taco Launcher's games use. Shaders saved as a preset (Shaders → Save) always apply.",
+        listOf(
+            Triple("remaps", "Controls",
+                "Your saved controls are used, for one game or a whole system (\"Core\" = every game of that system). " +
+                    "Saved settings (overrides) are skipped, because they can switch off the hotkeys or move the picture " +
+                    "behind the Taco. Taco Launcher's hotkeys keep working either way."),
+            Triple("all", "Controls + settings",
+                "Everything you save in RetroArch is used. Careful: a saved setting can change or switch off the " +
+                    "hotkeys or the picture position for that game or system."),
+            Triple("none", "Nothing",
+                "Every game starts fresh with Taco Launcher's settings and your normal RetroArch setup. " +
+                    "Your saved files are skipped, not deleted."),
+        ), extras, Applies.NEXT_GAME) { extras = it; st.raExtras = it }
 
     SettingHeader("Playing")
     SettingSwitch("Ask \"Still playing?\" before switching games",
