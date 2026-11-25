@@ -593,6 +593,7 @@ private fun SaveStateSettings(activity: MainActivity) {
     var save by remember { mutableStateOf(st.raSaveButton) }
     var load by remember { mutableStateOf(st.raLoadButton) }
     var slots by remember { mutableStateOf(st.raSaveSlots) }
+    var shaders by remember { mutableStateOf(st.raShaderHotkeys) }
     SettingSwitch("Save state hotkeys",
         "${hold.label} + ${save.label} saves your exact spot in the game, ${hold.label} + ${load.label} loads it back " +
             "(RetroArch games). Off: those buttons just do their normal thing in the game.",
@@ -632,6 +633,11 @@ private fun SaveStateSettings(activity: MainActivity) {
             Triple("same", "Always one slot",
                 "Every save replaces the one before, so there's only ever one. Loading brings it back."),
         ), slots, Applies.NEXT_GAME) { slots = it; st.raSaveSlots = it }
+    SettingSwitch("Shader hotkeys",
+        "${hold.label} + L2 / ${hold.label} + R2 switches to the previous / next shader (the look of the picture) " +
+            "while you play, so you can flip through them and see which looks best. To keep one for every game of " +
+            "that system: RetroArch menu → Shaders → Save → Save Core Preset.",
+        shaders, Applies.NEXT_GAME) { shaders = it; st.raShaderHotkeys = it }
 }
 
 @Composable
