@@ -73,6 +73,22 @@ fun GameBrowser(
     }
     val tacoName by activity.watcher.deviceName.collectAsStateWithLifecycle()
 
+    // "Always open this game list": when Taco Launcher opens, go straight into that console's
+    // games (once per opening; B goes to the home screen). Waits for the games to be found.
+    LaunchedEffect(library, scan.scanning) {
+        if (Custom.startListHandled) return@LaunchedEffect
+        val spot = Custom.startSpot
+        if (!Custom.startInList || spot == null || !spot.startsWith("sys:")) { Custom.startListHandled = true; return@LaunchedEffect }
+        val system = library.keys.firstOrNull { it.id == spot.removePrefix("sys:") }
+        if (system == null || library[system].isNullOrEmpty()) {
+            if (!scan.scanning && library.isNotEmpty()) Custom.startListHandled = true
+            return@LaunchedEffect
+        }
+        Custom.startListHandled = true
+        lastSystem = system
+        screen = Screen.Games(system)
+    }
+
     // Play a game with its system's emulator; ask about RetroArch setup first if needed.
     var askSetup by remember { mutableStateOf<Game?>(null) }
     val play: (Game) -> Unit = { game ->

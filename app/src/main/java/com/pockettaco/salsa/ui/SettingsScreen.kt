@@ -73,7 +73,7 @@ fun SettingsScreen(
         Triple("screen", "Screen & game window", "Space the Taco covers, game window size and spot"),
         Triple("retroarch", "RetroArch games", "Picture position, menu and quit hotkeys, save states, resume"),
         Triple("games", "Games & systems", "Game names, folders, rescan, which app each system uses"),
-        Triple("look", "Look", "Home view, background, app icon"),
+        Triple("look", "Look & start", "Where the app opens, home view, background, app icon"),
         Triple("pictures", "Console pictures", "Turn pictures off, change their order, add up to 10 of your own"),
         Triple("backup", "Backup & restore", "Save all your settings to a file, or put them back"),
         Triple("about", "About", "Version and credits"),
@@ -168,6 +168,7 @@ fun SettingsScreen(
             }
             "pictures" -> ConsolePicturesPage(activity)
             "look" -> {
+                StartSpotSettings()
                 HomeLookSection(activity)
                 SlideshowSettings()
                 GameCard("Console pictures", "Turn pictures off, change their order, add your own",

@@ -60,7 +60,7 @@ import kotlinx.coroutines.withContext
 
 /** What's open on top of the home screen. */
 private sealed interface Panel {
-    data class Menu(val id: String?) : Panel
+    data class Menu(val id: String?, val spot: String? = id?.let { "sys:$it" }) : Panel
     data class Move(val id: String) : Panel
     data class Rename(val id: String) : Panel
     data class Colors(val id: String) : Panel
@@ -100,7 +100,14 @@ fun HomeScreen(
     val view = Custom.homeView
     val systems = arrange(library.entries.map { it.key to it.value })
     val visibleIds = systems.map { it.first.id }
-    var focusedId by remember { mutableStateOf<String?>(lastSystem?.id) }
+    // When Taco Launcher opens on a chosen console (Start menu > Always start here), select it.
+    var focusedId by remember {
+        mutableStateOf<String?>(lastSystem?.id ?: Custom.startSpot?.takeIf { !Custom.startHandled && it.startsWith("sys:") }
+            ?.removePrefix("sys:"))
+    }
+    LaunchedEffect(Unit) { if (Custom.startSpot?.startsWith("sys:") == true) Custom.startHandled = true }
+    // What's selected: a console ("sys:<id>") or a top-row button ("quick", "settings", ...).
+    var focusedSpot by remember { mutableStateOf<String?>(null) }
     var panel by remember { mutableStateOf<Panel?>(null) }
     var title by remember { mutableStateOf("Games") }
     var subtitle by remember { mutableStateOf("") }
@@ -108,7 +115,13 @@ fun HomeScreen(
 
     // Start = menu for the selected system, Select = next view.
     DisposableEffect(Unit) {
-        val start: () -> Boolean = { if (panel == null) panel = Panel.Menu(focusedId?.takeIf { it in visibleIds }); true }
+        val start: () -> Boolean = {
+            if (panel == null) {
+                val id = focusedId?.takeIf { it in visibleIds }
+                panel = Panel.Menu(id, if (id != null) "sys:$id" else focusedSpot)
+            }
+            true
+        }
         val select: () -> Boolean = { if (panel == null && !Custom.viewLocked) Custom.nextView(); true }
         activity.onStartButton = start
         activity.onSelectButton = select
@@ -148,6 +161,7 @@ fun HomeScreen(
                     view, systems, emulatorCount, scan, focusedId,
                     onFocused = { id, t, s ->
                         focusedId = id; title = t; subtitle = s
+                        focusedSpot = if (id != null) "sys:$id" else shortcutKey(t)
                         if (id != null && id in visibleIds) onFocusSystem(id)
                     },
                     onOpenSystem = onOpenSystem,
@@ -168,6 +182,7 @@ fun HomeScreen(
                 activity,
                 p.id?.let { id -> SYSTEMS.firstOrNull { it.id == id } },
                 gameCount = p.id?.let { id -> systems.firstOrNull { it.first.id == id }?.second?.size } ?: 0,
+                spot = p.spot,
                 onChoose = { action ->
                     val id = p.id
                     panel = null
@@ -181,6 +196,16 @@ fun HomeScreen(
                         "names" -> if (id != null) panel = Panel.Names(id)
                         "hide" -> if (id != null) Custom.hidden = Custom.hidden + id
                         "delete" -> if (id != null) panel = Panel.Delete(id, 1)
+                        "start" -> {
+                            Custom.startSpot = p.spot
+                            if (p.spot?.startsWith("sys:") != true) Custom.startInList = false
+                            Toast.makeText(activity, "Taco Launcher will now start on ${startSpotName(p.spot)}.", Toast.LENGTH_LONG).show()
+                        }
+                        "nostart" -> { Custom.startSpot = null; Custom.startInList = false
+                            Toast.makeText(activity, "Taco Launcher will start where you left off, as usual.", Toast.LENGTH_LONG).show() }
+                        "startlist" -> { Custom.startSpot = p.spot; Custom.startInList = true
+                            Toast.makeText(activity, "Taco Launcher will now open straight into ${startSpotName(p.spot)}'s games.", Toast.LENGTH_LONG).show() }
+                        "nostartlist" -> Custom.startInList = false
                         "view" -> Custom.nextView()
                         "az" -> Custom.order = systems.sortedBy { systemName(it.first).lowercase() }.map { it.first.id }
                         "count" -> Custom.order = systems.sortedByDescending { it.second.size }.map { it.first.id }
@@ -245,7 +270,29 @@ private fun SystemsView(
 ) {
     val first = remember { FocusRequester() }
     val focusIndex = systems.indexOfFirst { it.first.id == focusedId }.coerceAtLeast(0)
-    LaunchedEffect(systems.size, view, FocusKick.count.intValue) { runCatching { first.requestFocus() } }
+    // "Always start here" on a top-row button: that button is selected when Taco Launcher opens,
+    // and stays selected (even while games are still being found) until you move.
+    val startSpot = Custom.startSpot
+    val spotFocus = remember { FocusRequester() }
+    var holdSpot by remember {
+        mutableStateOf(!Custom.startHandled && startSpot != null && !startSpot.startsWith("sys:"))
+    }
+    val onFocusedOuter = onFocused
+    @Suppress("NAME_SHADOWING")
+    val onFocused: (String?, String, String) -> Unit = { id, t, sub ->
+        if (holdSpot && (if (id != null) "sys:$id" else shortcutKey(t)) != startSpot) holdSpot = false
+        onFocusedOuter(id, t, sub)
+    }
+    LaunchedEffect(systems.size, view, FocusKick.count.intValue) {
+        if (holdSpot) {
+            Custom.startHandled = true
+            withFrameNanos { }
+            runCatching { spotFocus.requestFocus() }
+            kotlinx.coroutines.delay(400)
+            if (holdSpot) runCatching { spotFocus.requestFocus() }
+        } else runCatching { first.requestFocus() }
+    }
+    val spotPair = if (holdSpot) startSpot to spotFocus else null
     val empty = systems.isEmpty() && !scan.scanning
     val addTitle = "Add your games"
     val addSub = if (scan.hasFolder) "No games found in that folder" else "Pick your games folder once"
@@ -306,16 +353,20 @@ private fun SystemsView(
     if (view == HomeView.CAROUSEL && !empty) {
         // While Quick Start is selected, the big picture shows the game it will play (its cover,
         // or its console's picture) instead of a console. Down goes to the consoles as before.
-        var onQuickStart by remember { mutableStateOf(false) }
+        // On any other top-row button, the consoles take turns there (like a showcase) until you
+        // go down to them.
+        var stripSpot by remember { mutableStateOf<String?>(null) }
         val stripFocused: (String?, String, String) -> Unit = { id, t, sub ->
-            if (id == null) onQuickStart = t.startsWith("▶ Quick Start")
+            if (id == null) stripSpot = shortcutKey(t)
             onFocused(id, t, sub)
         }
         Column(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
             ShortcutStrip(systems.isNotEmpty(), lastPlayed, recentCount, favoriteCount, emulatorCount, stripFocused,
-                onLastPlayed, onOpenRecent, onOpenFavorites, onRandom, onOpenApps, onOpenSettings)
-            if (systems.isNotEmpty()) Carousel(systems, focusIndex, first, onFocused, onOpenSystem, onMenu,
-                quickGame = if (onQuickStart) lastPlayed else null, onQuickGame = onLastPlayed)
+                onLastPlayed, onOpenRecent, onOpenFavorites, onRandom, onOpenApps, onOpenSettings, spotPair)
+            if (systems.isNotEmpty()) Carousel(systems, focusIndex, first, onFocusedOuter, onOpenSystem, onMenu,
+                quickGame = if (stripSpot == "quick") lastPlayed else null, onQuickGame = onLastPlayed,
+                showcase = stripSpot != null && !(stripSpot == "quick" && lastPlayed != null),
+                onRealFocus = { holdSpot = false; stripSpot = null })
         }
         return
     }
@@ -326,7 +377,7 @@ private fun SystemsView(
     Column(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
     // Shortcuts get their own strip of small icons along the top; the systems fill the grid below.
     ShortcutStrip(systems.isNotEmpty(), lastPlayed, recentCount, favoriteCount, emulatorCount, onFocused,
-        onLastPlayed, onOpenRecent, onOpenFavorites, onRandom, onOpenApps, onOpenSettings)
+        onLastPlayed, onOpenRecent, onOpenFavorites, onRandom, onOpenApps, onOpenSettings, spotPair)
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
     // Everything fits on one screen, never scrolls: with more systems than the chosen
     // columns x rows there are more rows (and, if icons would get too tiny, more columns),
@@ -474,7 +525,9 @@ private fun ShortcutStrip(
     onFocused: (id: String?, title: String, subtitle: String) -> Unit,
     onLastPlayed: () -> Unit, onOpenRecent: () -> Unit, onOpenFavorites: () -> Unit, onRandom: () -> Unit,
     onOpenApps: () -> Unit, onOpenSettings: () -> Unit,
+    spotFocus: Pair<String?, FocusRequester>? = null,
 ) {
+    fun fr(key: String) = spotFocus?.takeIf { it.first == key }?.second
     // All shortcuts share the width evenly (no sideways scrolling); names shrink to fit.
     val items = 2 + (if (hasSystems) 3 else 0) + (if (lastPlayed != null) 1 else 0)
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
@@ -492,24 +545,24 @@ private fun ShortcutStrip(
             if (hasSystems) {
                 val sub = lastPlayed?.let { systemName(it.system) } ?: "Play any game once, then this jumps right back in"
                 val look = lastPlayed?.let { lookFor(it.system.id) } ?: RECENT_LOOK
-                Bubble(SystemLook("▶", look.top, look.bottom), "Quick Start", size = s, labelWidth = w, labelSize = ls, vPad = v, reserveBadgeRoom = true,
+                Bubble(SystemLook("▶", look.top, look.bottom), "Quick Start", focusRequester = fr("quick"), size = s, labelWidth = w, labelSize = ls, vPad = v, reserveBadgeRoom = true,
                     onFocused = { onFocused(null, "▶ Quick Start" + (lastPlayed?.let { ": ${it.label}" } ?: ""), sub) },
                     onClick = onLastPlayed)
             }
-            if (lastPlayed != null) Bubble(RECENT_LOOK, "Recent", badge = "$recentCount", size = s, labelWidth = w, labelSize = ls, vPad = v, reserveBadgeRoom = true,
+            if (lastPlayed != null) Bubble(RECENT_LOOK, "Recent", focusRequester = fr("recent"), badge = "$recentCount", size = s, labelWidth = w, labelSize = ls, vPad = v, reserveBadgeRoom = true,
                 onFocused = { onFocused(null, "🕘 Recently played", "Your last $recentCount different games") },
                 onClick = onOpenRecent)
             if (hasSystems) {
-                Bubble(FAVORITES_LOOK, "Favorites", badge = "$favoriteCount", size = s, labelWidth = w, labelSize = ls, vPad = v, reserveBadgeRoom = true,
+                Bubble(FAVORITES_LOOK, "Favorites", focusRequester = fr("favorites"), badge = "$favoriteCount", size = s, labelWidth = w, labelSize = ls, vPad = v, reserveBadgeRoom = true,
                     onFocused = { onFocused(null, "★ Favorites", "$favoriteCount games from every system") },
                     onClick = onOpenFavorites)
-                Bubble(RANDOM_LOOK, "Random", size = s, labelWidth = w, labelSize = ls, vPad = v, reserveBadgeRoom = true,
+                Bubble(RANDOM_LOOK, "Random", focusRequester = fr("random"), size = s, labelWidth = w, labelSize = ls, vPad = v, reserveBadgeRoom = true,
                     onFocused = { onFocused(null, "🎲 Random game", "Picks any game from any system") },
                     onClick = onRandom)
             }
-            Bubble(EMULATORS_LOOK, "Emulators", badge = "$emulatorCount", size = s, labelWidth = w, labelSize = ls, vPad = v, reserveBadgeRoom = true,
+            Bubble(EMULATORS_LOOK, "Emulators", focusRequester = fr("emulators"), badge = "$emulatorCount", size = s, labelWidth = w, labelSize = ls, vPad = v, reserveBadgeRoom = true,
                 onFocused = { onFocused(null, "Emulators", "$emulatorCount installed") }, onClick = onOpenApps)
-            Bubble(SETTINGS_LOOK, "Settings", size = s, labelWidth = w, labelSize = ls, vPad = v, reserveBadgeRoom = true,
+            Bubble(SETTINGS_LOOK, "Settings", focusRequester = fr("settings"), size = s, labelWidth = w, labelSize = ls, vPad = v, reserveBadgeRoom = true,
                 onFocused = { onFocused(null, "Settings", "Screen size, games folder, controller, look") },
                 onClick = onOpenSettings)
         }
@@ -520,7 +573,7 @@ private fun ShortcutStrip(
 
 /** The list of choices for a system (or the whole home screen). */
 @Composable
-private fun SystemMenu(activity: MainActivity, system: GameSystem?, gameCount: Int, onChoose: (String) -> Unit) {
+private fun SystemMenu(activity: MainActivity, system: GameSystem?, gameCount: Int, spot: String?, onChoose: (String) -> Unit) {
     val first = remember { FocusRequester() }
     LaunchedEffect(FocusKick.count.intValue) { runCatching { first.requestFocus() } }
     val look = system?.let { lookFor(it.id) } ?: SETTINGS_LOOK
@@ -544,13 +597,26 @@ private fun SystemMenu(activity: MainActivity, system: GameSystem?, gameCount: I
             add(Triple("hide", "Hide from home", "Games stay on your phone. Unhide in Settings."))
             add(Triple("delete", "Delete system and games…", "$gameCount games. Asks twice."))
         }
+        if (spot != null) {
+            val here = Custom.startSpot == spot
+            val name = startSpotName(spot)
+            if (!here || (system != null && Custom.startInList)) add(Triple("start", "Always start here",
+                "Taco Launcher opens with $name selected"))
+            if (system != null) {
+                if (here && Custom.startInList) add(Triple("nostartlist", "Stop opening straight into these games",
+                    "Opens with $name selected on the home screen instead"))
+                else add(Triple("startlist", "Always open this game list",
+                    "Taco Launcher opens straight into $name's games. B goes to the home screen."))
+            }
+            if (here) add(Triple("nostart", "Stop always starting here", "Opens where you left off, as usual"))
+        }
         add(Triple("view", "Switch view", "Now: ${Custom.homeView.label}" + if (Custom.viewLocked) " (locked, Select won't change it)" else " (or press Select)"))
         add(Triple("az", "Sort A to Z", null))
         add(Triple("count", "Sort by number of games", null))
         add(Triple("reset", "Usual order", null))
         if (Custom.hidden.isNotEmpty()) add(Triple("unhide", "Show hidden systems", "${Custom.hidden.size} hidden"))
     }
-    PanelList(if (system != null) systemName(system) else "Home screen", "B to close") {
+    PanelList(if (system != null) systemName(system) else if (spot != null) startSpotName(spot) else "Home screen", "B to close") {
         options.forEachIndexed { i, (key, label, sub) ->
             item(key) {
                 GameCard(label, sub, if (key == "delete") DANGER_LOOK else look, tile = label.first().toString(),
@@ -758,6 +824,8 @@ private fun ColumnScope.Carousel(
     onMenu: (String?) -> Unit,
     quickGame: Game? = null,
     onQuickGame: () -> Unit = {},
+    showcase: Boolean = false,
+    onRealFocus: () -> Unit = {},
 ) {
     val n = systems.size
     var index by remember { mutableIntStateOf(startIndex.coerceIn(0, n - 1)) }
@@ -794,10 +862,26 @@ private fun ColumnScope.Carousel(
     var dragged by remember { mutableFloatStateOf(0f) }
     var focused by remember { mutableStateOf(false) }
     val gameShown = if (focused) null else quickGame
+    // Showcase: while you're on the top row, every console takes a turn here. Going down lands
+    // on the one showing.
+    val showing = showcase && !focused && gameShown == null
+    var showIndex by remember { mutableIntStateOf(index) }
+    if (showing) LaunchedEffect(Unit) {
+        showIndex = index
+        val wait = maxOf(Custom.slideMillis, 2500).toLong()
+        while (true) { kotlinx.coroutines.delay(wait); direction = 1; showIndex = (showIndex + 1) % n }
+    }
+    if (showIndex >= n) showIndex = 0
     androidx.compose.foundation.layout.BoxWithConstraints(
         Modifier.fillMaxWidth().weight(1f)
             .focusRequester(focus)
-            .onFocusChanged { focused = it.isFocused }
+            .onFocusChanged {
+                if (it.isFocused && !focused) {
+                    if (showing && showIndex != index) { direction = 1; index = showIndex }
+                    onRealFocus()
+                }
+                focused = it.isFocused
+            }
             .onPreviewKeyEvent { e ->
                 if (e.type != androidx.compose.ui.input.key.KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 when (e.key) {
@@ -814,7 +898,11 @@ private fun ColumnScope.Carousel(
             }
             .combinedClickable(remember { MutableInteractionSource() }, indication = null,
                 onLongClick = { onMenu(system.id) },
-                onClick = { if (gameShown != null) onQuickGame() else onOpenSystem(system) }),
+                onClick = {
+                    if (gameShown != null) onQuickGame()
+                    else if (showing) onOpenSystem(systems[showIndex.coerceIn(0, n - 1)].first)
+                    else onOpenSystem(system)
+                }),
         contentAlignment = Alignment.Center,
     ) {
         // The picture gets every bit of room left: the full width, and the full height apart
@@ -831,7 +919,7 @@ private fun ColumnScope.Carousel(
             return@BoxWithConstraints
         }
         androidx.compose.animation.AnimatedContent(
-            targetState = index,
+            targetState = if (showing) showIndex else index,
             // A smooth glide: eased slide plus a gentle fade and shrink. No clipping box and no
             // drop shadow during the move (those showed as a square around the icon).
             transitionSpec = {

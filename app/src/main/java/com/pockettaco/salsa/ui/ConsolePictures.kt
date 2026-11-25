@@ -270,3 +270,34 @@ fun SlideshowSettings() {
         Custom.slideMillis.let { m -> listOf(2000, 3500, 6000, 10000).minByOrNull { kotlin.math.abs(it - m) }!! },
     ) { Custom.slideMillis = it }
 }
+
+/** Settings: what's selected when Taco Launcher opens, and whether to go straight into a game list. */
+@Composable
+fun StartSpotSettings() {
+    var picking by remember { mutableStateOf(false) }
+    val spot = Custom.startSpot
+    SettingHeader("When Taco Launcher opens",
+        "Pick what's selected when the app opens. You can also press Start on any console or top-row button " +
+            "and choose \"Always start here\".")
+    GameCard("Starts on: ${com.pockettaco.salsa.startSpotName(spot)}",
+        if (picking) "Pick one below" else "Press to change", SETTINGS_LOOK, tile = "⌂") { picking = !picking }
+    if (picking) {
+        val spots = listOf<String?>(null, "quick", "recent", "favorites", "random", "emulators", "settings") +
+            SYSTEMS.map { "sys:${it.id}" }
+        spots.forEach { s ->
+            val look = s?.takeIf { it.startsWith("sys:") }?.let { lookFor(it.removePrefix("sys:")) } ?: SETTINGS_LOOK
+            GameCard(com.pockettaco.salsa.startSpotName(s) + if (s == spot) "  ✓" else "", null, look,
+                tile = if (s == null) "↺" else look.short) {
+                Custom.startSpot = s
+                if (s?.startsWith("sys:") != true) Custom.startInList = false
+                picking = false
+            }
+        }
+    }
+    if (spot?.startsWith("sys:") == true) SettingSwitch("Open straight into its game list",
+        "Skip the home screen: Taco Launcher opens inside ${com.pockettaco.salsa.startSpotName(spot)}'s games. " +
+            "Press B to get to the home screen.",
+        Custom.startInList, Applies.RESTART) { Custom.startInList = it }
+    else Text("Pick a console above to be able to open straight into its game list.",
+        color = TextDim, fontSize = 12.sp)
+}

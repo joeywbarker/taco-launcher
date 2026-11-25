@@ -268,6 +268,24 @@ object Custom {
         get() { read(); return p().getInt("slideMillis", 3500).coerceIn(1500, 20000) }
         set(v) { p().edit().putInt("slideMillis", v.coerceIn(1500, 20000)).apply(); changed() }
 
+    // ---- Where Taco Launcher starts --------------------------------------------------------
+    /**
+     * What's selected when Taco Launcher opens: "quick", "recent", "favorites", "random",
+     * "emulators", "settings", or "sys:<console id>". Null = the usual (where you were).
+     */
+    var startSpot: String?
+        get() { read(); return p().getString("startSpot", null) }
+        set(v) { p().edit().putString("startSpot", v).apply(); changed() }
+
+    /** When the start spot is a console, open straight into its game list. */
+    var startInList: Boolean
+        get() { read(); return p().getBoolean("startInList", false) }
+        set(v) { p().edit().putBoolean("startInList", v).apply(); changed() }
+
+    /** Set once the start spot was used, so coming back from a game doesn't jump around. */
+    var startHandled = false
+    var startListHandled = false
+
     /** Before Nov 25 2026 a console could have just one picture of your own, in icons/<id>.png. */
     private fun moveOldPictures() {
         val old = File(dir, "icons")
@@ -364,6 +382,30 @@ object Custom {
 }
 
 private fun favoriteKey(game: Game) = "${game.system.id}|" + fileKey(game.uri)
+
+/** The start-spot key for a shortcut, from the title it shows when selected. */
+fun shortcutKey(title: String): String? = when {
+    title.startsWith("▶ Quick Start") -> "quick"
+    title.startsWith("🕘") -> "recent"
+    title.startsWith("★") -> "favorites"
+    title.startsWith("🎲") -> "random"
+    title == "Emulators" -> "emulators"
+    title == "Settings" -> "settings"
+    else -> null
+}
+
+/** A start spot in words. */
+fun startSpotName(spot: String?): String = when {
+    spot == null -> "Where you left off (the usual)"
+    spot == "quick" -> "Quick Start"
+    spot == "recent" -> "Recently played"
+    spot == "favorites" -> "Favorites"
+    spot == "random" -> "Random game"
+    spot == "emulators" -> "Emulators"
+    spot == "settings" -> "Settings"
+    spot.startsWith("sys:") -> SYSTEMS.firstOrNull { it.id == spot.removePrefix("sys:") }?.let { systemName(it) } ?: "A console"
+    else -> "Where you left off (the usual)"
+}
 
 /** The name shown for a system: yours if you renamed it. */
 fun systemName(system: GameSystem): String = Custom.name(system.id) ?: system.name
