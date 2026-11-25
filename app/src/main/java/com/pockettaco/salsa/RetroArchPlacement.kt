@@ -202,6 +202,12 @@ object RetroArchPlacement {
                     append(it).append(" = \"nul\"\n")
                     append(it).append("_axis = \"nul\"\n")
                 }
+                if (st.raShaderHotkeys) {
+                    // Hold button + L2 / R2 flips through RetroArch's shaders while you play
+                    // (Android codes: L2 104, R2 105).
+                    append("input_shader_prev_btn = \"104\"\n")
+                    append("input_shader_next_btn = \"105\"\n")
+                }
                 // Hotkeys work from any controller, even if Android lists the Taco second.
                 append("input_hotkey_device_merge = \"true\"\n")
                 if (st.raSaveSlots == "same") {

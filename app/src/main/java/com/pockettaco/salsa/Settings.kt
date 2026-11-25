@@ -145,6 +145,11 @@ class Settings(context: Context) {
     private fun tacoButtonPref(key: String, default: TacoButton) =
         prefs.getString(key, null)?.let { n -> TacoButton.entries.firstOrNull { it.name == n } } ?: default
 
+    /** Hold button + L2 / R2 = previous / next shader in RetroArch (try looks while playing). */
+    var raShaderHotkeys: Boolean
+        get() = prefs.getBoolean("raShaderHotkeys", true)
+        set(v) = prefs.edit().putBoolean("raShaderHotkeys", v).apply()
+
     /** "next": every save goes to a new slot and loading picks the newest. "same": one slot, overwritten. */
     var raSaveSlots: String
         get() = prefs.getString("raSaveSlots", "next") ?: "next"
