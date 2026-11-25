@@ -116,6 +116,11 @@ class Settings(context: Context) {
      * Every game starts with Taco Launcher's settings: RetroArch skips the extra settings and
      * button files it may have saved for one game, one folder or one core.
      */
+    /** RetroArch's menu is drawn inside the game picture (above the Taco) instead of full screen. */
+    var raMenuAboveTaco: Boolean
+        get() = prefs.getBoolean("raMenuAboveTaco", true)
+        set(v) = prefs.edit().putBoolean("raMenuAboveTaco", v).apply()
+
     var raSameForEveryGame: Boolean
         get() = prefs.getBoolean("raSameForEveryGame", true)
         set(v) = prefs.edit().putBoolean("raSameForEveryGame", v).apply()
