@@ -51,8 +51,10 @@ screen with all your apps.
 
 To switch back to your phone's own home screen, go to Settings → Apps → Default apps → Home app.
 
-**Hotkeys** (Exit game, Select + Start and so on) need Taco Launcher's button helper turned on:
-Settings → Accessibility → Installed apps → Taco Launcher. The app points you there when needed.
+**Hotkeys:** RetroArch's (Select + Start menu, Select + R1 / L1 save and load) work straight away.
+Hotkeys in other emulators, such as Exit game or Screenshot, and your own button mappings need Taco
+Launcher's optional button helper: Settings → Accessibility → Installed apps → Taco Launcher. The app
+points you there when needed.
 
 ## Building it yourself
 

@@ -35,7 +35,8 @@ To go back to your old home screen: Settings → Apps → Default apps → Home 
 - Android 10 or newer.
 - An emulator app. **RetroArch** (free) is recommended. Download the cores you want inside it, for example mGBA for Game Boy Advance.
 - Your own game files. **No games are included.**
-- Hotkeys need the button helper: Settings → Accessibility → Installed apps → Taco Launcher. The app points you there.
+- Nothing else for RetroArch: its hotkeys work straight away. Hotkeys in other emulators, and your own button mappings,
+  need the optional button helper (Settings → Accessibility → Installed apps → Taco Launcher). The app points you there.
 
 ## Known limits
 
