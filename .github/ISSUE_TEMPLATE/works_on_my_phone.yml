@@ -1,0 +1,63 @@
+name: 📱 Report how it works on my phone
+description: Tested it on your phone? Tell us, even if everything worked.
+title: "[Phone] "
+labels: ["phone report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This helps build a list of phones that Taco Launcher works on. "It all worked" is a great report!
+  - type: input
+    id: phone
+    attributes:
+      label: Phone model
+      placeholder: "e.g. Samsung Galaxy S24"
+    validations:
+      required: true
+  - type: input
+    id: android
+    attributes:
+      label: Android version
+      placeholder: "e.g. Android 15"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Taco Launcher version
+      placeholder: "e.g. v1.0.172"
+    validations:
+      required: true
+  - type: dropdown
+    id: overall
+    attributes:
+      label: Overall, how did it go?
+      options:
+        - Everything worked
+        - Mostly worked, small problems
+        - Big problems
+    validations:
+      required: true
+  - type: checkboxes
+    id: worked
+    attributes:
+      label: What worked?
+      description: Tick everything that worked for you.
+      options:
+        - label: Taco mode turned on by itself when the controller connected
+        - label: Menus fit above the controller
+        - label: Games opened from the menu
+        - label: The game picture sat above the controller
+        - label: Hotkeys worked (Select + Start menu, save/load)
+        - label: Moving around with only the controller
+  - type: input
+    id: covered
+    attributes:
+      label: How much of the screen does the Taco cover?
+      description: The number you picked in the first-run setup, if you remember it.
+      placeholder: "e.g. 40%"
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else?
+      description: Problems, tips, or screenshots.

@@ -7,6 +7,9 @@ game menu. Everything fits in the part of the screen the Taco leaves visible, an
 pick and play games using only the controller. Take the Taco off and you get an ordinary home
 screen with all your apps.
 
+> **Beta:** so far only tested on a Samsung Galaxy S26 Ultra. Tried it on another phone?
+> [Tell us how it went](../../issues/new/choose), even if everything worked.
+>
 > **Unofficial:** not affiliated with or endorsed by GameSir. See [Not affiliated](#not-affiliated).
 >
 > **No games are included.** Taco Launcher only shows and opens game files you already own.
