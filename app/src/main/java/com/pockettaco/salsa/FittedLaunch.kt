@@ -49,7 +49,8 @@ fun startFitted(activity: MainActivity, intent: Intent, system: GameSystem? = nu
         // Otherwise it lingers in the background and the next game starts on a black screen.
         if (retroArch && activity.settings.raCommands) intent.putExtra("QUITFOCUS", "")
     }
-    val fit = activity.settings.fitEmulators && activity.watcher.connected.value &&
+    // Full screen ("Taco off"): games open normally, using the whole screen.
+    val fit = activity.settings.fitEmulators && activity.watcher.connected.value && !ScreenMode.full.value &&
         !(retroArch && activity.settings.retroArchFullScreen)
     if (!fit) {
         activity.startActivity(intent)

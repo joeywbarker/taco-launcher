@@ -70,7 +70,7 @@ fun SettingsScreen(
     val pages = listOf(
         Triple("check", "Setup check", "Spot anything missing (emulator, hotkeys, home app) and fix it"),
         Triple("controller", "Controller & buttons", "A and B, button mapping, auto-open, detection"),
-        Triple("screen", "Screen & game window", "Space the Taco covers, game window size and spot"),
+        Triple("screen", "Screen & game window", "Taco mode or full screen (Taco off), space the Taco covers, game window"),
         Triple("retroarch", "RetroArch games", "Picture position, menu and quit hotkeys, save states, resume"),
         Triple("games", "Games & systems", "Game names, folders, rescan, which app each system uses"),
         Triple("look", "Look & start", "Where the app opens, home view, background, app icon"),
@@ -138,6 +138,8 @@ fun SettingsScreen(
 
             }
             "screen" -> {
+            ScreenModeSection(activity)
+            SettingHeader("Taco mode", "How Taco Launcher keeps clear of the Pocket Taco while it's clipped on.")
             Text("Screen covered by the Pocket Taco: ${(covered * 100).toInt()}%", color = Color.White)
             Slider(value = covered, onValueChange = onCoveredChange, valueRange = 0f..0.6f, steps = 11)
             GameWindowSection(activity, covered)
@@ -230,7 +232,8 @@ private fun RetroArchGamesSection(activity: MainActivity) {
     SettingHeader("Screen")
     SettingSwitch("Full screen (no window frame)",
         "Games fill the screen with no pop-up frame or title bar. Taco Launcher places the picture above the Taco. " +
-            "Off: games open in a pop-up window instead, and the options below about the picture don't apply.",
+            "Off: games open in a pop-up window instead, and the options below about the picture don't apply. " +
+            "In full screen (Taco off) games always fill the screen and the picture sits in the middle.",
         full, Applies.NEXT_GAME) { full = it; st.retroArchFullScreen = it }
     if (full) {
         val sample = remember { com.pockettaco.salsa.SYSTEMS.first { it.id == "snes" } }
@@ -761,4 +764,45 @@ private fun GridPreview(cols: Int, rows: Int, covered: Float) {
         drawRect(Color(0x33FFFFFF), topLeft = androidx.compose.ui.geometry.Offset(20f * scale, 50f * scale),
             size = androidx.compose.ui.geometry.Size(size.width * 0.5f, 10f * scale))
     }
+}
+
+
+/**
+ * Taco mode or full screen ("Taco off"). The Taco still works as a Bluetooth controller when it's
+ * unclipped, and so does any other controller, so full screen lets games use the whole screen and
+ * turn sideways. Taco mode stays the default.
+ */
+@Composable
+private fun ScreenModeSection(activity: MainActivity) {
+    val st = activity.settings
+    var mode by remember { mutableStateOf(st.screenMode) }
+    var rotation by remember { mutableStateOf(st.fullRotation) }
+    var auto by remember { mutableStateOf(st.autoFullSideways) }
+    SettingHeader("Screen mode", "Use the Pocket Taco clipped on, or play with it off (or with another controller).")
+    SettingChoice("Screen mode", null,
+        listOf(
+            Triple("taco", "🌮 Taco mode", "Menus and games stay in the part above the Pocket Taco, with the phone upright. " +
+                "This is the normal setting."),
+            Triple("full", "▭ Full screen (Taco off)", "Nothing is held back for the Taco: menus and games use the whole " +
+                "screen and can turn sideways. For playing with the Taco unclipped as a Bluetooth controller, " +
+                "or with any other controller. Your Taco settings are kept for when you switch back."),
+        ), mode, Applies.NOW,
+    ) { mode = it; st.screenMode = it; activity.updateScreenMode() }
+    SettingChoice("Which way full screen faces",
+        "Only for full screen. This turns Taco Launcher itself; emulators choose for themselves which way a game faces, usually by following the phone's auto-rotate.",
+        listOf(
+            Triple("sideways", "Sideways", "Widescreen, turned on its side (either way round)."),
+            Triple("turn", "Turns with phone", "Follows the way you hold the phone, upright or sideways, even if " +
+                "the phone's auto-rotate is off."),
+            Triple("upright", "Upright", "Stays upright, using the whole screen top to bottom."),
+        ), rotation, Applies.NOW,
+    ) { rotation = it; st.fullRotation = it; activity.updateScreenMode() }
+    SettingSwitch("Switch to full screen when I turn the phone sideways",
+        "Off unless you turn it on. While on Taco mode: hold the phone sideways for a moment and Taco Launcher goes " +
+            "full screen, then stand it upright again for Taco mode. The phone can't feel the Taco being unclipped " +
+            "(it stays connected by Bluetooth), so turning the phone is the signal. A game that's already running " +
+            "keeps its layout; the next game you start uses the new one." +
+            if (mode == "full") " (Does nothing right now: Screen mode is already full screen.)" else "",
+        auto, Applies.NOW,
+    ) { auto = it; st.autoFullSideways = it; activity.updateScreenMode() }
 }

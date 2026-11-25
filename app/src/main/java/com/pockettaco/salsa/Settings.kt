@@ -54,6 +54,24 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("force", true)
         set(v) = prefs.edit().putBoolean("force", v).apply()
 
+    /**
+     * "taco" (default): everything stays above the Pocket Taco, upright.
+     * "full": Taco off. The whole screen is used and it can turn sideways.
+     */
+    var screenMode: String
+        get() = prefs.getString("screenMode", "taco").takeIf { it == "taco" || it == "full" } ?: "taco"
+        set(v) = prefs.edit().putString("screenMode", if (v == "full") "full" else "taco").apply()
+
+    /** Full screen turns "sideways" (default), "turn" (with the phone) or "upright". */
+    var fullRotation: String
+        get() = prefs.getString("fullRotation", "sideways").takeIf { it in setOf("sideways", "turn", "upright") } ?: "sideways"
+        set(v) = prefs.edit().putString("fullRotation", v).apply()
+
+    /** Turning the phone sideways switches to full screen; upright brings Taco mode back. Off by default. */
+    var autoFullSideways: Boolean
+        get() = prefs.getBoolean("autoFullSideways", false)
+        set(v) = prefs.edit().putBoolean("autoFullSideways", v).apply()
+
     /** Open emulators in a window that fits above the Taco (Samsung pop-up window). */
     var fitEmulators: Boolean
         get() = prefs.getBoolean("fit", true)

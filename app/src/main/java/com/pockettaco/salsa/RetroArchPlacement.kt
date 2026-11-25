@@ -101,7 +101,16 @@ object RetroArchPlacement {
         var layout = Layout.of(file?.let { st.layoutForGame(system.id, it) } ?: st.raPictureDefault)
         // Auto knows the well-known upright arcade games (1941, Pac-Man, Galaga...).
         if (layout == Layout.AUTO && isTallArcade(system.id, file)) layout = Layout.TALL
-        val r = pictureRect(layout, w, h, activity.settings.coveredFraction, spot.exactCenterY(), shape)
+        // Full screen ("Taco off"): nothing to keep clear of, and the phone may be turned either
+        // way, so the picture keeps the game's own shape in the middle of the screen (or at the
+        // top for "Top"). Tall games get their upright shape from the game itself this way.
+        val full = ScreenMode.full.value
+        if (full && layout == Layout.TALL) layout = Layout.AUTO
+        val r = if (full) {
+            val picH = minOf(w / shape, h)
+            val top = if (layout == Layout.TOP) 0f else (h - picH) / 2f
+            android.graphics.RectF(0f, top / h, 1f, (top + picH) / h)
+        } else pictureRect(layout, w, h, activity.settings.coveredFraction, spot.exactCenterY(), shape)
         fun f(v: Float) = String.format(java.util.Locale.US, "%.6f", v)
         val text = buildString {
             append("# Written by Taco Launcher each time it starts a game. Your own RetroArch\n")
@@ -116,7 +125,11 @@ object RetroArchPlacement {
                 append("custom_viewport_height = \"").append((r.height() * h).toInt()).append("\"\n")
             } else {
                 val picH = r.height() * h
-                val bias = if (h - picH < 1f) 0f else (r.top * h / (h - picH)).coerceIn(0f, 1f)
+                val bias = when {
+                    full -> if (layout == Layout.TOP) 0f else 0.5f
+                    h - picH < 1f -> 0f
+                    else -> (r.top * h / (h - picH)).coerceIn(0f, 1f)
+                }
                 append("aspect_ratio_index = \"22\"\n") // the game's own shape
                 // Some RetroArch versions and video drivers use the plain anchor (not the
                 // "portrait" one) even with the phone upright; its default is the middle of the

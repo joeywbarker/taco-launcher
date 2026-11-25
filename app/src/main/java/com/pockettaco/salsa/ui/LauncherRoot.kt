@@ -28,6 +28,9 @@ fun LauncherRoot(activity: MainActivity) {
     // The real controller, even when "Always use the Taco layout" keeps the layout on.
     val tacoName by activity.watcher.deviceName.collectAsStateWithLifecycle()
     var covered by remember { mutableFloatStateOf(activity.settings.coveredFraction) }
+    // Full screen ("Taco off"): nothing is held back for the Taco and the screen can turn.
+    val full by ScreenMode.full
+    val coveredNow = if (full) 0f else covered
     var romFolder by remember { mutableStateOf(activity.settings.romFolder) }
     // Start with the saved list so games show up instantly, then refresh it.
     var library by remember { mutableStateOf(loadLibrary(activity)) }
@@ -93,13 +96,14 @@ fun LauncherRoot(activity: MainActivity) {
                 onCoveredChange = { covered = it; activity.settings.coveredFraction = it },
                 hasFolder = romFolder != null,
                 onPickFolder = { picker.launch(null) },
-                onDone = { activity.settings.setupDone = true; setupDone = true },
+                onDone = { activity.settings.setupDone = true; setupDone = true; activity.updateScreenMode() },
             ) else if (mounted) AnimatedContent(
                 modifier = Modifier.graphicsLayer {
                     alpha = enter; scaleX = 0.92f + 0.08f * enter; scaleY = 0.92f + 0.08f * enter
-                },targetState = tacoOn to showSettings, label = "mode") { (taco, settingsOpen) ->
+                },targetState = Triple(tacoOn, showSettings, full), label = "mode") { (taco, settingsOpen, fullScreen) ->
                 when {
-                    settingsOpen -> TacoLayout(covered = if (taco) covered else 0f, tacoName = tacoName) {
+                    settingsOpen -> TacoLayout(covered = if (taco && !fullScreen) covered else 0f, tacoName = tacoName,
+                        sidePadding = fullScreen) {
                         SettingsScreen(
                             activity, covered,
                             onCoveredChange = { covered = it; activity.settings.coveredFraction = it },
@@ -108,10 +112,11 @@ fun LauncherRoot(activity: MainActivity) {
                             onClose = { showSettings = false },
                         )
                     }
-                    taco && activity.gameWindowOpen.value -> Box(Modifier.fillMaxSize().background(Color.Black)) {
+                    (taco || fullScreen) && activity.gameWindowOpen.value -> Box(Modifier.fillMaxSize().background(Color.Black)) {
                         // Behind the game window: plain black for now. A spot for something fun later.
                     }
-                    taco -> TacoLayout(covered = covered, tacoName = tacoName, edgeToEdge = true) {
+                    taco || fullScreen -> TacoLayout(covered = if (fullScreen) 0f else covered, tacoName = tacoName,
+                        edgeToEdge = true, sidePadding = fullScreen) {
                         GameBrowser(
                             activity, library, scanState,
                             onPickFolder = { picker.launch(null) },
@@ -123,7 +128,7 @@ fun LauncherRoot(activity: MainActivity) {
                 }
             }
             if (!splashGone) {
-                TacoLayout(covered = if (tacoOn) covered else 0f, tacoName = tacoName) {
+                TacoLayout(covered = if (tacoOn) coveredNow else 0f, tacoName = tacoName, sidePadding = full) {
                     key(splashWanted) {
                         Splash(
                             onReveal = { revealedFor = splashWanted },
@@ -150,9 +155,12 @@ fun TacoLayout(
     covered: Float, tacoName: String? = null,
     /** Draw right up to the top edge, around the camera (the content handles the camera itself). */
     edgeToEdge: Boolean = false,
+    /** Full screen: keep clear of a camera hole or phone buttons on the sides (when turned sideways). */
+    sidePadding: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().then(if (sidePadding) Modifier.windowInsetsPadding(
+        WindowInsets.displayCutout.union(WindowInsets.navigationBars).only(WindowInsetsSides.Horizontal)) else Modifier)) {
         Box(
             Modifier.fillMaxWidth().weight(1f - covered)
                 .then(if (edgeToEdge) Modifier
