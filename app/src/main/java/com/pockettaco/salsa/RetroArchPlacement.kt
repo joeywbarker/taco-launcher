@@ -71,7 +71,8 @@ object RetroArchPlacement {
             else -> {
                 val picH = minOf(w / shape, h)
                 val top = if (layout == Layout.TOP) 0f
-                else (spotCenterY - picH / 2f).coerceIn(0f, h - picH)
+                // Never lower than the Taco's edge: the bottom of the picture stays above it.
+                else (spotCenterY - picH / 2f).coerceIn(0f, (free - picH).coerceAtLeast(0f))
                 android.graphics.RectF(0f, top / h, 1f, (top + picH) / h)
             }
         }
@@ -117,8 +118,13 @@ object RetroArchPlacement {
                 val picH = r.height() * h
                 val bias = if (h - picH < 1f) 0f else (r.top * h / (h - picH)).coerceIn(0f, 1f)
                 append("aspect_ratio_index = \"22\"\n") // the game's own shape
-                append("video_viewport_bias_portrait_x = \"0.500000\"\n")
-                append("video_viewport_bias_portrait_y = \"").append(f(bias)).append("\"\n")
+                // Some RetroArch versions and video drivers use the plain anchor (not the
+                // "portrait" one) even with the phone upright; its default is the middle of the
+                // screen, which put games behind the Taco. Set both so either one is right.
+                for (prefix in listOf("video_viewport_bias_portrait_", "video_viewport_bias_")) {
+                    append(prefix).append("x = \"0.500000\"\n")
+                    append(prefix).append("y = \"").append(f(bias)).append("\"\n")
+                }
             }
             append("config_save_on_exit = \"false\"\n")
             if (st.raSameForEveryGame) {
