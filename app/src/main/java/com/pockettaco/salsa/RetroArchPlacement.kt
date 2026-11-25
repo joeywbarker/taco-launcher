@@ -161,6 +161,9 @@ object RetroArchPlacement {
             if (extras != "all") append("auto_overrides_enable = \"false\"\n")
             if (extras == "none") append("auto_remaps_enable = \"false\"\n")
             else append("auto_remaps_enable = \"true\"\n")
+            // Shader presets you save in RetroArch (for one game or a whole system) always load.
+            append("auto_shaders_enable = \"true\"\n")
+            append("video_shader_enable = \"true\"\n")
             if (st.raCommands) {
                 // RetroArch's own Select + Start menu combo (4 = START_SELECT), so the menu opens
                 // without any help from Taco Launcher.
