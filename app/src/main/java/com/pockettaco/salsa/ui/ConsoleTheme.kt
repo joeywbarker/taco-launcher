@@ -6,6 +6,9 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
@@ -194,19 +197,52 @@ fun StatusBar(context: Context, tacoName: String?, modifier: Modifier = Modifier
     }
 }
 
-/** Button hints along the bottom of the play area. */
+/**
+ * One hint along the bottom: [key] is the button's mark ("A", "≡"...), [label] what it does.
+ * [button] is the Taco button a tap presses (null = just a tip, nothing to tap).
+ */
+data class Hint(val key: String, val label: String, val button: com.pockettaco.salsa.TacoButton? = null)
+
+/**
+ * Button hints along the bottom of the play area. Tapping one works like pressing that button
+ * (Settings > Touch controls). After you touch the screen the bar shows touch tips instead,
+ * and controller buttons again once you press one.
+ */
 @Composable
-fun HintBar(vararg hints: Pair<String, String>) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+fun HintBar(activity: com.pockettaco.salsa.MainActivity, hints: List<Hint>) {
+    val touch = com.pockettaco.salsa.TouchControls
+    if (touch.hintStyle.value == "hidden" || hints.isEmpty()) return
+    val big = touch.bigHints.value
+    val canTap = touch.tapHints.value && touch.enabled.value
+    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = if (big) 4.dp else 2.dp),
         horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-        hints.forEach { (button, label) ->
-            Box(Modifier.size(20.dp).background(Color.White.copy(alpha = 0.15f), CircleShape),
-                contentAlignment = Alignment.Center) {
-                Text(button, color = TextBright, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        hints.forEach { hint ->
+            val tappable = canTap && hint.button != null
+            val shape = androidx.compose.foundation.shape.RoundedCornerShape(50)
+            Row(
+                Modifier.padding(start = if (big) 6.dp else 4.dp)
+                    .then(if (tappable) Modifier
+                        // Touch only: the controller's D-pad never stops on the hints.
+                        .focusProperties { canFocus = false }
+                        .clip(shape)
+                        .background(Color.White.copy(alpha = 0.07f), shape)
+                        .clickable(remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) {
+                            hint.button?.let { activity.pressButton(it) }
+                        }
+                    else Modifier)
+                    .padding(horizontal = if (big) 10.dp else 6.dp, vertical = if (big) 8.dp else 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (hint.key.isNotEmpty()) {
+                    Box(Modifier.size(if (big) 28.dp else 20.dp).background(Color.White.copy(alpha = 0.15f), CircleShape),
+                        contentAlignment = Alignment.Center) {
+                        Text(hint.key, color = TextBright, fontSize = if (big) 14.sp else 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.width(6.dp))
+                }
+                Text(hint.label, color = if (tappable) TextBright else TextDim, fontSize = if (big) 15.sp else 12.sp,
+                    maxLines = 1)
             }
-            Spacer(Modifier.width(6.dp))
-            Text(label, color = TextDim, fontSize = 12.sp)
-            Spacer(Modifier.width(16.dp))
         }
     }
 }

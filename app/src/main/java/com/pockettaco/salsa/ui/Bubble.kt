@@ -69,7 +69,7 @@ fun Bubble(
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocused() }
             .combinedClickable(remember { MutableInteractionSource() }, indication = null,
-                onLongClick = onLongClick, onClick = onClick),
+                onLongClick = com.pockettaco.salsa.TouchControls.gateHold(onLongClick), onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         val small = size < 70.dp
@@ -192,7 +192,7 @@ fun GameCard(
             .border(if (focused || highlight) 2.dp else 1.dp,
                 if (highlight) Color(0xFFFFD25A) else if (focused) Color.White else Color.White.copy(alpha = 0.08f), shape)
             .combinedClickable(remember { MutableInteractionSource() }, indication = null,
-                onLongClick = onLongClick, onClick = onClick)
+                onLongClick = com.pockettaco.salsa.TouchControls.gateHold(onLongClick), onClick = onClick)
             .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -235,7 +235,7 @@ fun GameTile(
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocused() }
             .combinedClickable(remember { MutableInteractionSource() }, indication = null,
-                onLongClick = onLongClick, onClick = onClick),
+                onLongClick = com.pockettaco.salsa.TouchControls.gateHold(onLongClick), onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(
@@ -274,7 +274,7 @@ fun GameRow(
             .background(if (focused) Brush.horizontalGradient(listOf(look.top, look.bottom))
                 else Brush.horizontalGradient(listOf(Color.Transparent, Color.Transparent)))
             .combinedClickable(remember { MutableInteractionSource() }, indication = null,
-                onLongClick = onLongClick, onClick = onClick)
+                onLongClick = com.pockettaco.salsa.TouchControls.gateHold(onLongClick), onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

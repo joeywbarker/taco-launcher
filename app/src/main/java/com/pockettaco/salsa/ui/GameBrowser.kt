@@ -205,12 +205,45 @@ fun GameBrowser(
                     Screen.GetEmulators -> GetEmulatorsList(activity, emulators) { screen = Screen.Home }
                 }
             }
-            HintBar(
-                *if (screen == Screen.Home) arrayOf("A" to "Open", "≡" to "Start: menu", "◫" to "Select: view")
-                else arrayOf("A" to "Play", "B" to "Back",
-                    (activity.settings.favoriteButton?.label ?: "Y") to "Favorite", "≡" to "Start: menu")
-            )
+            if (setupFor == null) HintBar(activity, browserHints(activity, screen))
         }
+    }
+}
+
+/**
+ * The hints along the bottom. With a controller they name its buttons; after you touch the
+ * screen they become touch tips. Either way each button hint can be tapped.
+ */
+private fun browserHints(activity: MainActivity, screen: Screen): List<Hint> {
+    val touch = TouchControls.touchTips()
+    val hold = TouchControls.hold.value
+    val viewOk = !Custom.viewLocked
+    val back = Hint("B", "Back", TacoButton.B)
+    return if (screen == Screen.Home) {
+        val panel = TouchControls.homePanelOpen.value
+        if (touch) listOfNotNull(
+            if (panel) Hint("B", "Close", TacoButton.B) else Hint("", "👆 Tap to open" + if (hold) " · hold for menu" else ""),
+            if (!panel) Hint("≡", "Menu", TacoButton.START) else null,
+            if (!panel && viewOk) Hint("◫", "View", TacoButton.SELECT) else null,
+        ) else listOfNotNull(
+            Hint("A", "Open", TacoButton.A),
+            if (panel) Hint("B", "Close", TacoButton.B) else null,
+            if (!panel) Hint("≡", "Start: menu", TacoButton.START) else null,
+            if (!panel && viewOk) Hint("◫", "Select: view", TacoButton.SELECT) else null,
+        )
+    } else {
+        val lists = screen is Screen.Games || screen == Screen.Favorites || screen == Screen.Recent
+        val fav = activity.settings.favoriteButton?.takeIf { it != TacoButton.A && it != TacoButton.B }
+        if (touch) listOfNotNull(
+            if (lists) Hint("", "👆 Tap to play" + if (hold) " · hold for menu" else "") else null,
+            back,
+            if (screen is Screen.Games && viewOk) Hint("◫", "View", TacoButton.SELECT) else null,
+        ) else listOfNotNull(
+            Hint("A", if (lists) "Play" else "Open", TacoButton.A),
+            back,
+            if (lists && fav != null) Hint(fav.label, "Favorite", fav) else null,
+            if (lists) Hint("≡", "Start: menu", TacoButton.START) else null,
+        )
     }
 }
 
@@ -846,6 +879,7 @@ private fun RetroArchSetupPrompt(
                     focusRequester = first, onClick = onSetUp) }
                 item { GameCard("Play anyway", "Ask again next time", SETTINGS_LOOK, tile = "▶", onClick = onPlay) }
                 item { GameCard("Already set up, don't ask again", null, SETTINGS_LOOK, tile = "✓", onClick = onDone) }
+                if (TouchControls.closeItems.value) item { GameCard("Cancel", null, SETTINGS_LOOK, tile = "✕", onClick = onCancel) }
             }
         }
     }
