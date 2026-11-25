@@ -140,6 +140,14 @@ object RetroArchPlacement {
                 }
             }
             append("config_save_on_exit = \"false\"\n")
+            if (st.raMenuAboveTaco) {
+                // RetroArch's full-screen menus (Ozone, XMB...) always cover the whole screen.
+                // Its simple retro-style menu (RGUI), with its shape left unlocked, is drawn into
+                // the game's own picture area instead, so it sits exactly where the game does:
+                // above the Taco.
+                append("menu_driver = \"rgui\"\n")
+                append("rgui_aspect_ratio_lock = \"0\"\n")
+            }
             if (st.raSameForEveryGame) {
                 // RetroArch can keep extra settings for one game, one games folder or one core
                 // ("overrides"), and extra button layouts ("remaps"). Those load after this file

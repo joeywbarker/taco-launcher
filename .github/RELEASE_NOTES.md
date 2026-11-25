@@ -26,7 +26,7 @@ To go back to your old home screen: Settings → Apps → Default apps → Home 
 - **Your games sorted by console:** GB, GBC, GBA, NES, SNES, Genesis, arcade and many more, with
   console artwork, Quick Start, Recent, Favorites and Random.
 - **RetroArch set up automatically every launch.** No RetroArch settings to change by hand:
-  the picture stays above the Taco, **Select + Start** opens the menu, **Select + R1 / L1** save and load.
+  the picture and the menu stay above the Taco, **Select + Start** opens the menu, **Select + R1 / L1** save and load.
 - **Also works with** Lemuroid, My Boy!, DraStic, DuckStation, PPSSPP, Flycast, MAME4droid and more.
 - **Settings for everything,** each one explained in plain words, plus backup & restore.
 
@@ -41,8 +41,6 @@ To go back to your old home screen: Settings → Apps → Default apps → Home 
 ## Known limits
 
 - Only tested on one phone so far (Galaxy S26 Ultra).
-- RetroArch's own menu always fills the whole screen, so part of it sits behind the Taco. To keep it above the
-  controller, turn off Settings → RetroArch games → "Full screen (no window frame)" so games open in a pop-up window.
 - Other controllers work if you turn on "Treat any controller as a Pocket Taco", but they haven't been tested much.
 
 ## Found a problem?
