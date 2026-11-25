@@ -94,6 +94,14 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("raStateHotkeys", true)
         set(v) = prefs.edit().putBoolean("raStateHotkeys", v).apply()
 
+    /**
+     * Every game starts with Taco Launcher's settings: RetroArch skips the extra settings and
+     * button files it may have saved for one game, one folder or one core.
+     */
+    var raSameForEveryGame: Boolean
+        get() = prefs.getBoolean("raSameForEveryGame", true)
+        set(v) = prefs.edit().putBoolean("raSameForEveryGame", v).apply()
+
     /** 0 = leave it to RetroArch, 1 = on, 2 = off. */
     fun raChoice(key: String): Int = prefs.getInt("ra_$key", 0)
     fun setRaChoice(key: String, v: Int) = prefs.edit().putInt("ra_$key", v).apply()

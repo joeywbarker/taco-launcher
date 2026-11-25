@@ -121,6 +121,15 @@ object RetroArchPlacement {
                 append("video_viewport_bias_portrait_y = \"").append(f(bias)).append("\"\n")
             }
             append("config_save_on_exit = \"false\"\n")
+            if (st.raSameForEveryGame) {
+                // RetroArch can keep extra settings for one game, one games folder or one core
+                // ("overrides"), and extra button layouts ("remaps"). Those load after this file
+                // and win over it, so a game could end up with a different menu combo or none.
+                // Skipping them gives every game the same, Taco Launcher's, setup. The files
+                // themselves stay untouched, so turning this off brings them back.
+                append("auto_overrides_enable = \"false\"\n")
+                append("auto_remaps_enable = \"false\"\n")
+            }
             if (st.raCommands) {
                 // RetroArch's own Select + Start menu combo (4 = START_SELECT), so the menu opens
                 // without any help from Taco Launcher.

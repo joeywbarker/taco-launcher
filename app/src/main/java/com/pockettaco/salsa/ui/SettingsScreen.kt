@@ -216,6 +216,7 @@ private fun RetroArchGamesSection(activity: MainActivity) {
     var startMenu by remember { mutableStateOf(st.raStartOpensMenu) }
     var states by remember { mutableStateOf(st.raStateHotkeys) }
     var ask by remember { mutableStateOf(st.raAskBeforeSwitch) }
+    var same by remember { mutableStateOf(st.raSameForEveryGame) }
     Text("Taco Launcher sets these up in RetroArch for you each time it starts a game. " +
         "Your own RetroArch settings stay as they are when you open RetroArch by itself.",
         color = Color(0xFFAAAAAA), style = MaterialTheme.typography.bodySmall)
@@ -254,6 +255,13 @@ private fun RetroArchGamesSection(activity: MainActivity) {
     SettingSwitch("Save state hotkeys",
         "Select + R1 saves your exact spot in the game, Select + L1 loads it back.",
         states, Applies.NEXT_GAME) { states = it; st.raStateHotkeys = it }
+    SettingSwitch("Same settings for every game",
+        "RetroArch can quietly keep its own settings for one game, or for all games of one system " +
+            "(for example if \"Save Game Overrides\" or \"Save Remap File\" was picked in its menu). Those can " +
+            "change or switch off the hotkeys above in just that game. On: every game starts fresh with " +
+            "Taco Launcher's settings and your normal RetroArch setup, and those extra files are skipped " +
+            "(not deleted). Off: RetroArch uses them again.",
+        same, Applies.NEXT_GAME) { same = it; st.raSameForEveryGame = it }
 
     SettingHeader("Playing")
     SettingSwitch("Ask \"Still playing?\" before switching games",
