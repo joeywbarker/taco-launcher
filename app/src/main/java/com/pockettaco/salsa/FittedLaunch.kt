@@ -30,6 +30,7 @@ fun startFitted(activity: MainActivity, intent: Intent, system: GameSystem? = nu
     }
     if (system != null) {
         ButtonMapperState.gameOpen = true
+        ButtonMapperState.raGameIgnoresSelect = false  // set again below if this game needs it
         ButtonMapperState.gamePkg = intent.component?.packageName ?: intent.`package`
     }
     val retroArch = intent.component?.className?.contains("RetroActivity") == true

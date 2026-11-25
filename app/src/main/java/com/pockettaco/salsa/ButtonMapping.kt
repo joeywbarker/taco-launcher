@@ -101,6 +101,11 @@ object ButtonMapperState {
      * game is open the hotkeys always work, even if Android is slow to say the game came to the front.
      */
     @Volatile var gameOpen = false
+    /**
+     * True while the RetroArch game started last never gets Select (Lynx). RetroArch's own
+     * Select + Start menu combo can't fire then, so the service opens the menu itself.
+     */
+    @Volatile var raGameIgnoresSelect = false
     /** The app the last game was started in. */
     @Volatile var gamePkg: String? = null
 }

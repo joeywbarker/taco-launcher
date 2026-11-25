@@ -37,6 +37,9 @@ object RetroArchPlacement {
         "s1945iii", "sonicwi", "sonicwi2", "sonicwi3", "terracre", "bgaregga",
     )
 
+    /** Systems with no Select button, whose emulators use Select for something else (Lynx: turn the screen). */
+    private val NO_SELECT_SYSTEMS = setOf("lynx")
+
     fun isTallArcade(system: String, file: String?): Boolean {
         if (system != "arcade" || file == null) return false
         val name = file.substringBeforeLast('.').lowercase()
@@ -169,6 +172,16 @@ object RetroArchPlacement {
                     append("input_menu_toggle_btn = \"nul\"\n")
                     append("input_menu_toggle_axis = \"nul\"\n")
                 }
+            }
+            // The Lynx has no Select button, so its emulator uses Select to turn the screen
+            // around. Keep Select away from the game there; the hotkeys below still see it, and
+            // Taco Launcher opens the menu for Select + Start itself.
+            val noSelect = system.id in NO_SELECT_SYSTEMS
+            ButtonMapperState.raGameIgnoresSelect = noSelect
+            if (noSelect) {
+                append("input_player1_select = \"nul\"\n")
+                append("input_player1_select_btn = \"nul\"\n")
+                append("input_player1_select_axis = \"nul\"\n")
             }
             if (st.raStateHotkeys) {
                 // RetroArch on Android numbers buttons by their Android code (Select 109, L1 102,
