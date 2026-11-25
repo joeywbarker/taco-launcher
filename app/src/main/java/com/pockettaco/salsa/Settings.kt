@@ -121,9 +121,16 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("raMenuAboveTaco", true)
         set(v) = prefs.edit().putBoolean("raMenuAboveTaco", v).apply()
 
-    var raSameForEveryGame: Boolean
-        get() = prefs.getBoolean("raSameForEveryGame", true)
-        set(v) = prefs.edit().putBoolean("raSameForEveryGame", v).apply()
+    /**
+     * Which of the extras you save inside RetroArch it may use for games started here:
+     * "none" = neither, "remaps" = your saved button layouts only (default),
+     * "all" = button layouts and saved settings ("overrides").
+     * Replaces the older on/off "raSameForEveryGame" (off meant "all").
+     */
+    var raExtras: String
+        get() = prefs.getString("raExtras", null)
+            ?: if (prefs.contains("raSameForEveryGame") && !prefs.getBoolean("raSameForEveryGame", true)) "all" else "remaps"
+        set(v) = prefs.edit().putString("raExtras", v).apply()
 
     /** RetroArch hotkeys: hold [raHotkeyButton], press [raSaveButton] / [raLoadButton]. */
     var raHotkeyButton: TacoButton
