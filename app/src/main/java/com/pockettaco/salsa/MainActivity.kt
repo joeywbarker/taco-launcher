@@ -122,6 +122,7 @@ class MainActivity : ComponentActivity() {
         BoxArt.init(this)
         Custom.init(this)
         GameNames.load(settings)
+        TouchControls.load(settings)
         watcher = ControllerWatcher(this, settings)
         watcher.onAttached = { com.pockettaco.salsa.ui.SplashState.play() }
         // Coming back to the launcher, Android briefly shows a saved picture of the last
@@ -192,12 +193,70 @@ class MainActivity : ComponentActivity() {
         com.pockettaco.salsa.ui.SplashState.playIfJustAttached()
     }
 
+    // ---- Touch controls ----
+
+    /** True while a tapped button hint is being passed on as a button press. */
+    private var pressingFromTouch = false
+    /** Times of recent taps that were ignored (touch off): five quick ones turn touch back on. */
+    private val blockedTaps = ArrayDeque<Long>()
+
+    /** Touch is switched off in Settings and a controller is connected, so taps are ignored. */
+    val touchBlocked: Boolean get() = !TouchControls.enabled.value && watcher.deviceName.value != null
+
+    override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean {
+        if (touchBlocked) {
+            if (ev.actionMasked == android.view.MotionEvent.ACTION_DOWN) {
+                val now = android.os.SystemClock.uptimeMillis()
+                blockedTaps.addLast(now)
+                while (blockedTaps.isNotEmpty() && now - blockedTaps.first() > 3000) blockedTaps.removeFirst()
+                if (blockedTaps.size >= 5) {
+                    blockedTaps.clear()
+                    settings.touchEnabled = true; TouchControls.enabled.value = true
+                    android.widget.Toast.makeText(this, "Touch controls are back on.", android.widget.Toast.LENGTH_SHORT).show()
+                } else if (blockedTaps.size == 1) {
+                    android.widget.Toast.makeText(this,
+                        "Touch is off while a controller is connected. Tap 5 times quickly to turn it back on.",
+                        android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+            return true
+        }
+        when (ev.actionMasked) {
+            android.view.MotionEvent.ACTION_DOWN -> TouchControls.fingerDown = true
+            android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> TouchControls.fingerDown = false
+        }
+        val handled = super.dispatchTouchEvent(ev)
+        // Switch the hints to touch tips once the finger lifts (not on the way down, so the
+        // hint you're tapping doesn't change under your finger).
+        if (ev.actionMasked == android.view.MotionEvent.ACTION_UP) TouchControls.usingTouch.value = true
+        return handled
+    }
+
+    /**
+     * A tapped button hint: works exactly as if that Taco button was pressed and let go,
+     * using the signal taught in Settings so every screen reacts the same way.
+     */
+    fun pressButton(button: TacoButton) {
+        val (code, scan) = settings.signalFor(button)
+        if (code == 0) return
+        val t = android.os.SystemClock.uptimeMillis()
+        pressingFromTouch = true
+        try {
+            for (action in intArrayOf(KeyEvent.ACTION_DOWN, KeyEvent.ACTION_UP)) {
+                dispatchKeyEvent(KeyEvent(t, t, action, code, 0, 0,
+                    android.view.KeyCharacterMap.VIRTUAL_KEYBOARD, scan, 0, android.view.InputDevice.SOURCE_GAMEPAD))
+            }
+        } finally { pressingFromTouch = false }
+    }
+
     /**
      * Controller buttons -> launcher actions.
      * A = select (same as tapping), B = back. A launcher must never close itself
      * on Back, so at the top level B simply does nothing.
      */
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        // A real button press: the hint bar goes back to showing controller buttons.
+        if (!pressingFromTouch && event.action == KeyEvent.ACTION_DOWN) TouchControls.usingTouch.value = false
         onKeyCapture?.let { it(event); return true }
         if (event.action == KeyEvent.ACTION_DOWN) {
             lastButton.value = "${buttonName(event.keyCode)} (code ${event.keyCode}, scan ${event.scanCode})"

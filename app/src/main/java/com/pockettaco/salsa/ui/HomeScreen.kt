@@ -130,6 +130,9 @@ fun HomeScreen(
             if (activity.onSelectButton === select) activity.onSelectButton = null
         }
     }
+    // Lets the hint bar offer "Close" while a menu is open.
+    SideEffect { TouchControls.homePanelOpen.value = panel != null }
+    DisposableEffect(Unit) { onDispose { TouchControls.homePanelOpen.value = false } }
     // While a panel is open, B closes it (and gives back whatever B did before).
     if (panel != null) DisposableEffect(Unit) {
         val previous = activity.onBackRequest
@@ -419,6 +422,12 @@ private fun SystemsView(
                     @Suppress("UNREACHABLE_CODE") true
                 }
                 if (early != null) return@awaitEachGesture
+                // Hold and drag switched off: a hold just opens the menu (if that's on).
+                if (!TouchControls.drag.value) {
+                    if (TouchControls.hold.value) { haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress); menu(id) }
+                    do { val e = awaitPointerEvent(pass); e.changes.forEach { it.consume() } } while (e.changes.any { it.pressed })
+                    return@awaitEachGesture
+                }
                 haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                 val start = itemOffset(id) ?: androidx.compose.ui.geometry.Offset.Zero
                 dragId = id; dragGrab = down.position; dragAbs = start + down.position
@@ -440,7 +449,7 @@ private fun SystemsView(
                     if (hit != null) placeSystem(id, hit.key as String, ids)
                 }
                 dragId = null
-                if (moved < viewConfiguration.touchSlop) menu(id)
+                if (moved < viewConfiguration.touchSlop && TouchControls.hold.value) menu(id)
             }
         }
         .graphicsLayer {
@@ -623,6 +632,10 @@ private fun SystemMenu(activity: MainActivity, system: GameSystem?, gameCount: I
                     focusRequester = if (i == 0) first else null) { onChoose(key) }
             }
         }
+        // For touch: a way out without the B button (Settings > Touch controls).
+        if (TouchControls.closeItems.value) item("close") {
+            GameCard("Close", null, SETTINGS_LOOK, tile = "✕") { onChoose("close") }
+        }
     }
 }
 
@@ -773,6 +786,9 @@ private fun ColorPanel(id: String, onDone: () -> Unit) {
                 }
             }
         }
+        if (TouchControls.closeItems.value) item("close") {
+            GameCard("Cancel", null, SETTINGS_LOOK, tile = "✕", onClick = onDone)
+        }
     }
 }
 
@@ -890,14 +906,15 @@ private fun ColumnScope.Carousel(
                     else -> false
                 }
             }
-            .pointerInput(n) {
+            .pointerInput(n, TouchControls.swipe.value) {
+                if (!TouchControls.swipe.value) return@pointerInput
                 detectHorizontalDragGestures(
                     onDragEnd = { if (dragged > 60f) go(-1) else if (dragged < -60f) go(1); dragged = 0f },
                     onDragCancel = { dragged = 0f },
                 ) { change, amount -> change.consume(); dragged += amount }
             }
             .combinedClickable(remember { MutableInteractionSource() }, indication = null,
-                onLongClick = { onMenu(system.id) },
+                onLongClick = { if (TouchControls.allowHold()) onMenu(system.id) },
                 onClick = {
                     if (gameShown != null) onQuickGame()
                     else if (showing) onOpenSystem(systems[showIndex.coerceIn(0, n - 1)].first)

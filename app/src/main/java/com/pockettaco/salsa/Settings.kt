@@ -227,6 +227,33 @@ class Settings(context: Context) {
     fun isSelect(e: android.view.KeyEvent) = e.keyCode == selectKey && (selectScan == 0 || e.scanCode == selectScan)
     fun isBack(e: android.view.KeyEvent) = e.keyCode == backKey && (backScan == 0 || e.scanCode == backScan)
 
+    // ---- Touch controls (Settings > Touch controls; see TouchControls) ----
+
+    var touchEnabled: Boolean
+        get() = prefs.getBoolean("touchEnabled", true)
+        set(v) = prefs.edit().putBoolean("touchEnabled", v).apply()
+    var touchTapHints: Boolean
+        get() = prefs.getBoolean("touchTapHints", true)
+        set(v) = prefs.edit().putBoolean("touchTapHints", v).apply()
+    var touchHintStyle: String
+        get() = prefs.getString("touchHintStyle", "auto").takeIf { it in setOf("auto", "buttons", "touch", "hidden") } ?: "auto"
+        set(v) = prefs.edit().putString("touchHintStyle", v).apply()
+    var touchBigHints: Boolean
+        get() = prefs.getBoolean("touchBigHints", false)
+        set(v) = prefs.edit().putBoolean("touchBigHints", v).apply()
+    var touchSwipe: Boolean
+        get() = prefs.getBoolean("touchSwipe", true)
+        set(v) = prefs.edit().putBoolean("touchSwipe", v).apply()
+    var touchHold: Boolean
+        get() = prefs.getBoolean("touchHold", true)
+        set(v) = prefs.edit().putBoolean("touchHold", v).apply()
+    var touchDrag: Boolean
+        get() = prefs.getBoolean("touchDrag", true)
+        set(v) = prefs.edit().putBoolean("touchDrag", v).apply()
+    var touchCloseItems: Boolean
+        get() = prefs.getBoolean("touchCloseItems", true)
+        set(v) = prefs.edit().putBoolean("touchCloseItems", v).apply()
+
     /** Play the short intro when Taco Launcher starts. */
     /** Download cover pictures for games (needs the internet the first time each one shows). */
     var boxArt: Boolean
