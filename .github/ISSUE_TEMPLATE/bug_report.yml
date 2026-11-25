@@ -1,0 +1,75 @@
+name: 🐛 Something isn't working
+description: Tell us what went wrong, and on which phone.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing Taco Launcher! It has only been tested on one phone so far, so your
+        phone model is the most useful thing you can tell us.
+        Please don't attach or link game files (ROMs).
+  - type: input
+    id: phone
+    attributes:
+      label: Phone model
+      description: Settings → About phone shows it.
+      placeholder: "e.g. Samsung Galaxy S24, Pixel 8 Pro, OnePlus 12"
+    validations:
+      required: true
+  - type: input
+    id: android
+    attributes:
+      label: Android version
+      description: Settings → About phone → Software information (or Android version).
+      placeholder: "e.g. Android 15 / One UI 7"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Taco Launcher version
+      description: Shown at the bottom of Taco Launcher's Settings, or in the APK file name.
+      placeholder: "e.g. v1.0.172"
+    validations:
+      required: true
+  - type: dropdown
+    id: controller
+    attributes:
+      label: Controller
+      options:
+        - GameSir Pocket Taco (Android mode, M + A)
+        - GameSir Pocket Taco (another mode)
+        - A different controller
+    validations:
+      required: true
+  - type: input
+    id: emulator
+    attributes:
+      label: Emulator and console
+      description: Which emulator app (and RetroArch core, if you know it) and which console's game.
+      placeholder: "e.g. RetroArch with mGBA, a GBA game"
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+      placeholder: |
+        1. Clipped the phone into the Taco
+        2. Picked a SNES game
+        3. The game picture was hidden behind the controller
+    validations:
+      required: true
+  - type: dropdown
+    id: often
+    attributes:
+      label: How often does it happen?
+      options:
+        - Every time
+        - Sometimes
+        - Only happened once
+  - type: textarea
+    id: screens
+    attributes:
+      label: Screenshots or a short video
+      description: Drag pictures or a video in here. A photo of the phone in the Taco helps a lot with layout problems.

@@ -1,0 +1,16 @@
+name: 💡 Idea or request
+description: Suggest a feature, a console, or an emulator to support.
+title: "[Idea] "
+labels: ["idea"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like?
+      description: Describe the idea and why it would help.
+    validations:
+      required: true
+  - type: input
+    id: phone
+    attributes:
+      label: Your phone model (optional)

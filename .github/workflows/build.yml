@@ -74,7 +74,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
-          name: Taco Launcher v1.0.${{ github.run_number }}
-          body: Built from ${{ github.sha }}. Download TacoLauncher-v1.0.${{ github.run_number }}.apk on your phone and open it to install.
+          name: Taco Launcher v1.0.${{ github.run_number }} (beta)
+          # The release page text comes from .github/RELEASE_NOTES.md, so edit that file to change it.
+          body_path: .github/RELEASE_NOTES.md
           make_latest: true
           files: TacoLauncher-v1.0.${{ github.run_number }}.apk
